@@ -1,6 +1,16 @@
 /**
- * dashboard.js — Employee list with pagination, search, filters,
- *               gerencias CRUD, CONSULTA role restrictions, and SheetJS payroll import.
+ * dashboard.js — Gestión de Personal con paginación, búsqueda, filtros,
+ *               CRUD de gerencias, restricciones CONSULTA e importación de nómina.
+ *
+ * REFACTORIZACIÓN v2.0 (Pre-Producción):
+ *  - Eliminados todos los datos estáticos/mock de prueba.
+ *  - Integración completa con api.js → backend PHP/MySQL real.
+ *  - Renderizado de nombre completo con campos disgregados del nuevo esquema:
+ *      primer_nombre + segundo_nombre + primer_apellido + segundo_apellido
+ *  - Status usa campo 'estado_carnet' (alias 'status' mantenido por compatibilidad).
+ *  - Validación de cédula en tiempo real: solo numérico (sin prefijo V/E).
+ *
+ * @version 2.0.0-preproduccion
  */
 'use strict';
 
@@ -106,10 +116,12 @@ async function loadEmployees(params = {}) {
 
 // ── RENDERING ─────────────────────────────────────────────────────────────────
 function renderStats(list, meta) {
-    document.getElementById('stat-total').textContent = meta.totalRecords ?? list.length;
-    document.getElementById('stat-pending').textContent = list.filter(e => e.status === 'Pendiente por Imprimir').length;
-    document.getElementById('stat-verified').textContent = list.filter(e => e.status === 'Carnet Entregado').length;
-    document.getElementById('stat-printed').textContent = list.filter(e => e.status === 'Carnet Impreso').length;
+    document.getElementById('stat-total').textContent   = meta.totalRecords ?? list.length;
+    // Compatibilidad: verificar tanto estado_carnet (nuevo) como status (legado)
+    const getEstado = e => e.estado_carnet || e.status || '';
+    document.getElementById('stat-pending').textContent  = list.filter(e => getEstado(e) === 'Pendiente por Imprimir').length;
+    document.getElementById('stat-verified').textContent = list.filter(e => getEstado(e) === 'Carnet Entregado').length;
+    document.getElementById('stat-printed').textContent  = list.filter(e => getEstado(e) === 'Carnet Impreso').length;
 }
 
 function renderTable(list) {
@@ -123,8 +135,34 @@ function renderTable(list) {
     const ENTREGA_OPTIONS = ['', 'Manual', 'Digital'];
 
     tbody.innerHTML = list.map(emp => {
-        const fullName = `${emp.apellidos}, ${emp.nombres}`;
-        const photoSrc = emp.photo_url || makeAvatar(`${emp.nombres} ${emp.apellidos}`);
+        // ── Construcción del nombre completo con campos disgregados (esquema MySQL) ──
+        // Prioridad 1: campos disgregados del nuevo esquema
+        // Prioridad 2: campos compuestos del esquema legado (normalizado por api.js)
+        const primerNombre    = (emp.primer_nombre    || '').trim();
+        const segundoNombre   = (emp.segundo_nombre   || '').trim();
+        const primerApellido  = (emp.primer_apellido  || '').trim();
+        const segundoApellido = (emp.segundo_apellido || '').trim();
+
+        // Nombres: "Juan Alejandro" | Apellidos: "Aponte Contreras"
+        const nombresDisplay   = [primerNombre, segundoNombre].filter(Boolean).join(' ')
+                               || emp.nombres   || '';
+        const apellidosDisplay = [primerApellido, segundoApellido].filter(Boolean).join(' ')
+                               || emp.apellidos || '';
+
+        // Formato de presentación en tabla: "APELLIDOS, Nombres"
+        const fullName = apellidosDisplay
+            ? `${apellidosDisplay}, ${nombresDisplay}`
+            : nombresDisplay;
+
+        // Presentar cédula con prefijo de nacionalidad para mayor claridad
+        const nac      = emp.nacionalidad || 'V';
+        const cedulaRaw= (emp.cedula || '').replace(/[^0-9]/g, ''); // solo dígitos
+        const cedulaDisplay = `${nac}-${cedulaRaw}`;
+
+        // Estado del carnet (compatibilidad entre campo nuevo y legado)
+        const estadoCarnet = emp.estado_carnet || emp.status || 'Pendiente por Imprimir';
+        const photoSrc = emp.photo_url || emp.foto_url || makeAvatar(`${nombresDisplay} ${apellidosDisplay}`);
+
         return `
     <tr data-id="${emp.id}" onclick="openEditor(${emp.id})">
       <td>
@@ -132,21 +170,21 @@ function renderTable(list) {
           <img src="${photoSrc}" class="avatar" alt="${fullName}" onerror="this.style.display='none'" />
           <div>
             <div class="emp-name">${fullName}</div>
-            <div class="emp-id">#${emp.id} · ${emp.cedula}</div>
+            <div class="emp-id">#${emp.id} · ${cedulaDisplay}</div>
           </div>
         </div>
       </td>
-      <td style="font-family:monospace;font-size:.82rem;">${emp.cedula}</td>
+      <td style="font-family:monospace;font-size:.82rem;">${cedulaDisplay}</td>
       <td>
-        <div style="font-weight:500;">${emp.cargo}</div>
-        <div style="font-size:.75rem;color:var(--color-muted);">${emp.gerencia}</div>
+        <div style="font-weight:500;">${emp.cargo || '—'}</div>
+        <div style="font-size:.75rem;color:var(--color-muted);">${emp.gerencia || '—'}</div>
       </td>
       <td>
-        <select class="badge ${ui.getBadgeClass(emp.status)}"
+        <select class="badge ${ui.getBadgeClass(estadoCarnet)}"
                 onchange="changeStatus(event,${emp.id})" onclick="event.stopPropagation()"
                 style="border:none;background:transparent;cursor:pointer;font-weight:600;font-size:.72rem;"
                 ${!isAdmin ? 'disabled' : ''}>
-          ${STATUS_OPTIONS.map(s => `<option value="${s}" ${emp.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${STATUS_OPTIONS.map(s => `<option value="${s}" ${estadoCarnet === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
       </td>
       <td onclick="event.stopPropagation()">
@@ -277,7 +315,11 @@ async function changeEntrega(e, id) {
 async function deleteEmployee(id) {
     const emp = employees.find(x => String(x.id) === String(id));
     if (!emp) return;
-    if (!confirm(`¿Eliminar al funcionario "${emp.apellidos}, ${emp.nombres}"? Esta acción no se puede deshacer.`)) return;
+    // Construir nombre para el mensaje de confirmación
+    const apellidos = [emp.primer_apellido, emp.segundo_apellido].filter(Boolean).join(' ') || emp.apellidos || '';
+    const nombres   = [emp.primer_nombre,   emp.segundo_nombre  ].filter(Boolean).join(' ') || emp.nombres   || '';
+    const nombreCompleto = apellidos ? `${apellidos}, ${nombres}` : nombres;
+    if (!confirm(`¿Eliminar al funcionario "${nombreCompleto}"? Esta acción no se puede deshacer.`)) return;
     try {
         await api.deleteEmployee(id);
         employees = employees.filter(x => String(x.id) !== String(id));
@@ -391,19 +433,32 @@ function setupModal() {
     });
     document.getElementById('form-new-employee').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn = document.getElementById('btn-modal-save');
+        const btn  = document.getElementById('btn-modal-save');
         const data = Object.fromEntries(new FormData(e.target).entries());
-        if (!data.cedula || !data.nombres || !data.apellidos || !data.cargo || !data.gerencia) {
+
+        // ── Validación de campos obligatorios ──────────────────────────────────
+        if (!data.cedula || !data.primer_nombre || !data.primer_apellido || !data.cargo || !data.gerencia) {
             ui.showAlert('modal-alert', 'Los campos marcados con * son obligatorios.');
             return;
         }
-        // Validar formato de cédula: V-N... o E-N...
-        const cedulaClean = data.cedula.trim().toUpperCase();
-        if (!/^[VE]-\d{5,10}$/.test(cedulaClean)) {
-            ui.showAlert('modal-alert', 'Cédula inválida. Use el formato V-12345678 o E-12345678 (solo números tras el guión).');
+
+        // ── TAREA 3: Validación estricta de cédula (solo dígitos) ──────────────
+        // La cédula en el nuevo esquema MySQL almacena SOLO el valor numérico.
+        // El prefijo V/E proviene del campo 'nacionalidad'.
+        const cedulaLimpia = (data.cedula || '').trim().replace(/[^0-9]/g, '');
+
+        if (!cedulaLimpia) {
+            ui.showAlert('modal-alert', 'La cédula debe contener solo números (sin prefijos V- o E-).');
             return;
         }
-        data.cedula = cedulaClean;
+        if (cedulaLimpia.length < 5 || cedulaLimpia.length > 10) {
+            ui.showAlert('modal-alert', 'La cédula debe tener entre 5 y 10 dígitos.');
+            return;
+        }
+
+        // Asignar cédula numérica limpia al payload
+        data.cedula = cedulaLimpia;
+
         ui.setLoading(btn, true, 'Guardando...');
         try {
             await api.createEmployee(data);
@@ -411,9 +466,12 @@ function setupModal() {
             e.target.reset();
             currentMeta.currentPage = 1;
             await loadEmployees({ page: 1 });
+            showFloatingToast('Empleado registrado correctamente.', 'success');
         } catch (err) {
             ui.showAlert('modal-alert', err.message);
-        } finally { ui.setLoading(btn, false); }
+        } finally {
+            ui.setLoading(btn, false);
+        }
     });
 }
 

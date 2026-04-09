@@ -1,9 +1,19 @@
 /**
- * editor.js — Editor de Carnet | Offline / Air-gapped
+ * editor.js — Editor de Carnet SCI-TSS
  * =====================================================
- * - Tareas 3, 5, 6, 7: CONSULTA restrictions, custom background, new card templates, full_name.
- * - Campos: nombres, apellidos, cedula, cargo, gerencia, nacionalidad, nivel_permiso.
- * - Sin referencias a tipo_sangre ni nss.
+ * REFACTORIZACIÓN v2.0 (Pre-Producción)
+ *
+ * Cambios aplicados:
+ *  - Campos disgregados del nuevo esquema MySQL:
+ *      primer_nombre, segundo_nombre, primer_apellido, segundo_apellido
+ *  - Construcción dinámica del nombre completo en renderDetails() y plantillas.
+ *  - Cintillo Superior e Inferior institucionales (TSS) en todas las plantillas.
+ *  - Layout mejorado para distribuir apellidos y nombres correctamente en el carnet.
+ *  - Validación estricta de cédula en tiempo real (solo dígitos, sin prefijo).
+ *  - Campo fecha_ingreso visible en anverso del carnet.
+ *  - Sin referencias a tipo_sangre ni nss (eliminados del esquema).
+ *
+ * @version 2.0.0-preproduccion
  */
 'use strict';
 
@@ -186,20 +196,45 @@ async function populateGerenciaSelect() {
 }
 
 function renderDetails() {
-  const sub = document.getElementById('editor-subtitle');
-  if (sub) sub.textContent = `${employee.apellidos || ''}, ${employee.nombres || ''}`;
+  // ── Construir nombre completo desde campos disgregados del nuevo esquema MySQL ──
+  const primerNombre    = (employee.primer_nombre    || employee.nombres?.split(' ')[0]   || '').trim();
+  const segundoNombre   = (employee.segundo_nombre   || employee.nombres?.split(' ').slice(1).join(' ') || '').trim();
+  const primerApellido  = (employee.primer_apellido  || employee.apellidos?.split(' ')[0]  || '').trim();
+  const segundoApellido = (employee.segundo_apellido || employee.apellidos?.split(' ').slice(1).join(' ') || '').trim();
 
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-  set('edit-nombres', employee.nombres);
-  set('edit-apellidos', employee.apellidos);
-  set('edit-cedula', employee.cedula);
-  set('edit-cargo', employee.cargo);
-  set('edit-gerencia', employee.gerencia);
+  const nombresCompletos   = [primerNombre,   segundoNombre  ].filter(Boolean).join(' ');
+  const apellidosCompletos = [primerApellido, segundoApellido].filter(Boolean).join(' ');
+
+  const sub = document.getElementById('editor-subtitle');
+  if (sub) sub.textContent = `${apellidosCompletos}, ${nombresCompletos}`;
+
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val || '';
+  };
+
+  // Campos disgregados (nuevo esquema)
+  set('edit-primer-nombre',    primerNombre);
+  set('edit-segundo-nombre',   segundoNombre);
+  set('edit-primer-apellido',  primerApellido);
+  set('edit-segundo-apellido', segundoApellido);
+
+  // Campos de compatibilidad (para formularios que aún usan nombres/apellidos compuestos)
+  set('edit-nombres',   nombresCompletos);
+  set('edit-apellidos', apellidosCompletos);
+
+  // Cédula: mostrar solo el valor numérico (el prefijo V/E viene de nacionalidad)
+  const cedulaNum = (employee.cedula || '').replace(/[^0-9]/g, '');
+  set('edit-cedula', cedulaNum);
+
+  set('edit-cargo',        employee.cargo);
+  set('edit-gerencia',     employee.gerencia);
   set('edit-nacionalidad', employee.nacionalidad || 'V');
-  set('edit-nivel-permiso', employee.nivel_permiso || 'Nivel 1');
+  set('edit-nivel-permiso',employee.nivel_permiso || 'Nivel 1');
 
   const btnR = document.getElementById('btn-remove-photo');
-  if (btnR) btnR.style.display = employee.photo_url ? 'inline-flex' : 'none';
+  const hasPhoto = !!(employee.photo_url || employee.foto_url);
+  if (btnR) btnR.style.display = hasPhoto ? 'inline-flex' : 'none';
 }
 
 // ── CONTROLES ─────────────────────────────────────────────────────────────────
@@ -269,225 +304,313 @@ function renderCard() {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const _qr = (src, size = 60) => src ? `<img src="${src}" style="width:${size}px;height:${size}px;border:2px solid #e2e8f0;border-radius:5px;" />` : '<div style="width:60px;height:60px;background:#f1f5f9;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8;">QR</div>';
-const _stripe = h => `<div style="height:${h}px;background:linear-gradient(to right,#facc15 33%,#2563eb 33% 66%,#dc2626 66%);"></div>`;
 const _nacBadge = nac => `<span style="background:${nac === 'E' ? '#fef3c7' : '#eff6ff'};color:${nac === 'E' ? '#92400e' : '#003366'};padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;">${nac === 'E' ? '🌐 Extranjero' : '🇻🇪 Venezolano/a'}</span>`;
 const _headerBg = () => customBackground
   ? `background:url('${customBackground}') center/cover no-repeat;`
   : `background:linear-gradient(135deg,#003366,#0a4a8c);`;
 
-// ── TAREA 6: PLANTILLAS ───────────────────────────────────────────────────────
+// ── HELPERS DE NOMBRE COMPLETO (campos disgregados del nuevo esquema MySQL) ──────
+/**
+ * _nombres(emp) — Construye el nombre completo desde campos disgregados.
+ * Prioriza primer_nombre + segundo_nombre sobre el campo legacy 'nombres'.
+ */
+const _nombres = (emp) => {
+  const pn = (emp.primer_nombre  || '').trim();
+  const sn = (emp.segundo_nombre || '').trim();
+  return [pn, sn].filter(Boolean).join(' ') || emp.nombres || '';
+};
 
-// ── ANVERSO HORIZONTAL (7 campos) ────────────────────────────────────────────
-function card2025Horizontal(photo, qrSrc) {
-  return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="${_headerBg()}height:92px;padding:14px 20px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+/**
+ * _apellidos(emp) — Construye apellidos completos desde campos disgregados.
+ * Prioriza primer_apellido + segundo_apellido sobre el campo legacy 'apellidos'.
+ */
+const _apellidos = (emp) => {
+  const pa = (emp.primer_apellido  || '').trim();
+  const sa = (emp.segundo_apellido || '').trim();
+  return [pa, sa].filter(Boolean).join(' ') || emp.apellidos || '';
+};
+
+/**
+ * _cedula(emp) — Retorna la cédula con prefijo de nacionalidad.
+ * Formato: "V-12345678" o "E-12345678"
+ */
+const _cedula = (emp) => {
+  const nac = emp.nacionalidad || 'V';
+  const num = (emp.cedula || '').replace(/[^0-9]/g, '');
+  return `${nac}-${num}`;
+};
+
+// Cintillo institucional superior horizontal
+const _headerInstitucional = () => `
+  <div style="${_headerBg()}padding:12px 18px 10px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
     <div>
-      <div style="font-size:8px;opacity:.7;letter-spacing:1.5px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
-      <div style="font-size:14px;font-weight:800;margin-top:3px;">Tesorería de Seguridad Social</div>
-      <div style="font-size:8px;opacity:.55;margin-top:1px;">CARNET DE IDENTIFICACIÓN INSTITUCIONAL</div>
+      <div style="font-size:7px;opacity:.75;letter-spacing:1.5px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
+      <div style="font-size:12px;font-weight:800;margin-top:2px;">Tesorería de Seguridad Social</div>
+      <div style="font-size:7px;opacity:.6;margin-top:1px;">CARNET DE IDENTIFICACIÓN INSTITUCIONAL</div>
     </div>
-    <img src="${MOCK_LOGO}" style="width:42px;height:42px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.3);" />
-  </div>
+    <img src="${MOCK_LOGO}" style="width:38px;height:38px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.35);" />
+  </div>`;
+
+// Cintillo institucional superior vertical (centrado)
+const _headerInstitucionalVertical = () => `
+  <div style="${_headerBg()}padding:14px 16px 26px;text-align:center;color:#fff;">
+    <img src="${MOCK_LOGO}" style="width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.3);margin-bottom:5px;" />
+    <div style="font-size:7px;opacity:.7;letter-spacing:1.5px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
+    <div style="font-size:11px;font-weight:800;margin-top:2px;">Tesorería de Seguridad Social</div>
+    <div style="font-size:7px;opacity:.55;margin-top:1px;">CARNET DE IDENTIFICACIÓN</div>
+  </div>`;
+
+// Cintillo institucional inferior (Footer con franja tricolor venezolana)
+const _footerInstitucional = (height = 9) => `
+  <div style="display:flex;flex-direction:column;">
+    <div style="background:#002244;padding:2px 10px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:7px;color:rgba(255,255,255,.65);letter-spacing:.5px;">Tesorería de Seguridad Social — TSS</span>
+      <span style="font-size:7px;color:rgba(255,255,255,.45);">DOCUMENTO OFICIAL</span>
+    </div>
+    <div style="height:${height}px;background:linear-gradient(to right,#facc15 33%,#2563eb 33% 66%,#dc2626 66%);"></div>
+  </div>`;
+
+// ── PLANTILLAS REFACTORIZADAS v2.0 ────────────────────────────────────────────
+// Todos los campos: primer_nombre, segundo_nombre, primer_apellido, segundo_apellido
+// Todos los carnets incluyen: cédula con prefijo, fecha_ingreso, cintillos institucionales
+
+// ── ANVERSO HORIZONTAL ────────────────────────────────────────────────────────
+function card2025Horizontal(photo, qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
+  ${_headerInstitucional()}
   <div style="position:relative;display:flex;flex:1;">
-    <div style="position:absolute;top:-26px;left:18px;width:86px;height:116px;background:#fff;padding:3px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.2);z-index:2;">
+    <div style="position:absolute;top:-26px;left:16px;width:82px;height:110px;background:#fff;padding:3px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.2);z-index:2;">
       <img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;background:#e2e8f0;" />
     </div>
-    <div style="padding:8px 16px 10px 118px;flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+    <div style="padding:7px 14px 8px 112px;flex:1;display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Apellidos / Nombres</div>
-        <div style="font-size:16px;font-weight:800;color:#0f172a;line-height:1.1;">${employee.apellidos}</div>
-        <div style="font-size:12px;font-weight:500;color:#334155;margin-bottom:4px;">${employee.nombres}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-          <span style="background:#eff6ff;color:#003366;padding:2px 9px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;">${employee.cargo}</span>
-          ${_nacBadge(employee.nacionalidad || 'V')}
-        </div>
-        <div style="font-size:10px;color:#64748b;margin-top:3px;">📂 ${employee.gerencia}</div>
-      </div>
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:6px;">
-        <div>
-          <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
-          <div style="font-family:monospace;font-size:19px;font-weight:800;color:#003366;">${employee.cedula}</div>
-        </div>
-        ${_qr(qrSrc, 56)}
-      </div>
-    </div>
-  </div>
-  ${_stripe(9)}
-</div>`;
-}
-
-// ── ANVERSO VERTICAL (7 campos) ───────────────────────────────────────────────
-function card2025Vertical(photo, qrSrc) {
-  return `<div id="id-card-print" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="${_headerBg()}padding:18px 16px 30px;text-align:center;color:#fff;">
-    <img src="${MOCK_LOGO}" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.3);margin-bottom:6px;" />
-    <div style="font-size:7px;opacity:.7;letter-spacing:1.5px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
-    <div style="font-size:12px;font-weight:800;margin-top:3px;">Tesorería de Seguridad Social</div>
-    <div style="font-size:7px;opacity:.55;margin-top:1px;">CARNET DE IDENTIFICACIÓN</div>
-  </div>
-  <div style="display:flex;justify-content:center;margin-top:-24px;position:relative;z-index:2;">
-    <div style="width:100px;height:130px;background:#fff;padding:3px;border-radius:9px;box-shadow:0 4px 16px rgba(0,0,0,.18);">
-      <img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:7px;background:#e2e8f0;" />
-    </div>
-  </div>
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:12px 18px 0;text-align:center;">
-    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Apellidos / Nombres</div>
-    <div style="font-size:17px;font-weight:800;color:#0f172a;line-height:1.15;">${employee.apellidos}</div>
-    <div style="font-size:12px;font-weight:500;color:#334155;margin-bottom:5px;">${employee.nombres}</div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:3px;">
-      <span style="background:#eff6ff;color:#003366;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;">${employee.cargo}</span>
-    </div>
-    <div style="font-size:10px;color:#64748b;margin-bottom:3px;">📂 ${employee.gerencia}</div>
-    <div>${_nacBadge(employee.nacionalidad || 'V')}</div>
-    <div style="width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;text-align:center;">
-      <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
-      <div style="font-family:monospace;font-size:20px;font-weight:800;color:#003366;margin-top:2px;">${employee.cedula}</div>
-    </div>
-  </div>
-  <div style="display:flex;justify-content:center;padding:10px 0 14px;">${_qr(qrSrc, 58)}</div>
-  ${_stripe(9)}
-</div>`;
-}
-
-// ── REVERSO HORIZONTAL (8 campos) ────────────────────────────────────────────
-function cardReversoHorizontal(qrSrc) {
-  return `<div id="id-card-print-reverso" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="height:36px;background:#f8fafc;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e2e8f0;">
-    <span style="font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:2.5px;text-transform:uppercase;">Documento de Identificación</span>
-  </div>
-  <div style="flex:1;display:flex;gap:0;padding:0;">
-    <!-- LEFT: datos personales -->
-    <div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #e2e8f0;">
-      <div>
-        <div style="font-size:14px;font-weight:800;color:#003366;line-height:1.2;">${employee.apellidos}</div>
-        <div style="font-size:11px;font-weight:500;color:#334155;margin-bottom:5px;">${employee.nombres}</div>
-        <div style="font-family:monospace;font-size:12px;color:#475569;margin-bottom:6px;">${employee.cedula}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <span style="background:#ede9fe;color:#5b21b6;padding:2px 9px;border-radius:4px;font-size:9px;font-weight:700;">🔐 ${employee.nivel_permiso || 'Nivel 1'}</span>
-          ${_nacBadge(employee.nacionalidad || 'V')}
-        </div>
-        <div style="font-size:10px;color:#64748b;margin-top:5px;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
-      </div>
-      <div>
-        <div style="border-top:1px solid #94a3b8;width:150px;margin-bottom:3px;"></div>
-        <div style="font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;">FIRMA DEL TITULAR</div>
-      </div>
-    </div>
-    <!-- RIGHT: QR + emergencia -->
-    <div style="width:170px;padding:12px 14px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;">
-      ${_qr(qrSrc, 70)}
-      <div style="width:100%;font-size:9.5px;color:#64748b;text-align:left;line-height:1.55;">
-        <div style="font-weight:700;font-size:9px;color:#475569;margin-bottom:3px;">En caso de emergencia:</div>
-        <div style="border-bottom:1px solid #cbd5e1;margin-bottom:8px;"></div>
-        <div style="border-bottom:1px solid #cbd5e1;"></div>
-      </div>
-    </div>
-  </div>
-  ${_stripe(9)}
-</div>`;
-}
-
-// ── REVERSO VERTICAL (8 campos) ───────────────────────────────────────────────
-function cardReversoVertical(qrSrc) {
-  return `<div id="id-card-print-reverso" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="background:#f8fafc;padding:12px;text-align:center;border-bottom:1px solid #e2e8f0;">
-    <span style="font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:2.5px;text-transform:uppercase;">Documento de Identificación</span>
-  </div>
-  <div style="flex:1;padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between;">
-    <div>
-      <div style="font-size:16px;font-weight:800;color:#003366;line-height:1.2;">${employee.apellidos}</div>
-      <div style="font-size:12px;font-weight:500;color:#334155;margin-bottom:4px;">${employee.nombres}</div>
-      <div style="font-family:monospace;font-size:12px;color:#475569;margin-bottom:6px;">${employee.cedula}</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;">
-        <span style="background:#ede9fe;color:#5b21b6;padding:2px 10px;border-radius:4px;font-size:9px;font-weight:700;">🔐 ${employee.nivel_permiso || 'Nivel 1'}</span>
-        ${_nacBadge(employee.nacionalidad || 'V')}
-      </div>
-      <div style="font-size:10px;color:#64748b;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
-    </div>
-    <div style="background:#f8fafc;border-radius:10px;padding:12px;font-size:10px;color:#64748b;line-height:1.6;">
-      Este carnet es personal e intransferible. Su uso indebido será sancionado conforme a la ley.
-      <div style="margin-top:12px;">
-        <div style="font-size:9px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">En caso de emergencia:</div>
-        <div style="border-bottom:1px solid #cbd5e1;margin-top:8px;"></div>
-        <div style="border-bottom:1px solid #cbd5e1;margin-top:12px;"></div>
-      </div>
-    </div>
-    <div>
-      <div style="display:flex;justify-content:center;margin-bottom:10px;">${_qr(qrSrc, 68)}</div>
-      <div style="text-align:center;">
-        <div style="border-top:1.5px solid #94a3b8;width:55%;margin:0 auto;"></div>
-        <div style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:600;letter-spacing:1px;">FIRMA DEL TITULAR</div>
-      </div>
-    </div>
-  </div>
-  ${_stripe(9)}
-</div>`;
-}
-
-// ── CLÁSICO HORIZONTAL (7 campos) ────────────────────────────────────────────
-function cardClassic(photo, qrSrc) {
-  return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="${_headerBg()}height:50px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <img src="${MOCK_LOGO}" style="width:30px;height:30px;border-radius:50%;" />
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#fff;">Tesorería de Seguridad Social</div>
-        <div style="font-size:8px;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
-      </div>
-    </div>
-    <div style="font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;">CARNET OFICIAL</div>
-  </div>
-  <div style="flex:1;display:flex;padding:12px 18px;gap:14px;">
-    <div style="width:90px;min-height:106px;border:2px solid #e2e8f0;border-radius:7px;overflow:hidden;flex-shrink:0;">
-      <img src="${photo}" style="width:100%;height:100%;object-fit:cover;background:#f1f5f9;" />
-    </div>
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-      <div>
-        <div style="font-size:16px;font-weight:700;color:#1e293b;line-height:1.2;">${employee.apellidos}</div>
-        <div style="font-size:12px;font-weight:500;color:#475569;margin-bottom:4px;">${employee.nombres}</div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Apellidos</div>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.1;">${apellidos}</div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Nombres</div>
+        <div style="font-size:10px;font-weight:600;color:#334155;margin-bottom:3px;">${nombres}</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-          <span style="background:#f1f5f9;color:#1e3a5f;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">${employee.cargo}</span>
-          <span style="font-size:10px;color:#64748b;">— ${employee.gerencia}</span>
+          <span style="background:#eff6ff;color:#003366;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;">${employee.cargo}</span>
           ${_nacBadge(employee.nacionalidad || 'V')}
         </div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px;">🏛 ${employee.gerencia}</div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:5px;">
         <div>
-          <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">C.I.</div>
-          <div style="font-family:monospace;font-size:16px;font-weight:700;color:#0f172a;">${employee.cedula}</div>
+          <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
+          <div style="font-family:monospace;font-size:17px;font-weight:800;color:#003366;">${cedula}</div>
+          <div style="font-size:8px;color:#94a3b8;margin-top:1px;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
         </div>
         ${_qr(qrSrc, 52)}
       </div>
     </div>
   </div>
-  ${_stripe(7)}
+  ${_footerInstitucional(9)}
 </div>`;
 }
 
-// ── CLÁSICO VERTICAL (7 campos) ───────────────────────────────────────────────
-function cardClassicVertical(photo, qrSrc) {
-  return `<div id="id-card-print" style="width:320px;height:506px;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
-  <div style="${_headerBg()}padding:14px 16px;text-align:center;color:#fff;">
-    <img src="${MOCK_LOGO}" style="width:36px;height:36px;border-radius:50%;margin-bottom:4px;" />
-    <div style="font-size:11px;font-weight:700;">Tesorería de Seguridad Social</div>
-    <div style="font-size:8px;color:#94a3b8;letter-spacing:1px;margin-top:1px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
+// ── ANVERSO VERTICAL ──────────────────────────────────────────────────────────
+function card2025Vertical(photo, qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
+  ${_headerInstitucionalVertical()}
+  <div style="display:flex;justify-content:center;margin-top:-22px;position:relative;z-index:2;">
+    <div style="width:96px;height:126px;background:#fff;padding:3px;border-radius:9px;box-shadow:0 4px 16px rgba(0,0,0,.18);">
+      <img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:7px;background:#e2e8f0;" />
+    </div>
   </div>
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:16px 18px 0;">
-    <div style="width:96px;height:124px;border:2px solid #e2e8f0;border-radius:7px;overflow:hidden;margin-bottom:12px;">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 16px 0;text-align:center;">
+    <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:1px;">Apellidos</div>
+    <div style="font-size:15px;font-weight:800;color:#0f172a;line-height:1.15;">${apellidos}</div>
+    <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:3px;margin-bottom:1px;">Nombres</div>
+    <div style="font-size:10px;font-weight:600;color:#334155;margin-bottom:4px;">${nombres}</div>
+    <span style="background:#eff6ff;color:#003366;padding:2px 9px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">${employee.cargo}</span>
+    <div style="font-size:9px;color:#64748b;margin-bottom:2px;">🏛 ${employee.gerencia}</div>
+    <div>${_nacBadge(employee.nacionalidad || 'V')}</div>
+    <div style="width:100%;margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;text-align:center;">
+      <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
+      <div style="font-family:monospace;font-size:17px;font-weight:800;color:#003366;margin-top:1px;">${cedula}</div>
+      <div style="font-size:8px;color:#94a3b8;margin-top:2px;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;padding:8px 0 10px;">${_qr(qrSrc, 54)}</div>
+  ${_footerInstitucional(9)}
+</div>`;
+}
+
+// ── REVERSO HORIZONTAL ────────────────────────────────────────────────────────
+function cardReversoHorizontal(qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print-reverso" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
+  <div style="${_headerBg()}height:30px;display:flex;align-items:center;justify-content:center;">
+    <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:2px;text-transform:uppercase;">ESTE CARNET ES INTRANSFERIBLE</span>
+  </div>
+  <div style="flex:1;display:flex;">
+    <div style="flex:1;padding:9px 13px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #e2e8f0;">
+      <div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Apellidos</div>
+        <div style="font-size:12px;font-weight:800;color:#003366;line-height:1.2;">${apellidos}</div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Nombres</div>
+        <div style="font-size:10px;font-weight:600;color:#334155;margin-bottom:3px;">${nombres}</div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Cédula de Identidad</div>
+        <div style="font-family:monospace;font-size:11px;font-weight:700;color:#475569;margin-bottom:3px;">${cedula}</div>
+        <div style="font-size:9px;font-weight:600;color:#334155;">${employee.cargo}</div>
+        <div style="font-size:8px;color:#64748b;">${employee.gerencia}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+          <span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;">🔐 ${employee.nivel_permiso || 'Nivel 1'}</span>
+          ${_nacBadge(employee.nacionalidad || 'V')}
+        </div>
+        <div style="font-size:8px;color:#64748b;margin-top:2px;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
+      </div>
+      <div>
+        <div style="border-top:1px solid #94a3b8;width:130px;margin-bottom:2px;"></div>
+        <div style="font-size:8px;color:#94a3b8;font-weight:600;letter-spacing:1px;">FIRMA DEL TITULAR</div>
+      </div>
+    </div>
+    <div style="width:155px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;">
+      ${_qr(qrSrc, 64)}
+      <div style="width:100%;font-size:8px;color:#64748b;line-height:1.4;">
+        <div style="font-weight:700;font-size:8px;color:#475569;margin-bottom:2px;">En caso de emergencia o extravío:</div>
+        <div style="font-weight:700;color:#dc2626;font-size:8.5px;">(0212) 7053400 / 7053401</div>
+        <div style="border-bottom:1px solid #cbd5e1;margin-top:5px;"></div>
+      </div>
+    </div>
+  </div>
+  ${_footerInstitucional(9)}
+</div>`;
+}
+
+// ── REVERSO VERTICAL ──────────────────────────────────────────────────────────
+function cardReversoVertical(qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print-reverso" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
+  <div style="${_headerBg()}padding:9px 14px;text-align:center;">
+    <span style="font-size:8px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:2px;text-transform:uppercase;">ESTE CARNET ES INTRANSFERIBLE</span>
+  </div>
+  <div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;justify-content:space-between;">
+    <div>
+      <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Apellidos</div>
+      <div style="font-size:14px;font-weight:800;color:#003366;line-height:1.2;">${apellidos}</div>
+      <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Nombres</div>
+      <div style="font-size:11px;font-weight:600;color:#334155;margin-bottom:3px;">${nombres}</div>
+      <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Cédula de Identidad</div>
+      <div style="font-family:monospace;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">${cedula}</div>
+      <div style="font-size:10px;font-weight:600;color:#334155;">${employee.cargo}</div>
+      <div style="font-size:8px;color:#64748b;margin-bottom:3px;">${employee.gerencia}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:3px;">
+        <span style="background:#ede9fe;color:#5b21b6;padding:1px 7px;border-radius:4px;font-size:8px;font-weight:700;">🔐 ${employee.nivel_permiso || 'Nivel 1'}</span>
+        ${_nacBadge(employee.nacionalidad || 'V')}
+      </div>
+      <div style="font-size:9px;color:#64748b;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
+    </div>
+    <div style="background:#f8fafc;border-radius:8px;padding:9px;font-size:8.5px;color:#64748b;line-height:1.55;">
+      El portador es trabajador de este instituto. Su uso indebido será sancionado conforme a la ley.
+      <div style="margin-top:7px;">
+        <div style="font-size:7.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;">En caso de emergencia o extravío llamar al:</div>
+        <div style="font-weight:700;color:#dc2626;font-size:9px;margin-top:2px;">(0212) 7053400 / 7053401</div>
+        <div style="border-bottom:1px solid #cbd5e1;margin-top:5px;"></div>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:center;margin-bottom:7px;">${_qr(qrSrc, 62)}</div>
+      <div style="text-align:center;">
+        <div style="border-top:1.5px solid #94a3b8;width:55%;margin:0 auto;"></div>
+        <div style="font-size:8px;color:#94a3b8;margin-top:3px;font-weight:600;letter-spacing:1px;">FIRMA DEL TITULAR</div>
+      </div>
+    </div>
+  </div>
+  ${_footerInstitucional(9)}
+</div>`;
+}
+
+// ── CLÁSICO HORIZONTAL ────────────────────────────────────────────────────────
+function cardClassic(photo, qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
+  <div style="${_headerBg()}height:44px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <img src="${MOCK_LOGO}" style="width:26px;height:26px;border-radius:50%;" />
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#fff;">Tesorería de Seguridad Social</div>
+        <div style="font-size:7px;color:rgba(255,255,255,.7);letter-spacing:1px;text-transform:uppercase;">República Bolivariana de Venezuela</div>
+      </div>
+    </div>
+    <div style="font-size:8px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:1px;">CARNET OFICIAL</div>
+  </div>
+  <div style="flex:1;display:flex;padding:10px 14px;gap:11px;">
+    <div style="width:84px;min-height:98px;border:2px solid #e2e8f0;border-radius:7px;overflow:hidden;flex-shrink:0;">
       <img src="${photo}" style="width:100%;height:100%;object-fit:cover;background:#f1f5f9;" />
     </div>
-    <div style="font-size:17px;font-weight:700;color:#1e293b;text-align:center;line-height:1.2;">${employee.apellidos}</div>
-    <div style="font-size:11px;font-weight:500;color:#475569;margin:2px 0 5px;text-align:center;">${employee.nombres}</div>
-    <span style="background:#f1f5f9;color:#1e3a5f;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;">${employee.cargo}</span>
-    <div style="font-size:10px;color:#64748b;margin-top:3px;">📂 ${employee.gerencia}</div>
-    <div style="margin-top:4px;">${_nacBadge(employee.nacionalidad || 'V')}</div>
-    <div style="width:100%;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center;">
-      <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">C.I.</div>
-      <div style="font-family:monospace;font-size:19px;font-weight:700;color:#0f172a;margin-top:2px;">${employee.cedula}</div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+      <div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Apellidos</div>
+        <div style="font-size:13px;font-weight:800;color:#1e293b;line-height:1.2;">${apellidos}</div>
+        <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Nombres</div>
+        <div style="font-size:10px;font-weight:500;color:#475569;margin-bottom:3px;">${nombres}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
+          <span style="background:#f1f5f9;color:#1e3a5f;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">${employee.cargo}</span>
+          <span style="font-size:8px;color:#64748b;">${employee.gerencia}</span>
+          ${_nacBadge(employee.nacionalidad || 'V')}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+          <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
+          <div style="font-family:monospace;font-size:14px;font-weight:700;color:#0f172a;">${cedula}</div>
+          <div style="font-size:8px;color:#94a3b8;">📅 ${ui.formatDate(employee.fecha_ingreso)}</div>
+        </div>
+        ${_qr(qrSrc, 48)}
+      </div>
     </div>
   </div>
-  <div style="display:flex;justify-content:center;padding:10px 0 14px;">${_qr(qrSrc, 54)}</div>
-  ${_stripe(7)}
+  ${_footerInstitucional(7)}
+</div>`;
+}
+
+// ── CLÁSICO VERTICAL ──────────────────────────────────────────────────────────
+function cardClassicVertical(photo, qrSrc) {
+  const nombres   = _nombres(employee);
+  const apellidos = _apellidos(employee);
+  const cedula    = _cedula(employee);
+
+  return `<div id="id-card-print" style="width:320px;height:506px;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
+  ${_headerInstitucionalVertical()}
+  <div style="display:flex;justify-content:center;margin-top:-20px;position:relative;z-index:2;">
+    <div style="width:90px;height:118px;border:2px solid #e2e8f0;border-radius:7px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.14);">
+      <img src="${photo}" style="width:100%;height:100%;object-fit:cover;background:#f1f5f9;" />
+    </div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 14px 0;text-align:center;">
+    <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:1px;">Apellidos</div>
+    <div style="font-size:14px;font-weight:800;color:#1e293b;text-align:center;line-height:1.2;">${apellidos}</div>
+    <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:3px;margin-bottom:1px;">Nombres</div>
+    <div style="font-size:10px;font-weight:500;color:#475569;margin-bottom:4px;">${nombres}</div>
+    <span style="background:#f1f5f9;color:#1e3a5f;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;">${employee.cargo}</span>
+    <div style="font-size:9px;color:#64748b;margin-top:2px;">${employee.gerencia}</div>
+    <div style="margin-top:3px;">${_nacBadge(employee.nacionalidad || 'V')}</div>
+    <div style="width:100%;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:8px;text-align:center;">
+      <div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cédula de Identidad</div>
+      <div style="font-family:monospace;font-size:16px;font-weight:800;color:#0f172a;margin-top:1px;">${cedula}</div>
+      <div style="font-size:8px;color:#94a3b8;margin-top:2px;">📅 Ingreso: ${ui.formatDate(employee.fecha_ingreso)}</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;padding:8px 0 11px;">${_qr(qrSrc, 50)}</div>
+  ${_footerInstitucional(7)}
 </div>`;
 }
 
@@ -531,31 +654,54 @@ async function downloadPDF() {
 function setupInlineEdit() {
   const form = document.getElementById('form-edit-employee');
   if (!form) return;
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-save-fields');
-    const fields = {
-      nombres: (document.getElementById('edit-nombres')?.value || '').trim(),
-      apellidos: (document.getElementById('edit-apellidos')?.value || '').trim(),
-      cargo: (document.getElementById('edit-cargo')?.value || '').trim(),
-      gerencia: (document.getElementById('edit-gerencia')?.value || '').trim(),
-      nacionalidad: (document.getElementById('edit-nacionalidad')?.value || 'V').trim(),
-      nivel_permiso: (document.getElementById('edit-nivel-permiso')?.value || '').trim(),
-    };
-    if (!fields.nombres || !fields.apellidos || !fields.cargo || !fields.gerencia) {
-      showEditorToast('Nombres, Apellidos, Cargo y Gerencia son obligatorios.', 'danger');
+
+    // ── Recopilar campos disgregados (nuevo esquema MySQL) ──
+    const primerNombre    = (document.getElementById('edit-primer-nombre')?.value    || document.getElementById('edit-nombres')?.value?.split(' ')[0]   || '').trim();
+    const segundoNombre   = (document.getElementById('edit-segundo-nombre')?.value   || document.getElementById('edit-nombres')?.value?.split(' ').slice(1).join(' ') || '').trim();
+    const primerApellido  = (document.getElementById('edit-primer-apellido')?.value  || document.getElementById('edit-apellidos')?.value?.split(' ')[0]  || '').trim();
+    const segundoApellido = (document.getElementById('edit-segundo-apellido')?.value || document.getElementById('edit-apellidos')?.value?.split(' ').slice(1).join(' ') || '').trim();
+    const cargo           = (document.getElementById('edit-cargo')?.value           || '').trim();
+    const gerencia        = (document.getElementById('edit-gerencia')?.value        || '').trim();
+    const nacionalidad    = (document.getElementById('edit-nacionalidad')?.value    || 'V').trim();
+    const nivelPermiso    = (document.getElementById('edit-nivel-permiso')?.value   || '').trim();
+
+    // ── Validación de campos obligatorios ──
+    if (!primerNombre || !primerApellido || !cargo || !gerencia) {
+      showEditorToast('Primer Nombre, Primer Apellido, Cargo y Gerencia son obligatorios.', 'danger');
       return;
     }
+
+    const fields = {
+      primer_nombre:    primerNombre,
+      segundo_nombre:   segundoNombre   || null,
+      primer_apellido:  primerApellido,
+      segundo_apellido: segundoApellido || null,
+      // Campos compuestos para compatibilidad con backend legado
+      nombres:   [primerNombre,   segundoNombre  ].filter(Boolean).join(' '),
+      apellidos: [primerApellido, segundoApellido].filter(Boolean).join(' '),
+      cargo,
+      gerencia,
+      nacionalidad,
+      nivel_permiso: nivelPermiso,
+    };
+
     ui.setLoading(btn, true, 'Guardando...');
     try {
       await api.updateEmployee(employee.id, fields);
+      // Actualizar el objeto local con los campos nuevos
       Object.assign(employee, fields);
       renderDetails();
       renderCard();
-      showEditorToast('Cambios guardados.', 'success');
+      showEditorToast('Cambios guardados correctamente.', 'success');
     } catch (err) {
-      showEditorToast(err.message || 'Error al guardar.', 'danger');
-    } finally { ui.setLoading(btn, false); }
+      showEditorToast(err.message || 'Error al guardar los cambios.', 'danger');
+    } finally {
+      ui.setLoading(btn, false);
+    }
   });
 }
 

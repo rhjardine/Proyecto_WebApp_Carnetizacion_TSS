@@ -151,10 +151,7 @@
             <div id="modal-alert"></div>
             <form id="form-new-employee">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div class="form-group">
-                        <label class="form-label">Cédula *</label>
-                        <input type="text" name="cedula" class="form-input" placeholder="V-12.345.678" required />
-                    </div>
+                    <!-- Fila 1: Nacionalidad + Cédula -->
                     <div class="form-group">
                         <label class="form-label">Nacionalidad</label>
                         <select name="nacionalidad" class="form-input form-select">
@@ -163,12 +160,37 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Nombres *</label>
-                        <input type="text" name="nombres" class="form-input" placeholder="Nombre(s)" required />
+                        <label class="form-label">Cédula *
+                            <span style="font-size:.72rem;color:var(--color-muted);font-weight:400;">(solo números)</span>
+                        </label>
+                        <input type="text" name="cedula" id="input-cedula-new"
+                               class="form-input" placeholder="12345678"
+                               inputmode="numeric" pattern="[0-9]+"
+                               maxlength="10" required
+                               title="Ingrese solo dígitos (sin prefijo V- o E-)"
+                               autocomplete="off" />
+                        <small id="cedula-error-new"
+                               style="color:#dc2626;font-size:.73rem;display:none;margin-top:3px;">
+                            Solo se permiten números (0-9). No escriba V-, E- ni puntos.
+                        </small>
+                    </div>
+                    <!-- Fila 2: Primer nombre + Segundo nombre -->
+                    <div class="form-group">
+                        <label class="form-label">Primer Nombre *</label>
+                        <input type="text" name="primer_nombre" class="form-input" placeholder="Juan" required />
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Apellidos *</label>
-                        <input type="text" name="apellidos" class="form-input" placeholder="Apellido(s)" required />
+                        <label class="form-label">Segundo Nombre</label>
+                        <input type="text" name="segundo_nombre" class="form-input" placeholder="Alejandro" />
+                    </div>
+                    <!-- Fila 3: Primer apellido + Segundo apellido -->
+                    <div class="form-group">
+                        <label class="form-label">Primer Apellido *</label>
+                        <input type="text" name="primer_apellido" class="form-input" placeholder="Pérez" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Segundo Apellido</label>
+                        <input type="text" name="segundo_apellido" class="form-input" placeholder="García" />
                     </div>
                     <div class="form-group">
                         <label class="form-label">Cargo *</label>
@@ -276,6 +298,8 @@
     <script src="assets/js/api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
         onerror="console.warn('SheetJS no disponible.')"></script>
+    <!-- Validaciones estrictas de cédula en tiempo real (TAREA 3) -->
+    <script src="assets/js/validaciones.js"></script>
     <script src="assets/js/dashboard.js"></script>
 </body>
 
