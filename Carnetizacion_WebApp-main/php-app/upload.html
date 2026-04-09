@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Carga de Datos — Sistema de Carnetización TSS</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">🏛️</div>
+                <div class="sidebar-brand-text">
+                    <h1>ID-Flow</h1>
+                    <p>Sistema de Carnetización</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-link" id="nav-dashboard">
+                    <span class="icon">📊</span> Panel General
+                </a>
+                <a href="upload.html" class="nav-link active" id="nav-upload">
+                    <span class="icon">📤</span> Portal de Carga
+                </a>
+                <a href="editor.html" class="nav-link" id="nav-editor">
+                    <span class="icon">🪪</span> Editor de Carnet
+                </a>
+                <a href="config.html" class="nav-link" id="nav-config">
+                    <span class="icon">⚙️</span> Ajustes
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h2>Portal de Carga de Datos</h2>
+                    <p>Valide al funcionario por cédula y cargue su fotografía digital institucional.</p>
+                </div>
+            </div>
+
+            <div style="max-width:500px; margin:0 auto;">
+                <div class="card" style="box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                    <div style="background:#003366; padding:30px; text-align:center; color:#fff;">
+                        <div style="font-size:40px; margin-bottom:10px;">📤</div>
+                        <h2 style="font-size:1.2rem; font-weight:bold;">Autoservicio del Empleado</h2>
+                        <p style="opacity:0.8; font-size:0.85rem; margin-top:5px;">Carga de fotografía institucional</p>
+                    </div>
+
+                    <div style="padding:30px;">
+                        <!-- Validación -->
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; font-size:0.9rem;">1.
+                                Validar Cédula de Identidad</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cedula-input" class="form-input" placeholder="Ej: V-12345678"
+                                    style="flex:1;">
+                                <button class="btn btn-primary" id="btn-validate"
+                                    onclick="demoValidate()">Validar</button>
+                            </div>
+                        </div>
+
+                        <div id="validation-alert"
+                            style="display:none; padding:10px; border-radius:8px; margin-bottom:20px; font-size:0.85rem; font-weight:bold;">
+                            <!-- Result injected here -->
+                        </div>
+
+                        <!-- Zona Dropzone Mejorada (Preview y Base64) -->
+                        <div id="upload-section" style="opacity:0.4; pointer-events:none; transition: all 0.3s ease;">
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; font-size:0.9rem;">2.
+                                Fotografía Digital <span
+                                    style="font-weight:normal; color:gray; font-size:0.75rem;">(JPG/PNG)</span></label>
+
+                            <div style="border:2px dashed #cbd5e1; border-radius:12px; padding:30px 20px; text-align:center; cursor:pointer; background:#f8fafc; transition: all 0.3s ease;"
+                                onclick="document.getElementById('photo-input').click()">
+
+                                <div id="preview-container">
+                                    <div style="font-size:30px; margin-bottom:10px;">🤳</div>
+                                    <div style="font-weight:bold; color:#334155;">Haz clic aquí para seleccionar archivo
+                                    </div>
+                                    <div style="font-size:0.75rem; color:gray; margin-top:5px;">Fondo blanco requerido
+                                    </div>
+                                </div>
+
+                                <!-- Se agregó el paso de 'event' a la función -->
+                                <input type="file" id="photo-input" accept="image/png, image/jpeg" style="display:none;"
+                                    onchange="demoPhotoSelect(event)">
+                            </div>
+
+                            <button class="btn btn-primary" id="btn-upload"
+                                style="width:100%; margin-top:20px; padding:12px; justify-content:center; font-weight:bold;"
+                                onclick="demoUpload()" disabled>
+                                Enviar Fotografía
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="assets/js/api.js"></script>
+    <script>
+        let currentEmpId = null;
+        let photoBase64 = null; // Almacenará la foto de forma persistente
+
+        async function demoValidate() {
+            const cedula = document.getElementById('cedula-input').value.trim();
+            if (!cedula) return alert("Ingrese una cédula.");
+
+            const btn = document.getElementById('btn-validate');
+            ui.setLoading(btn, true, 'Buscando...');
+
+            const res = await api.getEmployees();
+            const found = res.data.find(e => e.cedula.includes(cedula.replace(/v-|V-|\./g, '')));
+
+            ui.setLoading(btn, false, 'Validar');
+            const alertBox = document.getElementById('validation-alert');
+            const previewContainer = document.getElementById('preview-container');
+
+            if (found) {
+                currentEmpId = found.id;
+                // Soporte para nombres/apellidos en base al esquema original
+                const fullname = found.nombre || (found.nombres + " " + found.apellidos);
+                alertBox.innerHTML = `✅ Empleado Encontrado: ${fullname} - ${found.cargo}`;
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#d1fae5';
+                alertBox.style.color = '#065f46';
+                document.getElementById('upload-section').style.opacity = '1';
+                document.getElementById('upload-section').style.pointerEvents = 'auto';
+
+                // Si el empleado YA tiene foto, la mostramos para confirmar que está en su registro
+                if (found.photo_url && found.photo_url.trim() !== '') {
+                    previewContainer.innerHTML = `
+                        <img src="${found.photo_url}" style="max-height: 180px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;" />
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:bold; margin-top:10px;">Fotografía actual en el registro</div>
+                        <div style="font-size:0.70rem; color:gray; margin-top:2px;">(Haz clic si deseas reemplazarla)</div>
+                    `;
+                } else {
+                    // Estado por defecto si no tiene foto
+                    previewContainer.innerHTML = `
+                        <div style="font-size:30px; margin-bottom:10px;">🤳</div>
+                        <div style="font-weight:bold; color:#334155;">Haz clic aquí para seleccionar archivo</div>
+                        <div style="font-size:0.75rem; color:gray; margin-top:5px;">Fondo blanco requerido</div>
+                    `;
+                }
+            } else {
+                alertBox.innerHTML = `❌ Empleado no encontrado en la base de datos.`;
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fee2e2';
+                alertBox.style.color = '#991b1b';
+                document.getElementById('upload-section').style.opacity = '0.4';
+                document.getElementById('upload-section').style.pointerEvents = 'none';
+                currentEmpId = null;
+                photoBase64 = null;
+
+                // Reiniciar el contenedor de preview
+                previewContainer.innerHTML = `
+                    <div style="font-size:30px; margin-bottom:10px;">🤳</div>
+                    <div style="font-weight:bold; color:#334155;">Haz clic aquí para seleccionar archivo</div>
+                    <div style="font-size:0.75rem; color:gray; margin-top:5px;">Fondo blanco requerido</div>
+                `;
+            }
+        }
+
+        function demoPhotoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Convertimos la imagen a Base64 para que pueda guardarse y persistir
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                photoBase64 = e.target.result;
+
+                // Mostrar Vista Previa de la Foto
+                const previewContainer = document.getElementById('preview-container');
+                previewContainer.innerHTML = `
+                    <img src="${photoBase64}" style="max-height: 180px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;" />
+                    <div style="font-size:0.75rem; color:#10b981; font-weight:bold; margin-top:10px;">✅ Nueva Imagen Lista</div>
+                `;
+
+                // Habilitar Botón
+                const btn = document.getElementById('btn-upload');
+                btn.disabled = false;
+                btn.textContent = "Confirmar y Guardar Foto";
+                btn.style.background = "#10b981"; // Verde éxito
+                btn.style.color = "#fff";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function demoUpload() {
+            if (!currentEmpId || !photoBase64) return;
+
+            const btn = document.getElementById('btn-upload');
+            ui.setLoading(btn, true, 'Guardando en registro...');
+
+            // Adjuntamos la imagen ya convertida en código
+            const fd = new FormData();
+            fd.append('employee_id', currentEmpId);
+            fd.append('photo_base64', photoBase64);
+
+            await api.uploadPhoto(fd);
+
+            ui.setLoading(btn, false);
+
+            // Notificación visual sin redirigir de inmediato
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.innerHTML += `<div style="margin-top:10px; padding:8px; background:#d1fae5; color:#065f46; border-radius:6px; font-weight:bold; font-size:0.8rem;">¡Fotografía vinculada exitosamente al registro!</div>`;
+
+            btn.disabled = true;
+            btn.textContent = "Fotografía Guardada";
+            btn.style.background = "#64748b";
+
+            // Opcional: Redirigir al dashboard después de unos segundos
+            setTimeout(() => {
+                window.location.href = "dashboard.html";
+            }, 2000);
+        }
+    </script>
+</body>
+
+</html>

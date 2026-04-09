@@ -1,0 +1,38 @@
+# Apache Configuration for Carnetización TSS
+
+# 1. Enable Rewrite Engine for clean URLs (if needed for the API later)
+RewriteEngine On
+
+# 2. Prevent directory listing (Security)
+Options -Indexes
+
+# 3. Protect sensitive files and directories
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^(schema\.sql|config\.php|\.env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect the 'db' and 'api' directories from direct web access if they contain sensitive logic
+<DirectoryMatch "^.*/(db|config)/.*$">
+    Order allow,deny
+    Deny from all
+</DirectoryMatch>
+
+# 4. Handle CORS if the API logic needs to be accessed cross-origin (optional, but good practice)
+<IfModule mod_headers.c>
+    # Note: Adjust Access-Control-Allow-Origin in production to your specific domain
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+</IfModule>
+
+# 5. Routing for a Single Page Application (SPA) approach (Optional, depending on how index.html handles routing)
+# If you want all non-file/non-dir requests to go to index.html:
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^(.*)$ index.html [QSA,L]

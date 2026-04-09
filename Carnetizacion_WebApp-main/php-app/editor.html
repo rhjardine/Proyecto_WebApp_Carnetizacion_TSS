@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor de Carnet — Sistema de Carnetización TSS</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+    <style>
+        @media print {
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .sidebar,
+            .page-header,
+            .editor-sidebar,
+            #card-meta,
+            .editor-preview>div:first-child,
+            .sidebar-logout {
+                display: none !important;
+            }
+
+            .app-layout {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .main-content {
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+
+            .editor-layout {
+                display: block !important;
+            }
+
+            .editor-preview {
+                position: static !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                height: 100vh !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: white !important;
+            }
+
+            #id-card-wrapper {
+                margin: 0 !important;
+                display: block !important;
+            }
+
+            #id-card-print,
+            #id-card-print-reverso {
+                box-shadow: none !important;
+                border: 0.1mm solid #eee !important;
+                margin: 0 auto !important;
+            }
+
+            @page {
+                margin: 0;
+                size: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">🏦</div>
+                <div class="sidebar-brand-text">
+                    <h1>SCI–TSS</h1>
+                    <p>Carnetización Inteligente</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-link" id="nav-dashboard"><span class="icon">📊</span> Panel
+                    General</a>
+                <a href="upload.html" class="nav-link" id="nav-upload"> <span class="icon">📤</span> Portal de Carga</a>
+                <a href="editor.html" class="nav-link active" id="nav-editor"><span class="icon">🪪</span> Editor de
+                    Carnet</a>
+                <a href="config.html" class="nav-link" id="nav-config"> <span class="icon">⚙️</span> Ajustes</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar" id="user-avatar">A</div>
+                <div class="sidebar-user-info">
+                    <p id="user-name">Admin</p><span id="user-role">Administrador</span>
+                </div>
+                <button class="sidebar-logout" id="btn-logout" title="Cerrar sesión">⬡</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <a href="dashboard.html" style="color:var(--color-muted);font-size:.85rem;">← Volver al
+                        Dashboard</a>
+                    <h2 style="margin-top:4px;">Editor y Ensamblaje de Carnet</h2>
+                    <p id="editor-subtitle">Cargando datos del empleado...</p>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-secondary" onclick="printCurrentCard()">🖨️ Imprimir Físico</button>
+                    <button class="btn btn-primary" id="btn-download">⬇ Exportar a PDF (Impresora PVC)</button>
+                </div>
+            </div>
+
+            <div class="editor-layout">
+                <!-- ═══ SIDEBAR IZQUIERDO ═══ -->
+                <div class="editor-sidebar" style="width:340px;">
+
+                    <!-- 1. FOTOGRAFÍA -->
+                    <div class="card" style="padding:20px;" id="card-photo-module">
+                        <h3
+                            style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+                            <span>📸</span> Fotografía Institucional
+                        </h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">
+                            Sube la imagen enviada por el trabajador. Se recortará y ajustará automáticamente.
+                        </p>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            <input type="file" id="manual-photo-input" accept="image/jpeg, image/png"
+                                style="display:none;" />
+                            <button id="btn-upload-photo" class="btn btn-primary"
+                                onclick="document.getElementById('manual-photo-input').click()"
+                                style="width:100%;justify-content:center;background:#0284c7;">
+                                📤 Cargar Foto de Archivo
+                            </button>
+                            <button id="btn-remove-photo" class="btn btn-secondary"
+                                style="width:100%;justify-content:center;color:#dc2626;">
+                                🗑️ Quitar Foto Actual
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. DATOS DEL FUNCIONARIO -->
+                    <div class="card" style="padding:20px;">
+                        <h3
+                            style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+                            <span>📝</span> Datos del Funcionario
+                        </h3>
+                        <form id="form-edit-employee" style="display:flex;flex-direction:column;gap:10px;">
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Nombres</label>
+                                <input id="edit-nombres" name="nombres" type="text" class="form-input"
+                                    style="padding:7px 10px;" required />
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Apellidos</label>
+                                <input id="edit-apellidos" name="apellidos" type="text" class="form-input"
+                                    style="padding:7px 10px;" required />
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Cédula (Identificador)</label>
+                                <input id="edit-cedula" name="cedula" type="text" class="form-input"
+                                    style="padding:7px 10px;background:#f8fafc;" readonly />
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Cargo Oficial</label>
+                                <input id="edit-cargo" name="cargo" type="text" class="form-input"
+                                    style="padding:7px 10px;" required />
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Gerencia / Área
+                                    Administrativa</label>
+                                <select id="edit-gerencia" name="gerencia"
+                                    class="form-input form-select gerencia-select" style="padding:7px 10px;">
+                                    <option value="" disabled selected>Seleccione una gerencia...</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Nacionalidad</label>
+                                <select id="edit-nacionalidad" name="nacionalidad" class="form-input form-select"
+                                    style="padding:7px 10px;">
+                                    <option value="V">V — Venezolano/a</option>
+                                    <option value="E">E — Extranjero/a</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label" style="font-size:.72rem;">Nivel de Permiso</label>
+                                <select id="edit-nivel-permiso" name="nivel_permiso" class="form-input form-select"
+                                    style="padding:7px 10px;">
+                                    <option value="Nivel 1">Nivel 1 — Operativo</option>
+                                    <option value="Nivel 2">Nivel 2 — Técnico</option>
+                                    <option value="Nivel 3">Nivel 3 — Supervisión</option>
+                                    <option value="Nivel 4">Nivel 4 — Coordinación</option>
+                                    <option value="Nivel 5">Nivel 5 — Dirección</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-top:6px;" id="form-action-buttons">
+                                <button type="submit" id="btn-save-fields" class="btn btn-primary"
+                                    style="flex:1;justify-content:center;background:#10b981;">
+                                    💾 Guardar
+                                </button>
+                                <button type="button" id="btn-delete-employee" class="btn btn-danger"
+                                    style="padding:10px;justify-content:center;" title="Eliminar Registro">
+                                    🗑️
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 3. PLANTILLA Y DISEÑO -->
+                    <div class="card" style="padding:20px;">
+                        <h3
+                            style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+                            <span>🎨</span> Plantilla Institucional
+                        </h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">
+                            Seleccione el diseño gráfico oficial correspondiente al año en curso.
+                        </p>
+                        <select id="template-selector" class="form-input form-select" onchange="setTemplate(this.value)"
+                            style="margin-bottom:12px;font-weight:600;">
+                            <option value="2025" selected>Diseño Moderno (Año 2025)</option>
+                            <option value="2024">Diseño Clásico (Año 2024)</option>
+                        </select>
+                        <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <button class="btn btn-primary" id="ori-h" onclick="setOrientation('horizontal')"
+                                style="flex:1;justify-content:center;font-size:.75rem;">Horizontal</button>
+                            <button class="btn btn-secondary" id="ori-v" onclick="setOrientation('vertical')"
+                                style="flex:1;justify-content:center;font-size:.75rem;">Vertical</button>
+                        </div>
+                        <!-- Fondo personalizado -->
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
+                                🖼️ Fondo Personalizado (PNG/JPG)
+                            </label>
+                            <input type="file" id="custom-bg-input" accept="image/png, image/jpeg"
+                                style="display:none;" />
+                            <div style="display:flex;gap:6px;">
+                                <button id="btn-upload-bg" class="btn btn-secondary"
+                                    onclick="document.getElementById('custom-bg-input').click()"
+                                    style="flex:1;justify-content:center;font-size:.75rem;">
+                                    📂 Subir Fondo
+                                </button>
+                                <button id="btn-reset-bg" class="btn btn-secondary"
+                                    style="padding:8px 10px;font-size:.75rem;" title="Restablecer fondo predeterminado">
+                                    ↺
+                                </button>
+                            </div>
+                            <p style="font-size:.68rem;color:var(--color-muted);margin-top:6px;">
+                                Diseño exportado de Illustrator. Se aplica como fondo al encabezado del carnet.
+                            </p>
+                        </div>
+
+                        <!-- Imagen Anverso del Carnet -->
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
+                                🪪 Imagen Anverso (Frente del Carnet)
+                            </label>
+                            <input type="file" id="card-front-input" accept="image/png, image/jpeg"
+                                style="display:none;" />
+                            <div style="display:flex;gap:6px;margin-bottom:6px;">
+                                <button id="btn-upload-front" class="btn btn-secondary"
+                                    onclick="document.getElementById('card-front-input').click()"
+                                    style="flex:1;justify-content:center;font-size:.75rem;">
+                                    📂 Subir Anverso
+                                </button>
+                                <button id="btn-reset-front" class="btn btn-secondary"
+                                    style="padding:8px 10px;font-size:.75rem;" title="Quitar imagen anverso">
+                                    ↺
+                                </button>
+                            </div>
+                            <div id="front-preview" style="display:none;margin-top:4px;">
+                                <img id="front-preview-img" src=""
+                                    style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
+                            </div>
+                        </div>
+
+                        <!-- Imagen Reverso del Carnet -->
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
+                                🔄 Imagen Reverso (Parte Trasera del Carnet)
+                            </label>
+                            <input type="file" id="card-back-input" accept="image/png, image/jpeg"
+                                style="display:none;" />
+                            <div style="display:flex;gap:6px;margin-bottom:6px;">
+                                <button id="btn-upload-back" class="btn btn-secondary"
+                                    onclick="document.getElementById('card-back-input').click()"
+                                    style="flex:1;justify-content:center;font-size:.75rem;">
+                                    📂 Subir Reverso
+                                </button>
+                                <button id="btn-reset-back" class="btn btn-secondary"
+                                    style="padding:8px 10px;font-size:.75rem;" title="Quitar imagen reverso">
+                                    ↺
+                                </button>
+                            </div>
+                            <div id="back-preview" style="display:none;margin-top:4px;">
+                                <img id="back-preview-img" src=""
+                                    style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. ASISTENTE IA -->
+                    <div
+                        style="background:linear-gradient(135deg,#ede9fe,#dbeafe);border:1px solid #c4b5fd;border-radius:12px;padding:18px;">
+                        <input type="file" id="smart-extract-input" accept=".pdf,.jpg,.jpeg,.png"
+                            style="display:none;" />
+                        <h3 style="font-size:.875rem;font-weight:700;color:#4c1d95;margin-bottom:6px;">✨ Asistente de
+                            Extracción</h3>
+                        <p style="font-size:.7rem;color:#6d28d9;margin-bottom:10px;line-height:1.4;">
+                            ¿Tienes una ficha antigua escaneada? La IA extraerá los textos y la foto.
+                        </p>
+                        <button id="btn-smart-extract"
+                            style="width:100%;justify-content:center;background:#fff;color:#4c1d95;border:1px solid #c4b5fd;padding:6px;border-radius:6px;cursor:pointer;font-weight:600;">
+                            📄 Analizar Documento
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ═══ ÁREA DE VISTA PREVIA ═══ -->
+                <div class="editor-preview" id="card-preview-area">
+                    <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);
+                                display:flex;background:var(--color-surface);
+                                border:1px solid var(--color-border);border-radius:8px;
+                                overflow:hidden;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                        <button id="face-anverso" onclick="setFace('anverso')"
+                            style="padding:7px 20px;border:none;font-size:.78rem;font-weight:600;cursor:pointer;background:var(--color-primary);color:#fff;">
+                            ▶ Vista Frontal
+                        </button>
+                        <button id="face-reverso" onclick="setFace('reverso')"
+                            style="padding:7px 20px;border:none;font-size:.78rem;font-weight:600;cursor:pointer;background:transparent;color:var(--color-muted);">
+                            ◀ Vista Trasera
+                        </button>
+                    </div>
+                    <div id="id-card-wrapper" style="margin-top:44px;"><!-- Card injected by JS --></div>
+                    <p style="position:absolute;bottom:16px;font-size:.75rem;color:var(--color-muted);font-family:monospace;"
+                        id="card-meta"></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Recorte (Cropper.js) -->
+    <div id="crop-modal"
+        style="display:none;position:fixed;inset:0;z-index:99000;background:rgba(0,0,0,.78);align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+        <div
+            style="background:#1e293b;border-radius:16px;padding:24px;width:min(520px,94vw);box-shadow:0 24px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;font-size:1rem;font-weight:700;color:#f1f5f9;">✂️ Recortar Fotografía</h3>
+                <span
+                    style="font-size:.75rem;color:#94a3b8;background:#0f172a;padding:3px 10px;border-radius:20px;">Proporción
+                    3:4 · Foto Carnet</span>
+            </div>
+            <div
+                style="background:#0f172a;border-radius:10px;overflow:hidden;max-height:400px;display:flex;align-items:center;justify-content:center;">
+                <img id="crop-image" src="" alt="Imagen a recortar"
+                    style="display:block;max-width:100%;max-height:380px;" />
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button id="btn-crop-cancel"
+                    style="padding:9px 22px;border-radius:8px;border:1px solid #475569;background:transparent;color:#94a3b8;font-size:.875rem;font-weight:600;cursor:pointer;"
+                    onmouseover="this.style.background='#334155'"
+                    onmouseout="this.style.background='transparent'">Cancelar</button>
+                <button id="btn-crop-apply"
+                    style="padding:9px 22px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:.875rem;font-weight:700;cursor:pointer;"
+                    onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">✅ Aplicar
+                    Recorte</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/vendor/qrious.min.js" onerror="console.warn('QRious no disponible.')"></script>
+    <script src="assets/js/vendor/html2pdf.bundle.min.js" onerror="console.warn('html2pdf no disponible.')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"
+        onerror="console.warn('Cropper.js no disponible.')"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/editor.js"></script>
+</body>
+
+</html>
