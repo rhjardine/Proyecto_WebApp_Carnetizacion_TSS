@@ -161,14 +161,16 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Cédula *
-                            <span style="font-size:.72rem;color:var(--color-muted);font-weight:400;">(solo
-                                números)</span>
+                            <span style="font-size:.72rem;color:var(--color-muted);font-weight:400;">(solo números)</span>
                         </label>
-                        <input type="text" name="cedula" id="input-cedula-new" class="form-input" placeholder="12345678"
-                            inputmode="numeric" pattern="[0-9]+" maxlength="10" required
-                            title="Ingrese solo dígitos (sin prefijo V- o E-)" autocomplete="off" />
+                        <input type="text" name="cedula" id="input-cedula-new"
+                               class="form-input" placeholder="12345678"
+                               inputmode="numeric" pattern="[0-9]+"
+                               maxlength="10" required
+                               title="Ingrese solo dígitos (sin prefijo V- o E-)"
+                               autocomplete="off" />
                         <small id="cedula-error-new"
-                            style="color:#dc2626;font-size:.73rem;display:none;margin-top:3px;">
+                               style="color:#dc2626;font-size:.73rem;display:none;margin-top:3px;">
                             Solo se permiten números (0-9). No escriba V-, E- ni puntos.
                         </small>
                     </div>
@@ -272,9 +274,6 @@
                     <label class="form-label">Perfil temporal a asignar</label>
                     <select id="delegation-role" name="temporaryRole" class="form-input form-select">
                         <option value="ADMIN">ADMIN — Acceso completo de administrador</option>
-                        <option value="COORD">COORD — Coordinador (operativo completo)</option>
-                        <option value="ANALISTA">ANALISTA — Analista de RRHH</option>
-                        <option value="USUARIO">USUARIO — Operador estándar</option>
                         <option value="CONSULTA">CONSULTA — Solo lectura</option>
                     </select>
                 </div>
@@ -297,7 +296,6 @@
     </div>
 
     <script src="assets/js/api.js"></script>
-    <script src="assets/js/rbac.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
         onerror="console.warn('SheetJS no disponible.')"></script>
     <!-- Validaciones estrictas de cédula en tiempo real (TAREA 3) -->

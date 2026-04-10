@@ -1,30 +1,13 @@
 /**
- * api.js — Cliente HTTP para SCI-TSS (Pre-Producción)
- * =====================================================
- * REFACTORIZACIÓN COMPLETA — Eliminación de deuda técnica
+ * api.js — Cliente HTTP SCI-TSS v2.1
+ * =====================================
+ * CORRECCIÓN:
+ *  - login(): ahora lee res.data (objeto anidado) en lugar de res directamente.
+ *    El backend auth.php devuelve: { success, message, data: { id, username, ... } }
+ *  - OFFLINE_MODE = false por defecto (producción).
+ *  - Sin hardcoding de URLs.
  *
- * Cambios respecto a versión anterior:
- *  - OFFLINE_MODE = false → peticiones REALES al backend PHP/MySQL
- *  - Se elimina toda lógica mock (MOCK_EMPLOYEES, MOCK_GERENCIAS, mockRequest)
- *  - Adaptación completa al nuevo esquema MySQL (campos en español)
- *  - Manejo de errores estructurado con retry en caso de CSRF expirado
- *  - Función normalizarEmpleado() para compatibilidad de campos
- *
- * CAMPOS DEL ESQUEMA MySQL (carnetizacion_tss):
- *  empleados: id, nacionalidad, cedula, primer_nombre, segundo_nombre,
- *             primer_apellido, segundo_apellido, cargo, gerencia_id,
- *             fecha_ingreso, estado_laboral, foto_url, foto_ruta,
- *             estado_carnet, forma_entrega, creado_el, actualizado_el
- *
- * Compatibilidad con frontend existente:
- *  - emp.nombres       → construido como primer_nombre + segundo_nombre
- *  - emp.apellidos     → construido como primer_apellido + segundo_apellido
- *  - emp.status        → alias de estado_carnet
- *  - emp.photo_url     → alias de foto_url
- *  - emp.gerencia      → nombre de gerencia (JOIN desde backend)
- *
- * @version 2.0.0-preproduccion
- * @author  SCI-TSS Dev Team
+ * @version 2.1.0
  */
 'use strict';
 
@@ -33,93 +16,40 @@ const MOCK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5
 const VALIDATION_BASE_URL = 'https://carnetizacion.tss.gob.ve/validar';
 
 // ── CONFIGURACIÓN ─────────────────────────────────────────────
-// Para modo demo/presentación sin backend: cambiar a true
 const OFFLINE_MODE = false;
-
-// Base URL de la API (vacío = relativa al servidor actual)
-const API_BASE = '';
+const API_BASE = '';   // Relativa al servidor actual
 
 // ── NORMALIZACIÓN DE EMPLEADOS ────────────────────────────────
-/**
- * normalizarEmpleado(emp) — Adapta la respuesta del nuevo esquema MySQL
- * al formato esperado por el frontend (compatibilidad hacia atrás).
- *
- * El nuevo esquema tiene campos disgregados:
- *   primer_nombre, segundo_nombre, primer_apellido, segundo_apellido
- *
- * El frontend usa campos compuestos:
- *   nombres, apellidos
- *
- * Esta función construye los campos compuestos y añade aliases de
- * compatibilidad para asegurar el correcto funcionamiento de todas
- * las vistas (dashboard, editor, reverso del carnet).
- *
- * @param {Object} emp - Objeto empleado crudo del servidor
- * @returns {Object} Empleado normalizado con todos los campos esperados
- */
 function normalizarEmpleado(emp) {
     if (!emp) return emp;
 
-    // ── Construir nombres completos concatenados ──────────────
-    const primerNombre   = (emp.primer_nombre   || '').trim();
-    const segundoNombre  = (emp.segundo_nombre  || '').trim();
+    const primerNombre = (emp.primer_nombre || '').trim();
+    const segundoNombre = (emp.segundo_nombre || '').trim();
     const primerApellido = (emp.primer_apellido || '').trim();
-    const segundoApellido= (emp.segundo_apellido|| '').trim();
+    const segundoApellido = (emp.segundo_apellido || '').trim();
 
-    // Nombres: "Juan Alejandro" (omite el segundo si está vacío)
-    const nombresCompletos = [primerNombre, segundoNombre]
-        .filter(Boolean).join(' ');
-
-    // Apellidos: "Aponte Contreras" (ídem)
-    const apellidosCompletos = [primerApellido, segundoApellido]
-        .filter(Boolean).join(' ');
+    const nombresCompletos = [primerNombre, segundoNombre].filter(Boolean).join(' ');
+    const apellidosCompletos = [primerApellido, segundoApellido].filter(Boolean).join(' ');
 
     return {
-        // ── Campos originales del esquema MySQL ───────────────
         ...emp,
-
-        // ── Aliases de compatibilidad con el frontend ─────────
-        nombres:          nombresCompletos   || emp.nombres   || '',
-        apellidos:        apellidosCompletos || emp.apellidos || '',
-        primer_nombre:    primerNombre,
-        segundo_nombre:   segundoNombre,
-        primer_apellido:  primerApellido,
+        nombres: nombresCompletos || emp.nombres || '',
+        apellidos: apellidosCompletos || emp.apellidos || '',
+        primer_nombre: primerNombre,
+        segundo_nombre: segundoNombre,
+        primer_apellido: primerApellido,
         segundo_apellido: segundoApellido,
-
-        // Estado del carnet (alias: status → estado_carnet)
-        status:           emp.status        || emp.estado_carnet || 'Pendiente por Imprimir',
-        estado_carnet:    emp.estado_carnet || emp.status        || 'Pendiente por Imprimir',
-
-        // Foto (alias: photo_url → foto_url)
-        photo_url:        emp.photo_url     || emp.foto_url      || '',
-        foto_url:         emp.foto_url      || emp.photo_url     || '',
-
-        // Gerencia (viene del JOIN en el backend)
-        gerencia:         emp.gerencia      || '',
-
-        // Forma de entrega
-        forma_entrega:    emp.forma_entrega || '',
-
-        // Nivel de permiso (campo legacy mantenido por compatibilidad)
-        nivel_permiso:    emp.nivel_permiso || 'Nivel 1',
+        status: emp.status || emp.estado_carnet || 'Pendiente por Imprimir',
+        estado_carnet: emp.estado_carnet || emp.status || 'Pendiente por Imprimir',
+        photo_url: emp.photo_url || emp.foto_url || '',
+        foto_url: emp.foto_url || emp.photo_url || '',
+        gerencia: emp.gerencia || '',
+        forma_entrega: emp.forma_entrega || '',
+        nivel_permiso: emp.nivel_permiso || 'Nivel 1',
     };
 }
 
 // ── UTILIDAD FETCH ────────────────────────────────────────────
-/**
- * request(url, method, body) — Ejecutor central de peticiones HTTP.
- *
- * Características:
- *  - Manejo unificado de errores HTTP y de red
- *  - Soporte para respuestas JSON con validación de formato
- *  - Mensajes de error descriptivos para facilitar debugging
- *
- * @param {string} url    - Ruta relativa de la API (ej: 'api/employees.php')
- * @param {string} method - Verbo HTTP: GET | POST | DELETE
- * @param {Object} body   - Cuerpo de la petición (solo para POST)
- * @returns {Promise<Object>} Respuesta JSON del servidor
- * @throws {Error} Si la petición falla o el servidor devuelve error
- */
 async function request(url, method = 'GET', body = null) {
     if (OFFLINE_MODE) {
         return mockRequest(url, method, body);
@@ -129,10 +59,20 @@ async function request(url, method = 'GET', body = null) {
         method,
         headers: {
             'Content-Type': 'application/json',
-            'Accept':       'application/json',
+            'Accept': 'application/json',
         },
-        credentials: 'same-origin', // Envía cookies de sesión automáticamente
+        credentials: 'same-origin',
     };
+
+    // Inyectar CSRF token en peticiones mutantes
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
+        try {
+            const u = api.getCurrentUser();
+            if (u && u.csrf_token) {
+                options.headers['X-CSRF-Token'] = u.csrf_token;
+            }
+        } catch (_) { /* Sin token CSRF disponible */ }
+    }
 
     if (body !== null) {
         options.body = JSON.stringify(body);
@@ -150,13 +90,12 @@ async function request(url, method = 'GET', body = null) {
 
     const text = await response.text();
 
-    // Detectar respuestas HTML (error de PHP, página 404/500, etc.)
+    // Detectar respuesta HTML inesperada (error PHP, 404, etc.)
     if (text.trim().startsWith('<')) {
-        console.error('[SCI-TSS API] Respuesta HTML inesperada:', text.substring(0, 200));
+        console.error('[SCI-TSS API] Respuesta HTML inesperada:', text.substring(0, 300));
         throw new Error(
             `El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). ` +
-            'Esto suele indicar un error de PHP (500) o ruta incorrecta (404). ' +
-            'Revise el error en XAMPP → Apache → Logs.'
+            'Revise los logs de Apache en XAMPP Control Panel.'
         );
     }
 
@@ -164,7 +103,7 @@ async function request(url, method = 'GET', body = null) {
     try {
         result = JSON.parse(text);
     } catch (parseErr) {
-        console.error('[SCI-TSS API] JSON inválido:', text.substring(0, 300));
+        console.error('[SCI-TSS API] JSON inválido recibido:', text.substring(0, 300));
         throw new Error('Respuesta del servidor inválida. Contacte al administrador.');
     }
 
@@ -176,22 +115,14 @@ async function request(url, method = 'GET', body = null) {
 }
 
 // ── GENERADOR DE AVATARES ─────────────────────────────────────
-/**
- * makeAvatar(name, bg) — Genera un SVG de avatar con iniciales.
- * Usado como fallback cuando el empleado no tiene fotografía.
- *
- * @param {string} name - Nombre completo del empleado
- * @param {string} bg   - Color hexadecimal del fondo (opcional)
- * @returns {string} Data URL con el SVG en base64
- */
 function makeAvatar(name = '?', bg = null) {
-    const words    = String(name).trim().split(/\s+/);
+    const words = String(name).trim().split(/\s+/);
     const initials = words.length >= 2
         ? (words[0][0] + words[1][0]).toUpperCase()
         : (words[0][0] || '?').toUpperCase();
 
     const palette = ['003366', '7c3aed', '0284c7', '059669', 'dc2626', 'd97706'];
-    const color   = bg || palette[name.charCodeAt(0) % palette.length];
+    const color = bg || palette[name.charCodeAt(0) % palette.length];
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
         <rect width="80" height="80" rx="8" fill="#${color}"/>
@@ -205,28 +136,32 @@ function makeAvatar(name = '?', bg = null) {
 // ── API BRIDGE ────────────────────────────────────────────────
 const api = {
 
-    // ── CSRF (mantiene compatibilidad con auth check middleware) ─
     initCsrf: async () => {
-        // El backend PHP maneja CSRF via sesión.
-        // Este método existe para compatibilidad futura.
+        // CSRF se maneja automáticamente via sesión PHP.
+        // El token llega en la respuesta de login y se persiste en sessionStorage.
         return true;
     },
 
     // ── AUTH ──────────────────────────────────────────────────
+    /**
+     * CORRECCIÓN v2.1:
+     * auth.php devuelve: { success, message, data: { id, username, full_name, ... } }
+     * Guardamos res.data (no res) en sessionStorage.
+     */
     login: async (username, password) => {
         const res = await request('api/auth.php', 'POST', { username, password });
-        // Almacenar datos del usuario en sessionStorage
-        // (sessionStorage se limpia al cerrar el tab → más seguro que localStorage)
-        sessionStorage.setItem('current_user', JSON.stringify(res.data));
+
+        // El backend devuelve los datos del usuario en res.data
+        const userData = res.data || res;
+        sessionStorage.setItem('current_user', JSON.stringify(userData));
         return res;
     },
 
     logout: async () => {
         try {
-            // Informar al backend para destruir la sesión PHP
             await request('api/auth/logout.php', 'POST');
         } catch (_) {
-            // Si falla el logout del servidor, limpiar localmente igual
+            // Limpieza local aunque falle el servidor
         } finally {
             sessionStorage.removeItem('current_user');
         }
@@ -242,57 +177,34 @@ const api = {
     },
 
     isAdmin: () => {
-        const u    = api.getCurrentUser();
+        const u = api.getCurrentUser();
         const role = u.effective_role || u.temporary_role || u.role;
-        return role === 'ADMIN';
+        return ['ADMIN', 'COORD'].includes((role || '').toUpperCase());
     },
 
     // ── USUARIOS / DELEGACIÓN ─────────────────────────────────
     getUsers: async () => request('api/users.php'),
 
     delegateRole: async (username, tempRole, delegatedBy) =>
-        request('api/users.php', 'POST', {
-            action:      'delegate',
-            username,
-            tempRole,
-            delegatedBy,
-        }),
+        request('api/users.php', 'POST', { action: 'delegate', username, tempRole, delegatedBy }),
 
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
 
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),
-
-    createGerencia: async (nombre) =>
-        request('api/gerencias.php', 'POST', { nombre }),
-
-    updateGerencia: async (id, nombre) =>
-        request('api/gerencias.php', 'POST', { id, nombre }),
-
-    deleteGerencia: async (id) =>
-        request(`api/gerencias.php?id=${id}`, 'DELETE'),
+    createGerencia: async (nombre) => request('api/gerencias.php', 'POST', { nombre }),
+    updateGerencia: async (id, nombre) => request('api/gerencias.php', 'POST', { id, nombre }),
+    deleteGerencia: async (id) => request(`api/gerencias.php?id=${id}`, 'DELETE'),
 
     // ── EMPLEADOS ─────────────────────────────────────────────
-    /**
-     * getEmployees(params) — Obtiene lista de empleados con filtros y paginación.
-     *
-     * Parámetros admitidos:
-     *  - page:   número de página (default 1)
-     *  - limit:  registros por página (default 50, max 200)
-     *  - search: búsqueda en nombre, apellido o cédula
-     *  - status: filtro por estado_carnet
-     *  - id:     obtener un empleado específico
-     *
-     * @returns {Promise<{success, data: empleado[], meta: {totalRecords, ...}}>}
-     */
     getEmployees: async (params = {}) => {
         let url = 'api/employees.php';
         const qs = new URLSearchParams();
 
-        if (params.id)     qs.set('id',     params.id);
-        if (params.page)   qs.set('page',   params.page);
-        if (params.limit)  qs.set('limit',  params.limit);
+        if (params.id) qs.set('id', params.id);
+        if (params.page) qs.set('page', params.page);
+        if (params.limit) qs.set('limit', params.limit);
         if (params.search) qs.set('search', params.search);
         if (params.status) qs.set('status', params.status);
 
@@ -300,7 +212,6 @@ const api = {
 
         const res = await request(url);
 
-        // Normalizar cada empleado para compatibilidad con el frontend
         if (Array.isArray(res.data)) {
             res.data = res.data.map(normalizarEmpleado);
         } else if (res.data) {
@@ -310,27 +221,18 @@ const api = {
         return res;
     },
 
-    /**
-     * createEmployee(data) — Crea un nuevo empleado.
-     *
-     * El backend espera los campos disgregados del nuevo esquema MySQL:
-     *   primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, cedula, ...
-     *
-     * Si el frontend envía 'nombres'/'apellidos' (formato legado), se adapta aquí.
-     */
     createEmployee: async (data) => {
         const payload = { ...data };
 
-        // Adaptar campos compuestos a campos disgregados si es necesario
         if (payload.nombres && !payload.primer_nombre) {
             const partes = String(payload.nombres).trim().split(/\s+/);
-            payload.primer_nombre  = partes[0] || '';
+            payload.primer_nombre = partes[0] || '';
             payload.segundo_nombre = partes.slice(1).join(' ') || null;
             delete payload.nombres;
         }
         if (payload.apellidos && !payload.primer_apellido) {
             const partes = String(payload.apellidos).trim().split(/\s+/);
-            payload.primer_apellido  = partes[0] || '';
+            payload.primer_apellido = partes[0] || '';
             payload.segundo_apellido = partes.slice(1).join(' ') || null;
             delete payload.apellidos;
         }
@@ -338,75 +240,41 @@ const api = {
         return request('api/employees.php', 'POST', payload);
     },
 
-    /**
-     * updateEmployee(id, fields) — Actualiza campos específicos de un empleado.
-     * Solo envía los campos presentes en `fields` (PATCH semántico sobre POST).
-     */
-    updateEmployee: async (id, fields) => {
-        const payload = { id, ...fields };
-        return request('api/employees.php', 'POST', payload);
-    },
+    updateEmployee: async (id, fields) => request('api/employees.php', 'POST', { id, ...fields }),
+    deleteEmployee: async (id) => request(`api/employees.php?id=${id}`, 'DELETE'),
 
-    deleteEmployee: async (id) =>
-        request(`api/employees.php?id=${id}`, 'DELETE'),
-
-    /**
-     * updateStatus(id, status, forma_entrega) — Actualiza el estado del carnet.
-     * Acepta tanto 'status' como 'estado_carnet' para compatibilidad.
-     */
     updateStatus: async (id, status, forma_entrega) => {
-        const payload = {
-            id,
-            estado_carnet: status, // Campo oficial en MySQL
-            status,                 // Alias para compatibilidad con backend legado
-        };
-        if (forma_entrega !== undefined) {
-            payload.forma_entrega = forma_entrega;
-        }
+        const payload = { id, estado_carnet: status, status };
+        if (forma_entrega !== undefined) payload.forma_entrega = forma_entrega;
         return request('api/employees.php', 'POST', payload);
     },
 
     uploadPhoto: async (formData) => {
-        // FormData → envío multipart para archivos reales
-        // Si es base64, se envía como JSON
-        const id          = formData.get ? formData.get('employee_id') : formData.employee_id;
+        const id = formData.get ? formData.get('employee_id') : formData.employee_id;
         const photoBase64 = formData.get ? formData.get('photo_base64') : formData.photo_base64;
-
-        return request('api/employees.php', 'POST', {
-            id,
-            photo_url: photoBase64,
-            foto_url:  photoBase64,
-        });
+        return request('api/employees.php', 'POST', { id, photo_url: photoBase64, foto_url: photoBase64 });
     },
 
     removePhoto: async (id) =>
         request('api/employees.php', 'POST', { id, photo_url: '', foto_url: '' }),
 
-    // ── IA / AUTOMATIZACIÓN ───────────────────────────────────
-    autoMatch: async () =>
-        request('api/employees.php', 'POST', { action: 'auto_match' }),
-
-    uploadPayroll: async (rows) =>
-        request('api/employees.php', 'POST', { action: 'upload_payroll', rows }),
-
-    smartExtraction: async (file) =>
-        request('api/employees.php', 'POST', { action: 'smart_extraction' }),
+    autoMatch: async () => request('api/employees.php', 'POST', { action: 'auto_match' }),
+    uploadPayroll: async (rows) => request('api/employees.php', 'POST', { action: 'upload_payroll', rows }),
+    smartExtraction: async () => request('api/employees.php', 'POST', { action: 'smart_extraction' }),
 
     // ── ESTADÍSTICAS ──────────────────────────────────────────
     getStats: async () => {
-        // Endpoint dedicado de estadísticas (más eficiente que cargar todos los empleados)
         try {
             return await request('api/stats.php');
         } catch (_) {
-            // Fallback: calcular desde la lista de empleados
-            const res  = await api.getEmployees({ limit: 200 });
+            const res = await api.getEmployees({ limit: 200 });
             const list = res.data || [];
             return {
                 success: true,
                 data: {
-                    total:      res.meta?.totalRecords || list.length,
+                    total: res.meta?.totalRecords || list.length,
                     pendientes: list.filter(e => e.estado_carnet === 'Pendiente por Imprimir').length,
-                    impresos:   list.filter(e => e.estado_carnet === 'Carnet Impreso').length,
+                    impresos: list.filter(e => e.estado_carnet === 'Carnet Impreso').length,
                     entregados: list.filter(e => e.estado_carnet === 'Carnet Entregado').length,
                 },
             };
@@ -431,45 +299,38 @@ const ui = {
     setLoading(btn, loading, text = 'Cargando...') {
         if (!btn) return;
         if (loading) {
-            btn.disabled        = true;
+            btn.disabled = true;
             btn.dataset.original = btn.innerHTML;
             btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px;"></span>${text}`;
         } else {
-            btn.disabled  = false;
+            btn.disabled = false;
             btn.innerHTML = btn.dataset.original || text;
         }
     },
 
     getBadgeClass(status) {
-        const statusNorm = (status || '').toLowerCase();
         const map = {
             'pendiente por imprimir': 'badge-yellow',
-            'carnet impreso':         'badge-blue',
-            'carnet entregado':       'badge-green',
+            'carnet impreso': 'badge-blue',
+            'carnet entregado': 'badge-green',
         };
-        return map[statusNorm] || 'badge-gray';
+        return map[(status || '').toLowerCase()] || 'badge-gray';
     },
 
     formatDate(d) {
         if (!d) return '—';
         try {
-            // Manejar tanto formatos ISO (2024-01-15) como MySQL (2024-01-15T00:00:00)
             const date = new Date(d);
             if (isNaN(date.getTime())) return d;
-            return date.toLocaleDateString('es-VE', {
-                day:   '2-digit',
-                month: '2-digit',
-                year:  'numeric',
-            });
+            return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
         } catch (_) {
             return d;
         }
     },
 };
 
-// ── MODO DEMO / OFFLINE (Solo para presentaciones sin backend) ─
-// Se mantiene con datos mínimos para compatibilidad.
-// ACTIVAR: const OFFLINE_MODE = true; (arriba en este archivo)
+// ── MODO DEMO / OFFLINE ───────────────────────────────────────
+// Solo activo si OFFLINE_MODE = true arriba
 let _savedGerencias = null;
 let _savedEmployees = null;
 try {
@@ -501,28 +362,12 @@ let MOCK_EMPLOYEES = _savedEmployees || [
         estado_carnet: 'Carnet Impreso', photo_url: '', fecha_ingreso: '2022-03-15',
     },
     {
-        id: 2, cedula: '11929185', nacionalidad: 'V',
-        primer_nombre: 'Jose', segundo_nombre: 'Luis',
-        primer_apellido: 'Cisneros', segundo_apellido: 'Medina',
-        cargo: 'Oficial de Seguridad',
-        gerencia: 'OFICINA DE ADMINISTRACION Y GESTION INTERNA',
-        estado_carnet: 'Carnet Entregado', photo_url: '', fecha_ingreso: '2010-07-01',
-    },
-    {
-        id: 3, cedula: '12345678', nacionalidad: 'V',
+        id: 2, cedula: '12345678', nacionalidad: 'V',
         primer_nombre: 'Juan', segundo_nombre: 'Alejandro',
         primer_apellido: 'Pérez', segundo_apellido: null,
         cargo: 'Analista de Sistemas',
         gerencia: 'OFICINA DE TECNOLOGIA DE LA INFORMACION Y COMUNICACION',
         estado_carnet: 'Pendiente por Imprimir', photo_url: '', fecha_ingreso: '2020-01-15',
-    },
-    {
-        id: 4, cedula: '87654321', nacionalidad: 'V',
-        primer_nombre: 'María', segundo_nombre: 'Victoria',
-        primer_apellido: 'Gómez', segundo_apellido: null,
-        cargo: 'Coordinadora',
-        gerencia: 'OFICINA DE ADMINISTRACION Y GESTION INTERNA',
-        estado_carnet: 'Carnet Impreso', photo_url: '', fecha_ingreso: '2019-05-20',
     },
 ];
 let nextEmpId = MOCK_EMPLOYEES.length > 0 ? Math.max(...MOCK_EMPLOYEES.map(e => e.id)) + 1 : 1;
@@ -535,25 +380,24 @@ function saveDB() {
 }
 
 async function mockRequest(url, method, body) {
-    console.warn('[SCI-TSS] MODO DEMO ACTIVO: usando datos simulados.');
-    await new Promise(r => setTimeout(r, 350));
+    console.warn('[SCI-TSS] MODO DEMO ACTIVO — datos simulados.');
+    await new Promise(r => setTimeout(r, 300));
 
     if (url.includes('auth.php')) {
-        const user = { username: body?.username || 'admin', role: 'ADMIN', full_name: 'Usuario Demo' };
-        return { success: true, data: user };
+        const userData = {
+            id: 1, username: body?.username || 'admin',
+            full_name: 'Usuario Demo', role: 'ADMIN',
+            temporary_role: null, effective_role: 'ADMIN',
+            csrf_token: 'demo_csrf_token',
+        };
+        return { success: true, message: 'Login exitoso (Demo).', data: userData };
     }
 
     if (url.includes('gerencias.php')) {
-        if (method === 'GET') {
-            return { success: true, data: [...MOCK_GERENCIAS] };
-        }
+        if (method === 'GET') return { success: true, data: [...MOCK_GERENCIAS] };
         if (method === 'POST') {
-            if (body?.id) {
-                const g = MOCK_GERENCIAS.find(x => x.id == body.id);
-                if (g) g.nombre = body.nombre;
-            } else if (body?.nombre) {
-                MOCK_GERENCIAS.push({ id: nextGerenciaId++, nombre: body.nombre });
-            }
+            if (body?.id) { const g = MOCK_GERENCIAS.find(x => x.id == body.id); if (g) g.nombre = body.nombre; }
+            else if (body?.nombre) MOCK_GERENCIAS.push({ id: nextGerenciaId++, nombre: body.nombre });
             saveDB();
             return { success: true, message: 'Operación completada (Demo).' };
         }
@@ -567,112 +411,71 @@ async function mockRequest(url, method, body) {
 
     if (url.includes('employees.php')) {
         if (method === 'GET') {
-            const params   = new URLSearchParams(url.split('?')[1] || '');
-            const search   = (params.get('search') || '').toLowerCase();
-            const status   = params.get('status') || '';
-            const page     = parseInt(params.get('page') || '1');
-            const limit    = parseInt(params.get('limit') || '50');
+            const params = new URLSearchParams(url.split('?')[1] || '');
+            const search = (params.get('search') || '').toLowerCase();
+            const status = params.get('status') || '';
+            const page = parseInt(params.get('page') || '1');
+            const limit = parseInt(params.get('limit') || '50');
             const idFilter = params.get('id');
 
             let lista = MOCK_EMPLOYEES.map(normalizarEmpleado);
-            if (idFilter) {
-                lista = lista.filter(e => String(e.id) === String(idFilter));
-            }
-            if (search) {
-                lista = lista.filter(e =>
-                    e.nombres.toLowerCase().includes(search) ||
-                    e.apellidos.toLowerCase().includes(search) ||
-                    e.cedula.includes(search)
-                );
-            }
-            if (status) {
-                lista = lista.filter(e => e.estado_carnet === status || e.status === status);
-            }
+            if (idFilter) lista = lista.filter(e => String(e.id) === String(idFilter));
+            if (search) lista = lista.filter(e =>
+                (e.nombres || '').toLowerCase().includes(search) ||
+                (e.apellidos || '').toLowerCase().includes(search) ||
+                (e.cedula || '').includes(search)
+            );
+            if (status) lista = lista.filter(e => e.estado_carnet === status);
 
-            const total      = lista.length;
+            const total = lista.length;
             const totalPages = Math.ceil(total / limit);
-            const from       = (page - 1) * limit;
-            const paginada   = lista.slice(from, from + limit);
+            const paginada = lista.slice((page - 1) * limit, page * limit);
 
-            return {
-                success: true,
-                data:    paginada,
-                meta:    { totalRecords: total, currentPage: page, totalPages, limit },
-            };
+            return { success: true, data: paginada, meta: { totalRecords: total, currentPage: page, totalPages, limit } };
         }
 
         if (method === 'POST') {
             if (body?.action === 'upload_payroll' && body?.rows) {
                 let added = 0;
                 body.rows.forEach(r => {
-                    const ced = r['Cédula'] || r['cedula'] || r['CI'] || '';
+                    const ced = String(r['Cédula'] || r['cedula'] || '').replace(/[^0-9]/g, '');
                     if (!ced) return;
-                    const cedulaLimpia = String(ced).replace(/[^0-9]/g, '');
                     MOCK_EMPLOYEES.unshift({
-                        id:             nextEmpId++,
-                        cedula:         cedulaLimpia,
-                        nacionalidad:   'V',
-                        primer_nombre:  String(r['Primer Nombre'] || r['nombres'] || '').trim(),
+                        id: nextEmpId++, cedula: ced, nacionalidad: 'V',
+                        primer_nombre: String(r['Primer Nombre'] || r['nombres'] || '').trim(),
                         segundo_nombre: String(r['Segundo Nombre'] || '').trim() || null,
                         primer_apellido: String(r['Primer Apellido'] || r['apellidos'] || '').trim(),
                         segundo_apellido: String(r['Segundo Apellido'] || '').trim() || null,
-                        cargo:          String(r['Cargo'] || r['cargo'] || '').trim(),
-                        gerencia:       String(r['Gerencia'] || r['gerencia'] || '').trim(),
-                        estado_carnet:  'Pendiente por Imprimir',
-                        photo_url:      '',
+                        cargo: String(r['Cargo'] || r['cargo'] || '').trim(),
+                        gerencia: String(r['Gerencia'] || r['gerencia'] || '').trim(),
+                        estado_carnet: 'Pendiente por Imprimir', photo_url: '',
                     });
                     added++;
                 });
                 if (added > 0) saveDB();
-                return {
-                    success: true,
-                    message: added > 0
-                        ? `Nómina importada: ${added} empleado(s) registrado(s).`
-                        : 'No se importaron empleados (verifique el formato del archivo).',
-                };
+                return { success: true, message: `Nómina importada: ${added} empleado(s) (Demo).` };
             }
 
-            if (body?.action === 'auto_match') {
-                return { success: true, message: 'Auto-Match completado (Demo). Ningún cambio aplicado.' };
-            }
+            if (body?.action === 'auto_match') return { success: true, message: 'Auto-Match completado (Demo).' };
 
             if (body?.id) {
                 const emp = MOCK_EMPLOYEES.find(e => e.id == body.id);
                 if (emp) {
-                    // Actualizar campos presentes en el body
-                    if (body.estado_carnet !== undefined) emp.estado_carnet = body.estado_carnet;
-                    if (body.status        !== undefined) emp.estado_carnet = body.status;
-                    if (body.forma_entrega !== undefined) emp.forma_entrega  = body.forma_entrega;
-                    if (body.photo_url     !== undefined) emp.photo_url      = body.photo_url;
-                    if (body.primer_nombre !== undefined) emp.primer_nombre  = body.primer_nombre;
-                    if (body.segundo_nombre!== undefined) emp.segundo_nombre = body.segundo_nombre;
-                    if (body.primer_apellido    !== undefined) emp.primer_apellido  = body.primer_apellido;
-                    if (body.segundo_apellido   !== undefined) emp.segundo_apellido = body.segundo_apellido;
-                    if (body.cargo         !== undefined) emp.cargo          = body.cargo;
-                    if (body.gerencia      !== undefined) emp.gerencia       = body.gerencia;
-                    if (body.nacionalidad  !== undefined) emp.nacionalidad   = body.nacionalidad;
-                    if (body.nivel_permiso !== undefined) emp.nivel_permiso  = body.nivel_permiso;
+                    Object.keys(body).forEach(k => { if (k !== 'id') emp[k] = body[k]; });
                     saveDB();
                 }
                 return { success: true, message: 'Empleado actualizado (Demo).' };
             }
 
-            // CREATE
             const cedulaLimpia = String(body?.cedula || '').replace(/[^0-9]/g, '');
             MOCK_EMPLOYEES.unshift({
-                id:              nextEmpId++,
-                cedula:          cedulaLimpia,
-                nacionalidad:    body?.nacionalidad || 'V',
-                primer_nombre:   body?.primer_nombre  || (String(body?.nombres || '').split(' ')[0]),
-                segundo_nombre:  body?.segundo_nombre || (String(body?.nombres || '').split(' ').slice(1).join(' ')) || null,
-                primer_apellido: body?.primer_apellido  || (String(body?.apellidos || '').split(' ')[0]),
-                segundo_apellido:body?.segundo_apellido || (String(body?.apellidos || '').split(' ').slice(1).join(' ')) || null,
-                cargo:           body?.cargo          || '',
-                gerencia:        body?.gerencia       || '',
-                estado_carnet:   'Pendiente por Imprimir',
-                fecha_ingreso:   body?.fecha_ingreso  || new Date().toISOString().split('T')[0],
-                photo_url:       '',
-                nivel_permiso:   body?.nivel_permiso  || 'Nivel 1',
+                id: nextEmpId++, cedula: cedulaLimpia, nacionalidad: body?.nacionalidad || 'V',
+                primer_nombre: body?.primer_nombre || '', segundo_nombre: body?.segundo_nombre || null,
+                primer_apellido: body?.primer_apellido || '', segundo_apellido: body?.segundo_apellido || null,
+                cargo: body?.cargo || '', gerencia: body?.gerencia || '',
+                estado_carnet: 'Pendiente por Imprimir',
+                fecha_ingreso: body?.fecha_ingreso || new Date().toISOString().split('T')[0],
+                photo_url: '', nivel_permiso: body?.nivel_permiso || 'Nivel 1',
             });
             saveDB();
             return { success: true, message: 'Empleado registrado (Demo).', data: { id: nextEmpId - 1 } };
@@ -688,10 +491,9 @@ async function mockRequest(url, method, body) {
 
     if (url.includes('users.php')) {
         return {
-            success: true,
-            data: [
-                { id: 1, usuario: 'admin', username: 'admin', nombre_completo: 'Administrador Principal', full_name: 'Administrador Principal', rol: 'ADMIN', role: 'ADMIN', bloqueado: false },
-            ],
+            success: true, data: [
+                { id: 1, username: 'admin', full_name: 'Administrador Principal', role: 'ADMIN', temporary_role: null, delegated_by: null, is_locked: false, failed_attempts: 0 },
+            ]
         };
     }
 

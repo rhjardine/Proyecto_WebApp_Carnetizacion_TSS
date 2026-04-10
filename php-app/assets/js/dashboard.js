@@ -23,13 +23,7 @@ async function init() {
     if (typeof api.initCsrf === 'function') await api.initCsrf();
     setupLogout();
     setupUserInfo();
-    // ── RBAC: Aplicar permisos de interfaz según rol efectivo ─────────────
-    // applyRolePermissions() viene de rbac.js (cargado antes en el HTML).
-    // Reemplaza la función anterior applyConsultaRestrictions() con
-    // soporte completo para los 5 roles del sistema.
-    if (typeof applyRolePermissions === 'function') {
-        applyRolePermissions('dashboard');
-    }
+    applyConsultaRestrictions();
     await Promise.all([loadEmployees(), populateGerenciasSelects()]);
     setupControls();
     setupModal();
@@ -75,13 +69,23 @@ function setupUserInfo() {
     }
 }
 
-// ── RBAC: Restricciones por rol (delegado a rbac.js) ─────────────────────────
-// La función applyConsultaRestrictions() está reemplazada por
-// applyRolePermissions('dashboard') en rbac.js que cubre los 5 roles.
-// Se mantiene como alias por compatibilidad con código legado.
+// ── TAREA 3: RESTRICCIONES CONSULTA ──────────────────────────────────────────
 function applyConsultaRestrictions() {
-    if (typeof applyRolePermissions === 'function') {
-        applyRolePermissions('dashboard');
+    const user = api.getCurrentUser();
+    const effRole = user.effective_role || user.role;
+    const isAdmin = effRole === 'ADMIN';
+
+    if (!isAdmin) {
+        ['btn-new-employee', 'btn-import-excel', 'btn-auto-match', 'btn-manage-gerencias', 'btn-delegate-perms'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    } else {
+        // Show admin-only buttons
+        ['btn-manage-gerencias', 'btn-delegate-perms'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'inline-flex';
+        });
     }
 }
 
@@ -112,26 +116,17 @@ async function loadEmployees(params = {}) {
 
 // ── RENDERING ─────────────────────────────────────────────────────────────────
 function renderStats(list, meta) {
-    document.getElementById('stat-total').textContent = meta.totalRecords ?? list.length;
+    document.getElementById('stat-total').textContent   = meta.totalRecords ?? list.length;
     // Compatibilidad: verificar tanto estado_carnet (nuevo) como status (legado)
     const getEstado = e => e.estado_carnet || e.status || '';
-    document.getElementById('stat-pending').textContent = list.filter(e => getEstado(e) === 'Pendiente por Imprimir').length;
+    document.getElementById('stat-pending').textContent  = list.filter(e => getEstado(e) === 'Pendiente por Imprimir').length;
     document.getElementById('stat-verified').textContent = list.filter(e => getEstado(e) === 'Carnet Entregado').length;
-    document.getElementById('stat-printed').textContent = list.filter(e => getEstado(e) === 'Carnet Impreso').length;
+    document.getElementById('stat-printed').textContent  = list.filter(e => getEstado(e) === 'Carnet Impreso').length;
 }
 
 function renderTable(list) {
     const tbody = document.getElementById('employees-tbody');
-    // ── Obtener permiso de escritura desde el contexto RBAC ───────────────
-    // window._rbacPuedeEscribir es establecido por applyRolePermissions() en rbac.js.
-    // Fallback: usar api.isAdmin() para compatibilidad.
-    const puedeEditar = (typeof window._rbacPuedeEscribir !== 'undefined')
-        ? window._rbacPuedeEscribir
-        : api.isAdmin();
-    const puedeCrearEliminar = ['ADMIN', 'COORD', 'ANALISTA'].includes(
-        (api.getCurrentUser().effective_role || api.getCurrentUser().role || '').toUpperCase()
-    );
-    const isAdmin = api.isAdmin(); // Mantenido para compatibilidad
+    const isAdmin = api.isAdmin();
     if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--color-muted);">No se encontraron registros.</td></tr>`;
         return;
@@ -143,16 +138,16 @@ function renderTable(list) {
         // ── Construcción del nombre completo con campos disgregados (esquema MySQL) ──
         // Prioridad 1: campos disgregados del nuevo esquema
         // Prioridad 2: campos compuestos del esquema legado (normalizado por api.js)
-        const primerNombre = (emp.primer_nombre || '').trim();
-        const segundoNombre = (emp.segundo_nombre || '').trim();
-        const primerApellido = (emp.primer_apellido || '').trim();
+        const primerNombre    = (emp.primer_nombre    || '').trim();
+        const segundoNombre   = (emp.segundo_nombre   || '').trim();
+        const primerApellido  = (emp.primer_apellido  || '').trim();
         const segundoApellido = (emp.segundo_apellido || '').trim();
 
         // Nombres: "Juan Alejandro" | Apellidos: "Aponte Contreras"
-        const nombresDisplay = [primerNombre, segundoNombre].filter(Boolean).join(' ')
-            || emp.nombres || '';
+        const nombresDisplay   = [primerNombre, segundoNombre].filter(Boolean).join(' ')
+                               || emp.nombres   || '';
         const apellidosDisplay = [primerApellido, segundoApellido].filter(Boolean).join(' ')
-            || emp.apellidos || '';
+                               || emp.apellidos || '';
 
         // Formato de presentación en tabla: "APELLIDOS, Nombres"
         const fullName = apellidosDisplay
@@ -160,8 +155,8 @@ function renderTable(list) {
             : nombresDisplay;
 
         // Presentar cédula con prefijo de nacionalidad para mayor claridad
-        const nac = emp.nacionalidad || 'V';
-        const cedulaRaw = (emp.cedula || '').replace(/[^0-9]/g, ''); // solo dígitos
+        const nac      = emp.nacionalidad || 'V';
+        const cedulaRaw= (emp.cedula || '').replace(/[^0-9]/g, ''); // solo dígitos
         const cedulaDisplay = `${nac}-${cedulaRaw}`;
 
         // Estado del carnet (compatibilidad entre campo nuevo y legado)
@@ -187,16 +182,16 @@ function renderTable(list) {
       <td>
         <select class="badge ${ui.getBadgeClass(estadoCarnet)}"
                 onchange="changeStatus(event,${emp.id})" onclick="event.stopPropagation()"
-                style="border:none;background:transparent;font-weight:600;font-size:.72rem;"
-                ${!puedeEditar ? 'disabled title="Sin permisos de escritura"' : 'style="cursor:pointer;"'}>
+                style="border:none;background:transparent;cursor:pointer;font-weight:600;font-size:.72rem;"
+                ${!isAdmin ? 'disabled' : ''}>
           ${STATUS_OPTIONS.map(s => `<option value="${s}" ${estadoCarnet === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
       </td>
       <td onclick="event.stopPropagation()">
         <select class="form-input form-select"
                 onchange="changeEntrega(event,${emp.id})"
-                style="width:100px;margin:0;padding:4px 6px;font-size:.75rem;"
-                ${!puedeEditar ? 'disabled title="Sin permisos de escritura"' : 'style="cursor:pointer;"'}>
+                style="width:100px;margin:0;padding:4px 6px;font-size:.75rem;cursor:pointer;"
+                ${!isAdmin ? 'disabled' : ''}>
           ${ENTREGA_OPTIONS.map(o => `<option value="${o}" ${(emp.forma_entrega || '') === o ? 'selected' : ''}>${o || 'Sin asignar'}</option>`).join('')}
         </select>
       </td>
@@ -208,12 +203,12 @@ function renderTable(list) {
                   style="padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
             👁️ <span style="font-weight:600;">Consultar</span>
           </button>
-          ${puedeCrearEliminar ? `<button class="btn btn-secondary btn-icon"
+          ${isAdmin ? `<button class="btn btn-secondary btn-icon"
                   onclick="event.stopPropagation();openEditor(${emp.id})" title="Editar"
                   style="padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
             ✏️ <span style="font-weight:600;">Editar</span>
-          </button>` : ''}
-          ${isAdmin ? `<button class="btn btn-icon" title="Eliminar"
+          </button>
+          <button class="btn btn-icon" title="Eliminar"
                   onclick="event.stopPropagation();deleteEmployee(${emp.id})"
                   style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background .15s;"
                   onmouseenter="this.style.background='#fecaca'" onmouseleave="this.style.background='#fee2e2'">
@@ -322,7 +317,7 @@ async function deleteEmployee(id) {
     if (!emp) return;
     // Construir nombre para el mensaje de confirmación
     const apellidos = [emp.primer_apellido, emp.segundo_apellido].filter(Boolean).join(' ') || emp.apellidos || '';
-    const nombres = [emp.primer_nombre, emp.segundo_nombre].filter(Boolean).join(' ') || emp.nombres || '';
+    const nombres   = [emp.primer_nombre,   emp.segundo_nombre  ].filter(Boolean).join(' ') || emp.nombres   || '';
     const nombreCompleto = apellidos ? `${apellidos}, ${nombres}` : nombres;
     if (!confirm(`¿Eliminar al funcionario "${nombreCompleto}"? Esta acción no se puede deshacer.`)) return;
     try {
@@ -438,7 +433,7 @@ function setupModal() {
     });
     document.getElementById('form-new-employee').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn = document.getElementById('btn-modal-save');
+        const btn  = document.getElementById('btn-modal-save');
         const data = Object.fromEntries(new FormData(e.target).entries());
 
         // ── Validación de campos obligatorios ──────────────────────────────────

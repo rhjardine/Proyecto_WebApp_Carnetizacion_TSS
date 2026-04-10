@@ -1,28 +1,27 @@
 <?php
 /**
- * api/auth.php — Autenticación con password_verify, bloqueo, sesión PHP y RBAC
- * =============================================================================
- * SCI-TSS v2.0 — Punto de entrada principal para login desde el frontend.
+ * api/auth.php — Autenticación Principal SCI-TSS (MySQL)
+ * =======================================================
+ * CORRECCIÓN CRÍTICA v2.1:
+ *   - Columnas corregidas al esquema MySQL en español:
+ *       usuario       (no username)
+ *       clave_hash    (no password_hash)
+ *       nombre_completo (no full_name)
+ *       rol           (no role)
+ *       rol_temporal  (no temporary_role)
+ *       bloqueado     (no is_locked)
+ *       intentos_fallidos (no failed_attempts)
+ *   - Se unifica con api/auth/login.php para evitar duplicación.
+ *   - Sin credenciales hardcodeadas.
  *
- * Usa la tabla `usuarios` con columnas reales del esquema migrado:
- *   username, password_hash, full_name, rol, rol_temporal, bloqueado, intentos_fallidos
- *
- * Al login exitoso, persiste en $_SESSION los datos requeridos por auth_check.php.
+ * ENDPOINT: POST api/auth.php
+ * Body JSON: { "username": "admin", "password": "admin123" }
  */
+
+require_once __DIR__ . '/../includes/cors.php';
 require_once __DIR__ . '/../includes/db_mysql.php';
-$pdo = getDB();
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-// ── Sesión PHP (necesaria para auth_check.php) ────────────────────────────────
+// ── Configuración de sesión segura ───────────────────────────
 $isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
 session_set_cookie_params([
     'lifetime' => 0,
@@ -34,114 +33,138 @@ session_set_cookie_params([
 ]);
 session_start();
 
-$method = $_SERVER['REQUEST_METHOD'];
-if ($method !== 'POST') {
-    sendResponse(false, 'Método no permitido', null, 405);
+// ── Solo aceptar POST y OPTIONS ──────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    sendResponse(false, 'Método no permitido.', null, 405);
+}
+
+// ── Leer y validar el cuerpo de la petición ──────────────────
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
 $username = trim($input['username'] ?? '');
 $password = $input['password'] ?? '';
 
 if (empty($username) || empty($password)) {
-    sendResponse(false, 'Credenciales incompletas', null, 400);
-    exit;
+    sendResponse(false, 'Usuario y contraseña son requeridos.', null, 400);
 }
 
 try {
-    // ── Consulta con columnas reales del esquema MySQL migrado ────────────────
-    $stmt = $pdo->prepare(
-        "SELECT id, username, password_hash, full_name,
-                rol AS role, rol_temporal AS temporary_role,
-                bloqueado AS is_locked, intentos_fallidos AS failed_attempts
-         FROM usuarios WHERE username = ? LIMIT 1"
+    $db = getDB();
+
+    // ── Consulta con nombres de columna del esquema MySQL en español ──
+    // CORRECCIÓN: columnas reales de la tabla `usuarios`:
+    //   usuario, clave_hash, nombre_completo, rol, rol_temporal,
+    //   bloqueado, intentos_fallidos
+    $stmt = $db->prepare(
+        "SELECT
+            id,
+            usuario,
+            clave_hash,
+            nombre_completo,
+            rol,
+            rol_temporal,
+            bloqueado,
+            intentos_fallidos
+         FROM usuarios
+         WHERE usuario = ?
+         LIMIT 1"
     );
     $stmt->execute([$username]);
     $user = $stmt->fetch();
 
+    // ── Usuario no encontrado ─────────────────────────────────
     if (!$user) {
-        sendResponse(false, 'Usuario no encontrado', ['locked' => false], 401);
-        exit;
+        // Respuesta genérica para no revelar si el usuario existe
+        sendResponse(false, 'Credenciales inválidas.', ['locked' => false], 401);
     }
 
-    // ── Verificar bloqueo ─────────────────────────────────────────────────────
-    if ($user['is_locked']) {
+    // ── Cuenta bloqueada ──────────────────────────────────────
+    if ((int) $user['bloqueado'] === 1) {
         sendResponse(
             false,
-            'Cuenta bloqueada por seguridad. Contacte al administrador.',
+            'Cuenta bloqueada por seguridad. Contacte al administrador del sistema.',
             ['locked' => true],
             403
         );
-        exit;
     }
 
-    // ── Validar contraseña ────────────────────────────────────────────────────
-    $storedHash = $user['password_hash'];
-    $isHashedBcrypt = (strlen($storedHash) >= 60 && str_starts_with($storedHash, '$2'));
-    $isValid = $isHashedBcrypt
+    // ── Validar contraseña ────────────────────────────────────
+    // Soporte dual: bcrypt ($2y$...) y texto plano (solo desarrollo)
+    $storedHash = $user['clave_hash'];
+    $esBcrypt = strlen($storedHash) >= 60 && str_starts_with($storedHash, '$2');
+    $passwordOk = $esBcrypt
         ? password_verify($password, $storedHash)
-        : ($password === $storedHash);
+        : ($password === $storedHash);  // Solo para entorno dev/demo
 
-    if ($isValid) {
-        // ── Login exitoso ─────────────────────────────────────────────────────
-        $pdo->prepare("UPDATE usuarios SET intentos_fallidos = 0 WHERE id = ?")
+    if ($passwordOk) {
+        // ── Login exitoso ─────────────────────────────────────
+
+        // Resetear contador de intentos fallidos
+        $db->prepare("UPDATE usuarios SET intentos_fallidos = 0 WHERE id = ?")
             ->execute([$user['id']]);
 
-        // Prevención de Session Fixation
+        // Prevenir Session Fixation
         session_regenerate_id(true);
 
-        // Persistir en $_SESSION (requerido por auth_check.php para RBAC)
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];
-        $_SESSION['rol_temporal'] = $user['temporary_role'] ?: null;
-        $_SESSION['nombre'] = $user['full_name'];
+        // Calcular rol efectivo (temporal tiene precedencia absoluta)
+        $rolEfectivo = $user['rol_temporal'] ?: $user['rol'];
 
-        // CSRF token (una sola vez por sesión)
+        // Persistir sesión para auth_check.php
+        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['username'] = $user['usuario'];
+        $_SESSION['role'] = $user['rol'];
+        $_SESSION['rol_temporal'] = $user['rol_temporal'] ?: null;
+        $_SESSION['nombre'] = $user['nombre_completo'];
+
+        // Generar CSRF token una vez por sesión
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
 
-        // Rol efectivo: temporal tiene precedencia sobre base
-        $rolEfectivo = $user['temporary_role'] ?: $user['role'];
-
-        sendResponse(true, 'Login exitoso', [
-            'id' => $user['id'],
-            'username' => $user['username'],
-            'full_name' => $user['full_name'],
-            'role' => $user['role'],
-            'temporary_role' => $user['temporary_role'],
+        sendResponse(true, 'Login exitoso.', [
+            'id' => (int) $user['id'],
+            'username' => $user['usuario'],
+            'full_name' => $user['nombre_completo'],
+            'role' => $user['rol'],
+            'temporary_role' => $user['rol_temporal'],
             'effective_role' => $rolEfectivo,
             'csrf_token' => $_SESSION['csrf_token'],
         ]);
 
     } else {
-        // ── Login fallido: incrementar intentos ───────────────────────────────
-        $newAttempts = $user['failed_attempts'] + 1;
-        $isLocked = ($newAttempts >= 3);
+        // ── Contraseña incorrecta: incrementar intentos ───────
+        $newAttempts = (int) $user['intentos_fallidos'] + 1;
+        $bloquear = $newAttempts >= 3 ? 1 : 0;
 
-        $pdo->prepare("UPDATE usuarios SET intentos_fallidos = ?, bloqueado = ? WHERE id = ?")
-            ->execute([$newAttempts, $isLocked ? 1 : 0, $user['id']]);
+        $db->prepare(
+            "UPDATE usuarios
+             SET intentos_fallidos = ?, bloqueado = ?, actualizado_el = NOW()
+             WHERE id = ?"
+        )->execute([$newAttempts, $bloquear, $user['id']]);
 
-        if ($isLocked) {
+        if ($bloquear) {
             sendResponse(
                 false,
                 'Cuenta bloqueada tras 3 intentos fallidos. Contacte al administrador.',
                 ['locked' => true],
                 403
             );
-        } else {
-            $remaining = 3 - $newAttempts;
-            sendResponse(
-                false,
-                "Contraseña incorrecta. Intentos restantes: {$remaining}",
-                ['locked' => false],
-                401
-            );
         }
+
+        $restantes = 3 - $newAttempts;
+        sendResponse(
+            false,
+            "Contraseña incorrecta. Intentos restantes: {$restantes}.",
+            ['locked' => false],
+            401
+        );
     }
 
 } catch (Exception $e) {
-    sendResponse(false, 'Error de autenticación: ' . $e->getMessage(), null, 500);
+    error_log('[SCI-TSS auth.php] ' . $e->getMessage());
+    sendResponse(false, 'Error interno del servidor. Contacte al administrador.', null, 500);
 }
