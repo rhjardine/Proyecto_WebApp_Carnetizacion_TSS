@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios — SCI-TSS</title>
+    <meta name="description" content="Administración de usuarios del Sistema de Carnetización de la TSS." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .users-page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .page-header h1 {
+            font-size: 1.4rem;
+            color: var(--color-heading, #0f172a);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-create {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: .85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .2s;
+        }
+
+        .btn-create:hover {
+            background: #1d4ed8;
+        }
+
+        .users-table-wrap {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+            overflow: hidden;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .85rem;
+        }
+
+        .users-table th {
+            background: #f8fafc;
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: .72rem;
+            letter-spacing: .5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .users-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .users-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .72rem;
+            font-weight: 700;
+        }
+
+        .badge-admin {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-coord {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-analista {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .badge-usuario {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .badge-consulta {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .badge-locked {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge-active {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .badge-temp {
+            background: #fae8ff;
+            color: #86198f;
+            font-style: italic;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 5px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: .75rem;
+            font-weight: 500;
+            transition: all .2s;
+        }
+
+        .action-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .action-btn.danger {
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .action-btn.danger:hover {
+            background: #fee2e2;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .nav-bar a {
+            color: #2563eb;
+            text-decoration: none;
+            font-size: .85rem;
+            font-weight: 500;
+        }
+
+        .nav-bar a:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, .5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
+        }
+
+        .modal h2 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+
+        .modal .form-group {
+            margin-bottom: 16px;
+        }
+
+        .modal label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .modal input,
+        .modal select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: .85rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-actions .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: .85rem;
+        }
+
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .btn-save {
+            background: #2563eb;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="users-page">
+        <nav class="nav-bar">
+            <a href="dashboard.html">← Dashboard</a>
+            <span style="color:#94a3b8;">|</span>
+            <span style="font-size:.85rem;color:#64748b;">Gestión de Usuarios</span>
+        </nav>
+
+        <div class="page-header">
+            <h1>👥 Gestión de Usuarios</h1>
+            <button class="btn-create" onclick="openCreateModal()">
+                ＋ Crear Usuario
+            </button>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <div class="users-table-wrap">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Nombre Completo</th>
+                        <th>Rol</th>
+                        <th>Rol Temporal</th>
+                        <th>Estado</th>
+                        <th>Intentos</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="users-body">
+                    <tr>
+                        <td colspan="7" class="empty-state">Cargando usuarios...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL: Crear/Editar Usuario -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal">
+            <h2 id="modal-title">Crear Usuario</h2>
+            <form id="user-form">
+                <input type="hidden" id="modal-id" />
+                <input type="hidden" id="modal-action" value="create" />
+                <div class="form-group">
+                    <label for="modal-username">Usuario</label>
+                    <input type="text" id="modal-username" placeholder="Ej: jperez" required />
+                </div>
+                <div class="form-group" id="password-group">
+                    <label for="modal-password">Contraseña</label>
+                    <input type="password" id="modal-password" placeholder="Mínimo 6 caracteres" />
+                </div>
+                <div class="form-group">
+                    <label for="modal-fullname">Nombre Completo</label>
+                    <input type="text" id="modal-fullname" placeholder="Nombre y Apellido" required />
+                </div>
+                <div class="form-group">
+                    <label for="modal-role">Rol</label>
+                    <select id="modal-role">
+                        <option value="USUARIO">USUARIO</option>
+                        <option value="ANALISTA">ANALISTA</option>
+                        <option value="COORD">COORDINADOR</option>
+                        <option value="ADMIN">ADMINISTRADOR</option>
+                        <option value="CONSULTA">CONSULTA</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-save">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="assets/js/api.js"></script>
+    <script>
+        // ── Auth Guard ──────────────────────────────────────────
+        (function () {
+            const user = api.getCurrentUser();
+            if (!user || !user.username) {
+                window.location.href = 'login.html';
+                return;
+            }
+            const role = (user.effective_role || user.role || '').toUpperCase();
+            if (!['ADMIN', 'COORD'].includes(role)) {
+                Swal.fire('Acceso Denegado', 'Solo ADMIN y COORD pueden acceder a esta página.', 'error')
+                    .then(() => window.location.href = 'dashboard.html');
+            }
+        })();
+
+        // ── Load Users ──────────────────────────────────────────
+        async function loadUsers() {
+            const tbody = document.getElementById('users-body');
+            try {
+                const res = await api.getUsers();
+                const users = res.data || [];
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay usuarios registrados.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(u => {
+                    const rolClass = 'badge-' + (u.role || 'usuario').toLowerCase();
+                    const lockBadge = u.is_locked
+                        ? '<span class="badge badge-locked">🔒 Bloqueado</span>'
+                        : '<span class="badge badge-active">✅ Activo</span>';
+                    const tempRole = u.temporary_role
+                        ? `<span class="badge badge-temp">${u.temporary_role}</span>`
+                        : '<span style="color:#94a3b8;">—</span>';
+
+                    return `<tr>
+                        <td><strong>${u.username}</strong></td>
+                        <td>${u.full_name}</td>
+                        <td><span class="badge ${rolClass}">${u.role}</span></td>
+                        <td>${tempRole}</td>
+                        <td>${lockBadge}</td>
+                        <td>${u.failed_attempts}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="action-btn" onclick="openEditModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">✏️ Editar</button>
+                                <button class="action-btn" onclick="changePassword(${u.id})">🔑 Clave</button>
+                                ${u.is_locked ? `<button class="action-btn" onclick="unlockUser(${u.id})">🔓 Desbloquear</button>` : ''}
+                                <button class="action-btn danger" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        // ── Modal Handlers ──────────────────────────────────────
+        function openCreateModal() {
+            document.getElementById('modal-title').textContent = 'Crear Usuario';
+            document.getElementById('modal-action').value = 'create';
+            document.getElementById('modal-id').value = '';
+            document.getElementById('modal-username').value = '';
+            document.getElementById('modal-username').disabled = false;
+            document.getElementById('modal-password').value = '';
+            document.getElementById('modal-fullname').value = '';
+            document.getElementById('modal-role').value = 'USUARIO';
+            document.getElementById('password-group').style.display = 'block';
+            document.getElementById('user-modal').classList.add('active');
+        }
+
+        function openEditModal(user) {
+            document.getElementById('modal-title').textContent = 'Editar Usuario';
+            document.getElementById('modal-action').value = 'edit';
+            document.getElementById('modal-id').value = user.id;
+            document.getElementById('modal-username').value = user.username;
+            document.getElementById('modal-username').disabled = true;
+            document.getElementById('modal-fullname').value = user.full_name;
+            document.getElementById('modal-role').value = user.role;
+            document.getElementById('password-group').style.display = 'none';
+            document.getElementById('user-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('user-modal').classList.remove('active');
+        }
+
+        // ── Form Submit ─────────────────────────────────────────
+        document.getElementById('user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const action = document.getElementById('modal-action').value;
+            const id = document.getElementById('modal-id').value;
+
+            try {
+                if (action === 'create') {
+                    const password = document.getElementById('modal-password').value;
+                    if (!password || password.length < 6) {
+                        Swal.fire('Error', 'La contraseña debe tener al menos 6 caracteres.', 'error');
+                        return;
+                    }
+                    await request('api/users.php', 'POST', {
+                        action: 'create',
+                        username: document.getElementById('modal-username').value.trim(),
+                        password,
+                        full_name: document.getElementById('modal-fullname').value.trim(),
+                        role: document.getElementById('modal-role').value,
+                    });
+                    Swal.fire('Éxito', 'Usuario creado correctamente.', 'success');
+                } else {
+                    await request('api/users.php', 'POST', {
+                        action: 'edit',
+                        id: parseInt(id),
+                        full_name: document.getElementById('modal-fullname').value.trim(),
+                        role: document.getElementById('modal-role').value,
+                    });
+                    Swal.fire('Éxito', 'Usuario actualizado correctamente.', 'success');
+                }
+                closeModal();
+                loadUsers();
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        });
+
+        // ── User Actions ────────────────────────────────────────
+        async function changePassword(id) {
+            const { value: newPass } = await Swal.fire({
+                title: 'Cambiar Contraseña',
+                input: 'password',
+                inputLabel: 'Nueva contraseña (mínimo 6 caracteres)',
+                inputValidator: (val) => { if (!val || val.length < 6) return 'Mínimo 6 caracteres'; },
+                showCancelButton: true,
+                cancelButtonText: 'Cancelar',
+            });
+            if (!newPass) return;
+
+            try {
+                await request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPass });
+                Swal.fire('Éxito', 'Contraseña actualizada.', 'success');
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        }
+
+        async function unlockUser(id) {
+            try {
+                await request('api/users.php', 'POST', { action: 'unlock', id });
+                Swal.fire('Éxito', 'Cuenta desbloqueada.', 'success');
+                loadUsers();
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        }
+
+        async function deleteUser(id, username) {
+            const result = await Swal.fire({
+                title: `¿Eliminar a "${username}"?`,
+                text: 'Esta acción no se puede deshacer.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+            });
+            if (!result.isConfirmed) return;
+
+            try {
+                await request('api/users.php', 'POST', { action: 'delete', id });
+                Swal.fire('Eliminado', `Usuario "${username}" eliminado.`, 'success');
+                loadUsers();
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        }
+
+        // ── Init ────────────────────────────────────────────────
+        loadUsers();
+    </script>
+</body>
+
+</html>

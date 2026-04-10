@@ -1,38 +1,40 @@
-# Apache Configuration for Carnetización TSS
+# ============================================================
+# SCI-TSS .htaccess — Configuración Apache para php-app/
+# ============================================================
+# CORREGIDO v2.2: Eliminado <DirectoryMatch> (no permitido en .htaccess)
 
-# 1. Enable Rewrite Engine for clean URLs (if needed for the API later)
+# 1. Enable Rewrite Engine
 RewriteEngine On
 
 # 2. Prevent directory listing (Security)
 Options -Indexes
 
-# 3. Protect sensitive files and directories
+# 3. Protect sensitive files (dotfiles, SQL, env, config)
 <FilesMatch "^\.">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </FilesMatch>
 
-<FilesMatch "^(schema\.sql|config\.php|\.env)$">
-    Order allow,deny
-    Deny from all
+<FilesMatch "\.(sql|env|ini|log|bak|rar|zip)$">
+    Require all denied
 </FilesMatch>
 
-# Protect the 'db' and 'api' directories from direct web access if they contain sensitive logic
-<DirectoryMatch "^.*/(db|config)/.*$">
-    Order allow,deny
-    Deny from all
-</DirectoryMatch>
+# 4. Protect sensitive directories via Rewrite (since DirectoryMatch not allowed here)
+# Block direct access to db/, config/, includes/ directories
+RewriteRule ^db/ - [F,L]
+RewriteRule ^includes/ - [F,L]
+RewriteRule ^api/config/ - [F,L]
 
-# 4. Handle CORS if the API logic needs to be accessed cross-origin (optional, but good practice)
+# 5. Handle CORS headers
 <IfModule mod_headers.c>
-    # Note: Adjust Access-Control-Allow-Origin in production to your specific domain
     Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token"
+    Header set Access-Control-Allow-Credentials "true"
 </IfModule>
 
-# 5. Routing for a Single Page Application (SPA) approach (Optional, depending on how index.html handles routing)
-# If you want all non-file/non-dir requests to go to index.html:
-# RewriteCond %{REQUEST_FILENAME} !-f
-# RewriteCond %{REQUEST_FILENAME} !-d
-# RewriteRule ^(.*)$ index.html [QSA,L]
+# 6. PHP settings for uploads
+<IfModule mod_php.c>
+    php_value upload_max_filesize 12M
+    php_value post_max_size 14M
+    php_value max_execution_time 30
+</IfModule>
