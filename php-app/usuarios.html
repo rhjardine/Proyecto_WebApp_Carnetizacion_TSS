@@ -274,8 +274,16 @@
 </head>
 
 <body>
+    <script>
+        if (window.location.search.includes('hideNav=true')) {
+            document.addEventListener('DOMContentLoaded', () => {
+                const nav = document.getElementById('top-nav-bar');
+                if (nav) nav.style.display = 'none';
+            });
+        }
+    </script>
     <div class="users-page">
-        <nav class="nav-bar">
+        <nav class="nav-bar" id="top-nav-bar">
             <a href="dashboard.html">← Dashboard</a>
             <span style="color:#94a3b8;">|</span>
             <span style="font-size:.85rem;color:#64748b;">Gestión de Usuarios</span>
