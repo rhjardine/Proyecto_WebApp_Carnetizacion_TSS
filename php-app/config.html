@@ -106,6 +106,9 @@
                 <a href="editor.html" class="nav-link" id="nav-editor">
                     <span class="icon">🪪</span> Editor de Carnet
                 </a>
+                <a href="usuarios.html" class="nav-link" id="nav-users" style="display:none;">
+                    <span class="icon">👥</span> Usuarios
+                </a>
                 <a href="config.html" class="nav-link active" id="nav-config" style="display:none;">
                     <span class="icon">⚙️</span> Ajustes
                 </a>
@@ -208,6 +211,7 @@
 
             // UI Init
             document.getElementById('nav-config').style.display = 'flex';
+            document.getElementById('nav-users').style.display = 'flex';
             document.getElementById('user-name').textContent = user.full_name || user.username;
             document.getElementById('user-role').textContent = user.effective_role || user.role;
             const initials = (user.full_name || user.username).substring(0, 2).toUpperCase();

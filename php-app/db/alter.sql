@@ -10,3 +10,9 @@ ALTER TABLE usuarios
     ADD COLUMN rol_temporal_expira_en TIMESTAMP NULL AFTER rol_temporal,
     ADD COLUMN clave_ultima_rotacion DATE DEFAULT (CURRENT_DATE) AFTER clave_hash,
     ADD COLUMN requiere_cambio_clave TINYINT(1) DEFAULT 0 AFTER clave_ultima_rotacion;
+
+-- Empleados: alinear tipo de foto + nivel de permiso requerido por frontend
+ALTER TABLE empleados
+    MODIFY COLUMN foto_url VARCHAR(1000) NULL DEFAULT NULL
+    COMMENT 'URL pública o data:image/...;base64,... para preproducción',
+    ADD COLUMN IF NOT EXISTS nivel_permiso VARCHAR(50) NOT NULL DEFAULT 'Nivel 1' AFTER foto_ruta;

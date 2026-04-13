@@ -41,7 +41,7 @@ const ESTADOS_VALIDOS  = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet En
 const FORMAS_ENTREGA   = ['', 'Manual', 'Digital'];
 const CAMPOS_EDITABLES = [
     'primer_nombre', 'segundo_nombre', 'primer_apellido', 'segundo_apellido',
-    'cargo', 'estado_laboral', 'forma_entrega',
+    'cargo', 'estado_laboral', 'forma_entrega', 'nivel_permiso',
 ];
 
 try {
@@ -298,6 +298,7 @@ try {
             $segundoNombre   = trim($input['segundo_nombre']   ?? '') ?: null;
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
             $fechaIngreso    = trim($input['fecha_ingreso']    ?? '');
+            $nivelPermiso    = trim($input['nivel_permiso']    ?? 'Nivel 1') ?: 'Nivel 1';
 
             // ── Validaciones ─────────────────────────────────────────
             if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10) {
@@ -341,13 +342,13 @@ try {
                 INSERT INTO empleados
                     (nacionalidad, cedula, primer_nombre, segundo_nombre,
                      primer_apellido, segundo_apellido, cargo, gerencia_id,
-                     fecha_ingreso, estado_laboral, estado_carnet)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')
+                     fecha_ingreso, estado_laboral, estado_carnet, nivel_permiso)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir', ?)
             ");
             $stmt->execute([
                 $nac, $cedula, $primerNombre, $segundoNombre,
                 $primerApellido, $segundoApellido, $cargo,
-                $gerenciaId, $fechaFinal,
+                $gerenciaId, $fechaFinal, $nivelPermiso,
             ]);
             $newId = $db->lastInsertId();
 

@@ -108,6 +108,21 @@ async function request(url, method = 'GET', body = null) {
     }
 
     if (!result.success) {
+        if (result.requires_password_change) {
+            try {
+                const current = api.getCurrentUser();
+                if (current && current.username) {
+                    current.requires_password_change = true;
+                    sessionStorage.setItem('current_user', JSON.stringify(current));
+                }
+            } catch (_) { /* noop */ }
+
+            const onForcePasswordPage = window.location.pathname.endsWith('/force-password-change.html')
+                || window.location.pathname.endsWith('force-password-change.html');
+            if (!onForcePasswordPage) {
+                window.location.href = 'force-password-change.html';
+            }
+        }
         throw new Error(result.message || 'Error en la petición al servidor.');
     }
 
@@ -184,12 +199,17 @@ const api = {
 
     // ── USUARIOS / DELEGACIÓN ─────────────────────────────────
     getUsers: async () => request('api/users.php'),
+    manageUser: async (action, payload = {}) =>
+        request('api/users.php', 'POST', { action, ...payload }),
 
     delegateRole: async (username, tempRole, delegatedBy) =>
         request('api/users.php', 'POST', { action: 'delegate', username, tempRole, delegatedBy }),
 
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
+
+    forcePasswordChange: async (current_password, new_password) =>
+        request('api/auth/force-password-change.php', 'POST', { current_password, new_password }),
 
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),
@@ -223,14 +243,16 @@ const api = {
 
     createEmployee: async (data) => {
         const payload = { ...data };
+        const hasNameParts = Boolean(String(payload.primer_nombre || '').trim());
+        const hasLastNameParts = Boolean(String(payload.primer_apellido || '').trim());
 
-        if (payload.nombres && !payload.primer_nombre) {
+        if (payload.nombres && !hasNameParts) {
             const partes = String(payload.nombres).trim().split(/\s+/);
             payload.primer_nombre = partes[0] || '';
             payload.segundo_nombre = partes.slice(1).join(' ') || null;
             delete payload.nombres;
         }
-        if (payload.apellidos && !payload.primer_apellido) {
+        if (payload.apellidos && !hasLastNameParts) {
             const partes = String(payload.apellidos).trim().split(/\s+/);
             payload.primer_apellido = partes[0] || '';
             payload.segundo_apellido = partes.slice(1).join(' ') || null;
