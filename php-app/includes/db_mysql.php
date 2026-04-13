@@ -14,14 +14,7 @@
  */
 
 // ── CONFIGURACIÓN DE CONEXIÓN ────────────────────────────────
-// ⚠️  En producción: cargar desde variables de entorno o archivo .env
-//     (nunca hardcodear credenciales en código fuente).
-define('DB_HOST',    getenv('DB_HOST')    ?: 'localhost');
-define('DB_PORT',    getenv('DB_PORT')    ?: '3306');
-define('DB_NAME',    getenv('DB_NAME')    ?: 'carnetizacion_tss');
-define('DB_USER',    getenv('DB_USER')    ?: 'root');
-define('DB_PASS',    getenv('DB_PASS')    ?: '');      // Cambiar en producción
-define('DB_CHARSET', 'utf8mb4');
+require_once __DIR__ . '/config.php';
 
 /**
  * getDB() — Singleton de conexión PDO a MySQL.
@@ -47,9 +40,9 @@ function getDB(): PDO
         );
 
         $opciones = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,   // Excepciones en lugar de error silencioso
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,   // Excepciones en lugar de error silencioso
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,          // Arrays asociativos por defecto
-            PDO::ATTR_EMULATE_PREPARES   => false,                     // Prepared statements nativos del motor (más seguro)
+            PDO::ATTR_EMULATE_PREPARES => false,                     // Prepared statements nativos del motor (más seguro)
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci", // Forzar charset en sesión
         ];
 
@@ -120,9 +113,9 @@ function logAction(PDO $db, ?int $userId, string $accion, array $detalles = []):
 {
     try {
         // Enriquecer automáticamente con metadata de red
-        $detalles['_ip']         = $_SERVER['REMOTE_ADDR']     ?? null;
-        $detalles['_userAgent']  = $_SERVER['HTTP_USER_AGENT'] ?? null;
-        $detalles['_timestamp']  = date('c');  // ISO 8601
+        $detalles['_ip'] = $_SERVER['REMOTE_ADDR'] ?? null;
+        $detalles['_userAgent'] = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        $detalles['_timestamp'] = date('c');  // ISO 8601
 
         $stmt = $db->prepare(
             'INSERT INTO auditoria_logs
@@ -133,10 +126,10 @@ function logAction(PDO $db, ?int $userId, string $accion, array $detalles = []):
 
         $stmt->execute([
             ':usuario_id' => $userId,
-            ':accion'     => strtoupper(substr($accion, 0, 50)),
-            ':detalles'   => json_encode($detalles, JSON_UNESCAPED_UNICODE),
-            ':ip'         => substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45),
-            ':ua'         => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
+            ':accion' => strtoupper(substr($accion, 0, 50)),
+            ':detalles' => json_encode($detalles, JSON_UNESCAPED_UNICODE),
+            ':ip' => substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45),
+            ':ua' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
         ]);
 
     } catch (Exception $e) {

@@ -1,0 +1,21 @@
+<?php
+/**
+ * includes/config.php.dist — Plantilla de Configuración SCI-TSS
+ * ============================================================
+ * Copie este archivo a config.php y ajuste sus credenciales.
+ */
+
+define('DB_HOST',    'localhost');
+define('DB_PORT',    '3306');
+define('DB_NAME',    'carnetizacion_tss');
+define('DB_USER',    'root');
+define('DB_PASS',    '');
+define('DB_CHARSET', 'utf8mb4');
+
+define('ENFORCE_CSRF', true);
+define('ENFORCE_HTTPS', false);
+define('SESSION_LIFETIME', 0);
+define('SESSION_SECURE', false);
+
+define('APP_NAME', 'SCI-TSS');
+define('APP_VERSION', '2.4.0');

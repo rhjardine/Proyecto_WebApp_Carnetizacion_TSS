@@ -174,7 +174,10 @@ function renderTable(list) {
 
         // Estado del carnet (compatibilidad entre campo nuevo y legado)
         const estadoCarnet = emp.estado_carnet || emp.status || 'Pendiente por Imprimir';
-        const photoSrc = emp.photo_url || emp.foto_url || makeAvatar(`${nombresDisplay} ${apellidosDisplay}`);
+
+        // Iniciales para el avatar (Primer Nombre + Primer Apellido)
+        const avatarNames = [primerNombre, primerApellido].filter(Boolean).join(' ') || fullName;
+        const photoSrc = emp.photo_url || emp.foto_url || makeAvatar(avatarNames);
 
         return `
     <tr data-id="${emp.id}" onclick="openEditor(${emp.id})">
