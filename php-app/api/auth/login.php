@@ -12,9 +12,9 @@ require_once __DIR__ . '/../../includes/cors.php';
 require_once __DIR__ . '/../../includes/db_mysql.php';
 
 // ── Configuración de sesión segura ───────────────────────────
-$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+$isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
 session_set_cookie_params([
-    'lifetime' => 0,
+    'lifetime' => SESSION_LIFETIME,
     'path' => '/',
     'domain' => '',
     'secure' => $isSecure,
@@ -57,7 +57,9 @@ try {
             rol,
             rol_temporal,
             bloqueado,
-            intentos_fallidos
+            intentos_fallidos,
+            requiere_cambio_clave,
+            clave_ultima_rotacion
          FROM usuarios
          WHERE usuario = ?
          LIMIT 1"
@@ -82,9 +84,15 @@ try {
 
     $storedHash = $user['clave_hash'];
     $esBcrypt = strlen($storedHash) >= 60 && str_starts_with($storedHash, '$2');
-    $passwordOk = $esBcrypt
-        ? password_verify($password, $storedHash)
-        : ($password === $storedHash);
+
+    if (!$esBcrypt) {
+        error_log("[SCI-TSS SECURITY] Usuario {$username} tiene hash no-bcrypt en BD.");
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Error de seguridad en credenciales.']);
+        exit;
+    }
+
+    $passwordOk = password_verify($password, $storedHash);
 
     if (!$passwordOk) {
         $newAttempts = (int) $user['intentos_fallidos'] + 1;
@@ -119,6 +127,10 @@ try {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 
+    $diffDays = (time() - strtotime($user['clave_ultima_rotacion'])) / 86400;
+    $passwordExpired = $diffDays > PASS_ROTATION_DAYS;
+    $mustChange = (int) $user['requiere_cambio_clave'] === 1 || $passwordExpired;
+
     echo json_encode([
         'success' => true,
         'message' => 'Login exitoso.',
@@ -130,6 +142,7 @@ try {
             'role' => $user['rol'],
             'temporary_role' => $user['rol_temporal'],
             'effective_role' => $rolEfectivo,
+            'requires_password_change' => $mustChange
         ],
     ]);
 

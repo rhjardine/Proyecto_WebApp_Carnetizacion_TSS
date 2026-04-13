@@ -79,7 +79,23 @@ async function init() {
     } else {
       btnDelete.addEventListener('click', async () => {
         if (!employee) return;
-        if (!confirm(`¿Eliminar permanentemente a "${employee.apellidos}, ${employee.nombres}"?`)) return;
+        const nombreCompleto = `${employee.apellidos}, ${employee.nombres}`;
+        if (typeof Swal !== 'undefined') {
+          const result = await Swal.fire({
+            title: '¿Confirmar eliminación?',
+            text: `¿Eliminar permanentemente a "${nombreCompleto}"?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+          });
+          if (!result.isConfirmed) return;
+        } else {
+          if (!confirm(`¿Eliminar permanentemente a "${nombreCompleto}"?`)) return;
+        }
+
         try {
           await api.deleteEmployee(employee.id);
           showEditorToast('Funcionario eliminado.', 'success');
@@ -197,12 +213,12 @@ async function populateGerenciaSelect() {
 
 function renderDetails() {
   // ── Construir nombre completo desde campos disgregados del nuevo esquema MySQL ──
-  const primerNombre    = (employee.primer_nombre    || employee.nombres?.split(' ')[0]   || '').trim();
-  const segundoNombre   = (employee.segundo_nombre   || employee.nombres?.split(' ').slice(1).join(' ') || '').trim();
-  const primerApellido  = (employee.primer_apellido  || employee.apellidos?.split(' ')[0]  || '').trim();
+  const primerNombre = (employee.primer_nombre || employee.nombres?.split(' ')[0] || '').trim();
+  const segundoNombre = (employee.segundo_nombre || employee.nombres?.split(' ').slice(1).join(' ') || '').trim();
+  const primerApellido = (employee.primer_apellido || employee.apellidos?.split(' ')[0] || '').trim();
   const segundoApellido = (employee.segundo_apellido || employee.apellidos?.split(' ').slice(1).join(' ') || '').trim();
 
-  const nombresCompletos   = [primerNombre,   segundoNombre  ].filter(Boolean).join(' ');
+  const nombresCompletos = [primerNombre, segundoNombre].filter(Boolean).join(' ');
   const apellidosCompletos = [primerApellido, segundoApellido].filter(Boolean).join(' ');
 
   const sub = document.getElementById('editor-subtitle');
@@ -214,23 +230,23 @@ function renderDetails() {
   };
 
   // Campos disgregados (nuevo esquema)
-  set('edit-primer-nombre',    primerNombre);
-  set('edit-segundo-nombre',   segundoNombre);
-  set('edit-primer-apellido',  primerApellido);
+  set('edit-primer-nombre', primerNombre);
+  set('edit-segundo-nombre', segundoNombre);
+  set('edit-primer-apellido', primerApellido);
   set('edit-segundo-apellido', segundoApellido);
 
   // Campos de compatibilidad (para formularios que aún usan nombres/apellidos compuestos)
-  set('edit-nombres',   nombresCompletos);
+  set('edit-nombres', nombresCompletos);
   set('edit-apellidos', apellidosCompletos);
 
   // Cédula: mostrar solo el valor numérico (el prefijo V/E viene de nacionalidad)
   const cedulaNum = (employee.cedula || '').replace(/[^0-9]/g, '');
   set('edit-cedula', cedulaNum);
 
-  set('edit-cargo',        employee.cargo);
-  set('edit-gerencia',     employee.gerencia);
+  set('edit-cargo', employee.cargo);
+  set('edit-gerencia', employee.gerencia);
   set('edit-nacionalidad', employee.nacionalidad || 'V');
-  set('edit-nivel-permiso',employee.nivel_permiso || 'Nivel 1');
+  set('edit-nivel-permiso', employee.nivel_permiso || 'Nivel 1');
 
   const btnR = document.getElementById('btn-remove-photo');
   const hasPhoto = !!(employee.photo_url || employee.foto_url);
@@ -315,7 +331,7 @@ const _headerBg = () => customBackground
  * Prioriza primer_nombre + segundo_nombre sobre el campo legacy 'nombres'.
  */
 const _nombres = (emp) => {
-  const pn = (emp.primer_nombre  || '').trim();
+  const pn = (emp.primer_nombre || '').trim();
   const sn = (emp.segundo_nombre || '').trim();
   return [pn, sn].filter(Boolean).join(' ') || emp.nombres || '';
 };
@@ -325,7 +341,7 @@ const _nombres = (emp) => {
  * Prioriza primer_apellido + segundo_apellido sobre el campo legacy 'apellidos'.
  */
 const _apellidos = (emp) => {
-  const pa = (emp.primer_apellido  || '').trim();
+  const pa = (emp.primer_apellido || '').trim();
   const sa = (emp.segundo_apellido || '').trim();
   return [pa, sa].filter(Boolean).join(' ') || emp.apellidos || '';
 };
@@ -376,9 +392,9 @@ const _footerInstitucional = (height = 9) => `
 
 // ── ANVERSO HORIZONTAL ────────────────────────────────────────────────────────
 function card2025Horizontal(photo, qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
   ${_headerInstitucional()}
@@ -414,9 +430,9 @@ function card2025Horizontal(photo, qrSrc) {
 
 // ── ANVERSO VERTICAL ──────────────────────────────────────────────────────────
 function card2025Vertical(photo, qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
   ${_headerInstitucionalVertical()}
@@ -446,9 +462,9 @@ function card2025Vertical(photo, qrSrc) {
 
 // ── REVERSO HORIZONTAL ────────────────────────────────────────────────────────
 function cardReversoHorizontal(qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print-reverso" style="width:520px;aspect-ratio:86/54;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
   <div style="${_headerBg()}height:30px;display:flex;align-items:center;justify-content:center;">
@@ -491,9 +507,9 @@ function cardReversoHorizontal(qrSrc) {
 
 // ── REVERSO VERTICAL ──────────────────────────────────────────────────────────
 function cardReversoVertical(qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print-reverso" style="width:320px;height:506px;font-family:Inter,'Segoe UI',sans-serif;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;">
   <div style="${_headerBg()}padding:9px 14px;text-align:center;">
@@ -537,9 +553,9 @@ function cardReversoVertical(qrSrc) {
 
 // ── CLÁSICO HORIZONTAL ────────────────────────────────────────────────────────
 function cardClassic(photo, qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print" style="width:520px;aspect-ratio:86/54;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
   <div style="${_headerBg()}height:44px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;">
@@ -584,9 +600,9 @@ function cardClassic(photo, qrSrc) {
 
 // ── CLÁSICO VERTICAL ──────────────────────────────────────────────────────────
 function cardClassicVertical(photo, qrSrc) {
-  const nombres   = _nombres(employee);
+  const nombres = _nombres(employee);
   const apellidos = _apellidos(employee);
-  const cedula    = _cedula(employee);
+  const cedula = _cedula(employee);
 
   return `<div id="id-card-print" style="width:320px;height:506px;font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;">
   ${_headerInstitucionalVertical()}
@@ -660,14 +676,14 @@ function setupInlineEdit() {
     const btn = document.getElementById('btn-save-fields');
 
     // ── Recopilar campos disgregados (nuevo esquema MySQL) ──
-    const primerNombre    = (document.getElementById('edit-primer-nombre')?.value    || document.getElementById('edit-nombres')?.value?.split(' ')[0]   || '').trim();
-    const segundoNombre   = (document.getElementById('edit-segundo-nombre')?.value   || document.getElementById('edit-nombres')?.value?.split(' ').slice(1).join(' ') || '').trim();
-    const primerApellido  = (document.getElementById('edit-primer-apellido')?.value  || document.getElementById('edit-apellidos')?.value?.split(' ')[0]  || '').trim();
+    const primerNombre = (document.getElementById('edit-primer-nombre')?.value || document.getElementById('edit-nombres')?.value?.split(' ')[0] || '').trim();
+    const segundoNombre = (document.getElementById('edit-segundo-nombre')?.value || document.getElementById('edit-nombres')?.value?.split(' ').slice(1).join(' ') || '').trim();
+    const primerApellido = (document.getElementById('edit-primer-apellido')?.value || document.getElementById('edit-apellidos')?.value?.split(' ')[0] || '').trim();
     const segundoApellido = (document.getElementById('edit-segundo-apellido')?.value || document.getElementById('edit-apellidos')?.value?.split(' ').slice(1).join(' ') || '').trim();
-    const cargo           = (document.getElementById('edit-cargo')?.value           || '').trim();
-    const gerencia        = (document.getElementById('edit-gerencia')?.value        || '').trim();
-    const nacionalidad    = (document.getElementById('edit-nacionalidad')?.value    || 'V').trim();
-    const nivelPermiso    = (document.getElementById('edit-nivel-permiso')?.value   || '').trim();
+    const cargo = (document.getElementById('edit-cargo')?.value || '').trim();
+    const gerencia = (document.getElementById('edit-gerencia')?.value || '').trim();
+    const nacionalidad = (document.getElementById('edit-nacionalidad')?.value || 'V').trim();
+    const nivelPermiso = (document.getElementById('edit-nivel-permiso')?.value || '').trim();
 
     // ── Validación de campos obligatorios ──
     if (!primerNombre || !primerApellido || !cargo || !gerencia) {
@@ -676,12 +692,12 @@ function setupInlineEdit() {
     }
 
     const fields = {
-      primer_nombre:    primerNombre,
-      segundo_nombre:   segundoNombre   || null,
-      primer_apellido:  primerApellido,
+      primer_nombre: primerNombre,
+      segundo_nombre: segundoNombre || null,
+      primer_apellido: primerApellido,
       segundo_apellido: segundoApellido || null,
       // Campos compuestos para compatibilidad con backend legado
-      nombres:   [primerNombre,   segundoNombre  ].filter(Boolean).join(' '),
+      nombres: [primerNombre, segundoNombre].filter(Boolean).join(' '),
       apellidos: [primerApellido, segundoApellido].filter(Boolean).join(' '),
       cargo,
       gerencia,

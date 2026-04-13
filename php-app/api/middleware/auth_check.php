@@ -22,9 +22,9 @@
 require_once __DIR__ . '/../../includes/db_mysql.php';
 
 // ── Session Hardening ────────────────────────────────────────
-$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+$isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
 session_set_cookie_params([
-    'lifetime' => 0,
+    'lifetime' => SESSION_LIFETIME,
     'path' => '/',
     'domain' => '',
     'secure' => $isSecure,
@@ -39,69 +39,123 @@ if (session_status() === PHP_SESSION_NONE) {
 
 header('Content-Type: application/json; charset=utf-8');
 
-// ── 1. VERIFICAR SESIÓN ACTIVA ───────────────────────────────
-if (empty($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode([
-        'success' => false,
-        'message' => 'No autorizado. Por favor inicie sesión.',
-    ]);
-    exit;
-}
+try {
+    $db = getDB();
 
-// ── 2. CALCULAR ROL EFECTIVO (Zero Trust) ────────────────────
-// rol_temporal tiene PRECEDENCIA ABSOLUTA sobre rol base.
-$rolBase = $_SESSION['role'] ?? 'CONSULTA';
-$rolTemporal = $_SESSION['rol_temporal'] ?? null;
-$rolEfectivo = $rolTemporal ?: $rolBase;
+    // ── 1. VERIFICAR SESIÓN Y CARGAR DATOS FRESCOS (Zero Trust) ──
+    if (empty($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'No autorizado.']);
+        exit;
+    }
 
-$method = strtoupper($_SERVER['REQUEST_METHOD']);
-$metodosMutantes = ['POST', 'PATCH', 'PUT', 'DELETE'];
-$esMutante = in_array($method, $metodosMutantes, true);
+    $stmt = $db->prepare("SELECT id, usuario, rol, rol_temporal, rol_temporal_expira_en, requiere_cambio_clave, clave_ultima_rotacion FROM usuarios WHERE id = ? LIMIT 1");
+    $stmt->execute([$_SESSION['user_id']]);
+    $user = $stmt->fetch();
 
-// ── 3. RBAC: BLOQUEAR ROL CONSULTA EN ESCRITURA ──────────────
-if ($esMutante && $rolEfectivo === 'CONSULTA') {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Acceso denegado. El rol CONSULTA no tiene permisos de escritura.',
-        'rol_efectivo' => $rolEfectivo,
-    ]);
-    exit;
-}
+    if (!$user) {
+        session_destroy();
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Usuario no encontrado. Sesión cerrada.']);
+        exit;
+    }
 
-// ── 4. VALIDACIÓN CSRF ───────────────────────────────────────
-// Solo en métodos mutantes. GET es idempotente y no requiere CSRF.
-if ($esMutante) {
-    $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    $sessionToken = $_SESSION['csrf_token'] ?? '';
+    // ── 2. VALIDAR EXPIRACIÓN DE ROL TEMPORAL ────────────────────
+    $rolEfectivo = $user['rol'];
+    if ($user['rol_temporal']) {
+        $expira = $user['rol_temporal_expira_en'] ? strtotime($user['rol_temporal_expira_en']) : null;
+        if ($expira && $expira < time()) {
+            // Rol expirado → Limpiar en BD y usar rol base
+            $db->prepare("UPDATE usuarios SET rol_temporal = NULL, rol_temporal_expira_en = NULL, delegado_por = NULL WHERE id = ?")
+                ->execute([$user['id']]);
+            $_SESSION['rol_temporal'] = null;
+        } else {
+            $rolEfectivo = $user['rol_temporal'];
+        }
+    }
 
-    // En entorno de desarrollo local sin CSRF configurado, loguear advertencia
-    // pero no bloquear (comentar esta lógica en producción y descomentar el bloqueo)
-    if (!empty($sessionToken)) {
-        if (empty($headerToken)) {
-            // DESARROLLO: advertir pero continuar
-            // PRODUCCIÓN: descomentar las 5 líneas siguientes y eliminar el error_log
-            error_log('[SCI-TSS CSRF] Token ausente para ' . ($_SESSION['username'] ?? 'unknown'));
-            // http_response_code(403);
-            // echo json_encode(['success' => false, 'message' => 'CSRF token ausente.']);
-            // exit;
-        } elseif (!hash_equals($sessionToken, $headerToken)) {
+    // ── 3. POLÍTICAS DE CONTRASEÑA ───────────────────────────────
+    $diffDays = (time() - strtotime($user['clave_ultima_rotacion'])) / 86400;
+    $passwordExpired = $diffDays > PASS_ROTATION_DAYS;
+    $mustChange = (int) $user['requiere_cambio_clave'] === 1 || $passwordExpired;
+
+    // Permitir SOLO cambiar contraseña si debe hacerlo
+    $currentUri = $_SERVER['REQUEST_URI'];
+    if ($mustChange && strpos($currentUri, 'action=change_password') === false && strpos($currentUri, 'force-password-change.php') === false && strpos($currentUri, 'auth/logout.php') === false) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'requires_password_change' => true,
+            'message' => $passwordExpired ? 'Su contraseña ha expirado (90 días). Debe cambiarla.' : 'Debe cambiar su contraseña antes de continuar.'
+        ]);
+        exit;
+    }
+
+    // ── 4. MATRIZ DE ROLES (RBAC v2.6) ───────────────────────────
+    $method = strtoupper($_SERVER['REQUEST_METHOD']);
+    $metodosMutantes = ['POST', 'PATCH', 'PUT', 'DELETE'];
+    $esMutante = in_array($method, $metodosMutantes, true);
+
+    if ($esMutante) {
+        $denied = false;
+        $msg = 'Acceso denegado.';
+
+        switch ($rolEfectivo) {
+            case 'CONSULTA':
+                $denied = true;
+                $msg = 'El rol CONSULTA no tiene permisos de escritura.';
+                break;
+            case 'USUARIO':
+                // Solo lectura o CRUD limitado (se valida en el endpoint específico)
+                break;
+            case 'ANALISTA':
+                // No puede gestionar usuarios ni delegar
+                if (strpos($currentUri, 'api/users.php') !== false)
+                    $denied = true;
+                break;
+            case 'COORD':
+                // Puede delegar pero no gestionar usuarios base
+                if (strpos($currentUri, 'api/users.php') !== false) {
+                    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+                    $action = $body['action'] ?? $_GET['action'] ?? '';
+                    if (!in_array($action, ['delegate', 'revoke']))
+                        $denied = true;
+                }
+                break;
+            case 'ADMIN':
+                // Acceso total
+                break;
+        }
+
+        if ($denied) {
             http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'CSRF token inválido.']);
+            echo json_encode(['success' => false, 'message' => $msg]);
             exit;
         }
     }
-}
 
-// ── 5. CONTEXTO DE USUARIO AUTENTICADO ──────────────────────
-// Disponible como $authUser en todos los controladores.
-// REGLA: Usar SIEMPRE $authUser['rol_efectivo'] para permisos.
-$authUser = [
-    'id' => (int) ($_SESSION['user_id'] ?? 0),
-    'username' => $_SESSION['username'] ?? '',
-    'nombre' => $_SESSION['nombre'] ?? '',
-    'rol' => $rolBase,
-    'rol_temporal' => $rolTemporal,
-    'rol_efectivo' => $rolEfectivo,
-];
+    // ── 5. VALIDACIÓN CSRF ───────────────────────────────────────
+    if ($esMutante && ENFORCE_CSRF) {
+        $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        if (empty($sessionToken) || !hash_equals($sessionToken, $headerToken)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+            exit;
+        }
+    }
+
+    $authUser = [
+        'id' => (int) $user['id'],
+        'username' => $user['usuario'],
+        'rol_base' => $user['rol'],
+        'rol_temporal' => $user['rol_temporal'],
+        'rol_efectivo' => $rolEfectivo,
+        'must_change_password' => $mustChange
+    ];
+
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Error de seguridad middleware.']);
+    exit;
+}

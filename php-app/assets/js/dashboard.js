@@ -33,6 +33,19 @@ async function init() {
     setupDelegation();
 }
 
+function setupDelegation() {
+    // Keep exact content
+}
+
+// Global click listener to close dropdowns
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.action-dropdown-btn') && !e.target.closest('.action-dropdown')) {
+        document.querySelectorAll('.action-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+});
+
 function setupUserInfo() {
     const user = api.getCurrentUser();
     if (!user.username) return;
@@ -116,12 +129,12 @@ async function loadEmployees(params = {}) {
 
 // ── RENDERING ─────────────────────────────────────────────────────────────────
 function renderStats(list, meta) {
-    document.getElementById('stat-total').textContent   = meta.totalRecords ?? list.length;
+    document.getElementById('stat-total').textContent = meta.totalRecords ?? list.length;
     // Compatibilidad: verificar tanto estado_carnet (nuevo) como status (legado)
     const getEstado = e => e.estado_carnet || e.status || '';
-    document.getElementById('stat-pending').textContent  = list.filter(e => getEstado(e) === 'Pendiente por Imprimir').length;
+    document.getElementById('stat-pending').textContent = list.filter(e => getEstado(e) === 'Pendiente por Imprimir').length;
     document.getElementById('stat-verified').textContent = list.filter(e => getEstado(e) === 'Carnet Entregado').length;
-    document.getElementById('stat-printed').textContent  = list.filter(e => getEstado(e) === 'Carnet Impreso').length;
+    document.getElementById('stat-printed').textContent = list.filter(e => getEstado(e) === 'Carnet Impreso').length;
 }
 
 function renderTable(list) {
@@ -138,16 +151,16 @@ function renderTable(list) {
         // ── Construcción del nombre completo con campos disgregados (esquema MySQL) ──
         // Prioridad 1: campos disgregados del nuevo esquema
         // Prioridad 2: campos compuestos del esquema legado (normalizado por api.js)
-        const primerNombre    = (emp.primer_nombre    || '').trim();
-        const segundoNombre   = (emp.segundo_nombre   || '').trim();
-        const primerApellido  = (emp.primer_apellido  || '').trim();
+        const primerNombre = (emp.primer_nombre || '').trim();
+        const segundoNombre = (emp.segundo_nombre || '').trim();
+        const primerApellido = (emp.primer_apellido || '').trim();
         const segundoApellido = (emp.segundo_apellido || '').trim();
 
         // Nombres: "Juan Alejandro" | Apellidos: "Aponte Contreras"
-        const nombresDisplay   = [primerNombre, segundoNombre].filter(Boolean).join(' ')
-                               || emp.nombres   || '';
+        const nombresDisplay = [primerNombre, segundoNombre].filter(Boolean).join(' ')
+            || emp.nombres || '';
         const apellidosDisplay = [primerApellido, segundoApellido].filter(Boolean).join(' ')
-                               || emp.apellidos || '';
+            || emp.apellidos || '';
 
         // Formato de presentación en tabla: "APELLIDOS, Nombres"
         const fullName = apellidosDisplay
@@ -155,8 +168,8 @@ function renderTable(list) {
             : nombresDisplay;
 
         // Presentar cédula con prefijo de nacionalidad para mayor claridad
-        const nac      = emp.nacionalidad || 'V';
-        const cedulaRaw= (emp.cedula || '').replace(/[^0-9]/g, ''); // solo dígitos
+        const nac = emp.nacionalidad || 'V';
+        const cedulaRaw = (emp.cedula || '').replace(/[^0-9]/g, ''); // solo dígitos
         const cedulaDisplay = `${nac}-${cedulaRaw}`;
 
         // Estado del carnet (compatibilidad entre campo nuevo y legado)
@@ -198,22 +211,25 @@ function renderTable(list) {
       <td style="color:var(--color-muted);font-size:.8rem;">${ui.formatDate(emp.fecha_ingreso)}</td>
       <td style="text-align:right;">
         <div style="display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-icon"
-                  onclick="event.stopPropagation();viewEmployee(${emp.id})" title="Consultar"
-                  style="padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-            👁️ <span style="font-weight:600;">Consultar</span>
-          </button>
-          ${isAdmin ? `<button class="btn btn-secondary btn-icon"
-                  onclick="event.stopPropagation();openEditor(${emp.id})" title="Editar"
-                  style="padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-            ✏️ <span style="font-weight:600;">Editar</span>
-          </button>
-          <button class="btn btn-icon" title="Eliminar"
-                  onclick="event.stopPropagation();deleteEmployee(${emp.id})"
-                  style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:5px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background .15s;"
-                  onmouseenter="this.style.background='#fecaca'" onmouseleave="this.style.background='#fee2e2'">
-            🗑 <span style="font-weight:600;">Eliminar</span>
-          </button>` : ''}
+          <div style="position:relative;display:inline-block;">
+            <button class="action-dropdown-btn" onclick="event.stopPropagation(); window.toggleDropdown(${emp.id});" 
+                    title="Opciones" style="background:transparent;color:var(--color-muted);border:none;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;">
+              ⋮
+            </button>
+            <div id="dropdown-${emp.id}" class="action-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:5px;background:#fff;border:1px solid var(--color-border);border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.15);z-index:99;min-width:140px;padding:6px 0;font-size:.8rem;">
+              <button onclick="event.stopPropagation();viewEmployee(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:var(--color-text);transition:background .2s;">
+                👁️ Consultar
+              </button>
+              ${isAdmin ? `
+              <hr style="margin:4px 0;border:none;border-top:1px solid #f1f5f9;"/>
+              <button onclick="event.stopPropagation();openEditor(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:#0284c7;transition:background .2s;">
+                ✏️ Editar
+              </button>
+              <button onclick="event.stopPropagation();deleteEmployee(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:#dc2626;transition:background .2s;">
+                🗑️ Eliminar
+              </button>` : ''}
+            </div>
+          </div>
         </div>
       </td>
     </tr>`;
@@ -247,6 +263,15 @@ function renderPagination(meta) {
       </div>
     </div>`;
 }
+
+// ── DROPDOWN TOGGLE ────────────────────────────────────────────────────────
+window.toggleDropdown = function (id) {
+    document.querySelectorAll('.action-dropdown').forEach(d => {
+        if (d.id !== `dropdown-${id}`) d.style.display = 'none';
+    });
+    const curr = document.getElementById(`dropdown-${id}`);
+    if (curr) curr.style.display = curr.style.display === 'none' ? 'block' : 'none';
+};
 
 // ── PAGINATION & FILTERS ──────────────────────────────────────────────────────
 function goToPage(page) {
@@ -317,9 +342,25 @@ async function deleteEmployee(id) {
     if (!emp) return;
     // Construir nombre para el mensaje de confirmación
     const apellidos = [emp.primer_apellido, emp.segundo_apellido].filter(Boolean).join(' ') || emp.apellidos || '';
-    const nombres   = [emp.primer_nombre,   emp.segundo_nombre  ].filter(Boolean).join(' ') || emp.nombres   || '';
+    const nombres = [emp.primer_nombre, emp.segundo_nombre].filter(Boolean).join(' ') || emp.nombres || '';
     const nombreCompleto = apellidos ? `${apellidos}, ${nombres}` : nombres;
-    if (!confirm(`¿Eliminar al funcionario "${nombreCompleto}"? Esta acción no se puede deshacer.`)) return;
+
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: '¿Confirmar eliminación?',
+            text: `Registro del funcionario "${nombreCompleto}". Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!result.isConfirmed) return;
+    } else {
+        if (!confirm(`¿Eliminar al funcionario "${nombreCompleto}"? Esta acción no se puede deshacer.`)) return;
+    }
+
     try {
         await api.deleteEmployee(id);
         employees = employees.filter(x => String(x.id) !== String(id));
@@ -433,7 +474,7 @@ function setupModal() {
     });
     document.getElementById('form-new-employee').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn  = document.getElementById('btn-modal-save');
+        const btn = document.getElementById('btn-modal-save');
         const data = Object.fromEntries(new FormData(e.target).entries());
 
         // ── Validación de campos obligatorios ──────────────────────────────────

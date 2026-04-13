@@ -132,8 +132,8 @@ try {
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
             $stmt = $db->prepare(
-                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos)
-                 VALUES (?, ?, ?, ?, 0, 0)"
+                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, cambio_clave_obligatorio, ultimo_cambio_clave)
+                 VALUES (?, ?, ?, ?, 0, 0, 1, NOW())"
             );
             $stmt->execute([$newUser, $hash, $newName, $newRole]);
 
@@ -216,7 +216,7 @@ try {
             }
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
-            $stmt = $db->prepare("UPDATE usuarios SET clave_hash = ?, actualizado_el = NOW() WHERE id = ?");
+            $stmt = $db->prepare("UPDATE usuarios SET clave_hash = ?, requiere_cambio_clave = 0, clave_ultima_rotacion = CURRENT_DATE, actualizado_el = NOW() WHERE id = ?");
             $stmt->execute([$hash, $id]);
 
             logAction($db, $authUser['id'], 'CONTRASENA_CAMBIADA', ['usuario_id' => $id]);
@@ -241,10 +241,18 @@ try {
                 sendResponse(false, 'Rol temporal inválido.', null, 400);
             }
 
+            // Por defecto, delegación de 24 horas si no se especifica
+            $expiresIn = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
             $stmt = $db->prepare(
-                "UPDATE usuarios SET rol_temporal = ?, actualizado_el = NOW() WHERE usuario = ?"
+                "UPDATE usuarios SET 
+                    rol_temporal = ?, 
+                    rol_temporal_expira_en = ?, 
+                    delegado_por = ?, 
+                    actualizado_el = NOW() 
+                 WHERE usuario = ?"
             );
-            $stmt->execute([$tempRole, $targetUser]);
+            $stmt->execute([$tempRole, $expiresIn, $authUser['id'], $targetUser]);
 
             if ($stmt->rowCount() === 0) {
                 sendResponse(false, "Usuario '{$targetUser}' no encontrado.", null, 404);
@@ -271,7 +279,12 @@ try {
             }
 
             $stmt = $db->prepare(
-                "UPDATE usuarios SET rol_temporal = NULL, actualizado_el = NOW() WHERE usuario = ?"
+                "UPDATE usuarios SET 
+                    rol_temporal = NULL, 
+                    rol_temporal_expira_en = NULL, 
+                    delegado_por = NULL, 
+                    actualizado_el = NOW() 
+                 WHERE usuario = ?"
             );
             $stmt->execute([$targetUser]);
 

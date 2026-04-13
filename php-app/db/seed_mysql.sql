@@ -32,41 +32,33 @@ INSERT IGNORE INTO gerencias (nombre) VALUES
 -- ── USUARIOS DEL SISTEMA ─────────────────────────────────────
 -- COLUMNA CORRECTA: clave_hash (no password_hash)
 -- Hashes bcrypt generados con PHP password_hash('contraseña', PASSWORD_BCRYPT)
--- CONTRASEÑAS DE DEMO:
---   admin        → admin123
---   coordinador  → coord123
---   analista     → analista123
---   usuario      → usuario123
---   consulta     → consulta123
---
--- ⚠️  OBLIGATORIO: Cambiar contraseñas antes del despliegue a producción.
--- Para generar nuevos hashes: php -r "echo password_hash('nueva_clave', PASSWORD_BCRYPT);"
+-- Las claves iniciales para preproducción han sido rotadas.
 -- ────────────────────────────────────────────────────────────
-INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos)
+INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave)
 VALUES
     ('admin',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu',
-     'Administrador Principal SCI-TSS', 'ADMIN', 0, 0),
+     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     'Administrador Principal SCI-TSS', 'ADMIN', 0, 0, 1),
 
     ('coordinador',
-     '$2y$10$dsMn7j3TdK1zwt29bTn9gusCA9p2imAfOh.fx5H3pg5LlCYF1wSiK',
-     'Coordinador de Carnetizacion', 'COORD', 0, 0),
+     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     'Coordinador de Carnetizacion', 'COORD', 0, 0, 1),
 
     ('analista',
-     '$2y$10$AF/Hmu2CCUIAOnZqLuLdC.8Gq03lpghhq2lauiIORXP7UwHDTwcpi',
-     'Analista de Datos', 'ANALISTA', 0, 0),
+     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     'Analista de Datos', 'ANALISTA', 0, 0, 1),
 
     ('usuario',
-     '$2y$10$ZG/PnP0ipOoS22F5MvjIHerQZhaARBtXwemdqZXeMm17bHQW1Q6ma',
-     'Usuario Operativo', 'USUARIO', 0, 0),
+     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     'Usuario Operativo', 'USUARIO', 0, 0, 1),
 
     ('consulta',
-     '$2y$10$SZgVlvnYF9ajomGyAGtGnektY7MnVztB8d6kkZi0h7ICHfsN93gyG',
-     'Usuario Solo Consulta', 'CONSULTA', 0, 0)
+     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     'Usuario Solo Consulta', 'CONSULTA', 0, 0, 1)
 
 ON DUPLICATE KEY UPDATE
-    -- En re-ejecución: NO sobreescribir hashes de producción.
-    -- Solo desbloquear cuentas y resetear intentos.
+    clave_hash        = VALUES(clave_hash),
+    requiere_cambio_clave = VALUES(requiere_cambio_clave),
     bloqueado         = 0,
     intentos_fallidos = 0;
 

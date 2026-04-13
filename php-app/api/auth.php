@@ -22,9 +22,9 @@ require_once __DIR__ . '/../includes/cors.php';
 require_once __DIR__ . '/../includes/db_mysql.php';
 
 // ── Configuración de sesión segura ───────────────────────────
-$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+$isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
 session_set_cookie_params([
-    'lifetime' => 0,
+    'lifetime' => SESSION_LIFETIME,
     'path' => '/',
     'domain' => '',
     'secure' => $isSecure,
@@ -68,7 +68,9 @@ try {
             rol,
             rol_temporal,
             bloqueado,
-            intentos_fallidos
+            intentos_fallidos,
+            requiere_cambio_clave,
+            clave_ultima_rotacion
          FROM usuarios
          WHERE usuario = ?
          LIMIT 1"
@@ -93,12 +95,16 @@ try {
     }
 
     // ── Validar contraseña ────────────────────────────────────
-    // Soporte dual: bcrypt ($2y$...) y texto plano (solo desarrollo)
+    // Solo soporte para bcrypt ($2y$...) para garantizar seguridad.
     $storedHash = $user['clave_hash'];
     $esBcrypt = strlen($storedHash) >= 60 && str_starts_with($storedHash, '$2');
-    $passwordOk = $esBcrypt
-        ? password_verify($password, $storedHash)
-        : ($password === $storedHash);  // Solo para entorno dev/demo
+
+    if (!$esBcrypt) {
+        error_log("[SCI-TSS SECURITY] Usuario {$username} tiene hash no-bcrypt en BD.");
+        sendResponse(false, 'Error de seguridad en credenciales. Contacte al administrador.', null, 500);
+    }
+
+    $passwordOk = password_verify($password, $storedHash);
 
     if ($passwordOk) {
         // ── Login exitoso ─────────────────────────────────────
@@ -125,6 +131,11 @@ try {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
 
+        // ── Políticas de Contraseña ───────────────────────────
+        $diffDays = (time() - strtotime($user['clave_ultima_rotacion'])) / 86400;
+        $passwordExpired = $diffDays > PASS_ROTATION_DAYS;
+        $mustChange = (int) $user['requiere_cambio_clave'] === 1 || $passwordExpired;
+
         sendResponse(true, 'Login exitoso.', [
             'id' => (int) $user['id'],
             'username' => $user['usuario'],
@@ -132,6 +143,7 @@ try {
             'role' => $user['rol'],
             'temporary_role' => $user['rol_temporal'],
             'effective_role' => $rolEfectivo,
+            'requires_password_change' => $mustChange,
             'csrf_token' => $_SESSION['csrf_token'],
         ]);
 

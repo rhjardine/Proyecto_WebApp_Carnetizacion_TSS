@@ -93,7 +93,7 @@ CREATE TABLE empleados (
     fecha_ingreso    DATE         NOT NULL                        COMMENT 'Antigüedad en la institución',
     estado_laboral   ENUM('Activo','Inactivo')
                                   NOT NULL DEFAULT 'Activo',
-    foto_url         VARCHAR(255) NULL     DEFAULT NULL           COMMENT 'URL HTTP accesible desde el cliente web (CDN o ruta pública Apache)',
+    foto_url         MEDIUMBLOB   NULL     DEFAULT NULL           COMMENT 'URL HTTP accesible desde el cliente web (CDN o ruta pública Apache)',
     foto_ruta        VARCHAR(255) NULL     DEFAULT NULL           COMMENT 'Ruta absoluta en el sistema de archivos del servidor (para procesamiento GD)',
     estado_carnet    ENUM('Pendiente por Imprimir','Carnet Impreso','Carnet Entregado')
                                   NOT NULL DEFAULT 'Pendiente por Imprimir',
