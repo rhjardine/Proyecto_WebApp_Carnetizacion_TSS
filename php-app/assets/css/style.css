@@ -164,6 +164,26 @@ button {
   text-align: center;
 }
 
+/* --- Sub-navigation --- */
+.nav-sub {
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 2px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 4px;
+}
+
+.nav-link.sub {
+  font-size: .8rem;
+  padding: 8px 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nav-link.sub .icon {
+  font-size: 14px;
+}
+
 .sidebar-user {
   margin: 0 12px;
   padding: 12px 14px;
