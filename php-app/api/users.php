@@ -113,6 +113,9 @@ try {
             if (empty($newUser) || empty($newPass) || empty($newName)) {
                 sendResponse(false, 'Usuario, contraseña y nombre completo son requeridos.', null, 400);
             }
+            if (!preg_match('/^[a-z][a-z0-9]{3,19}$/', $newUser)) {
+                sendResponse(false, 'El usuario debe tener formato tipo amejia/rmartinez (4-20 caracteres en minúsculas y números).', null, 400);
+            }
 
             if (strlen($newPass) < 6) {
                 sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
@@ -132,8 +135,8 @@ try {
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
             $stmt = $db->prepare(
-                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, cambio_clave_obligatorio, ultimo_cambio_clave)
-                 VALUES (?, ?, ?, ?, 0, 0, 1, NOW())"
+                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave, clave_ultima_rotacion)
+                 VALUES (?, ?, ?, ?, 0, 0, 1, CURRENT_DATE)"
             );
             $stmt->execute([$newUser, $hash, $newName, $newRole]);
 

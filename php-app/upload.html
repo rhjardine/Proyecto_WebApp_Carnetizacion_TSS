@@ -29,6 +29,9 @@
                 <a href="editor.html" class="nav-link" id="nav-editor">
                     <span class="icon">🪪</span> Editor de Carnet
                 </a>
+                <a href="usuarios.html" class="nav-link" id="nav-users" style="display:none;">
+                    <span class="icon">👥</span> Usuarios
+                </a>
                 <a href="config.html" class="nav-link" id="nav-config">
                     <span class="icon">⚙️</span> Ajustes
                 </a>
@@ -105,6 +108,15 @@
 
     <script src="assets/js/api.js"></script>
     <script>
+        (function () {
+            const user = api.getCurrentUser();
+            const isAdmin = ['ADMIN', 'COORD'].includes((user.effective_role || user.role || '').toUpperCase());
+            const navUsers = document.getElementById('nav-users');
+            const navConfig = document.getElementById('nav-config');
+            if (navUsers) navUsers.style.display = isAdmin ? 'flex' : 'none';
+            if (navConfig) navConfig.style.display = isAdmin ? 'flex' : 'none';
+        })();
+
         let currentEmpId = null;
         let photoBase64 = null; // Almacenará la foto de forma persistente
 

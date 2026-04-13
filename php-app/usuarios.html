@@ -321,7 +321,8 @@
                 <input type="hidden" id="modal-action" value="create" />
                 <div class="form-group">
                     <label for="modal-username">Usuario</label>
-                    <input type="text" id="modal-username" placeholder="Ej: jperez" required />
+                    <input type="text" id="modal-username" placeholder="Ej: amejia" pattern="^[a-z][a-z0-9]{3,19}$" required />
+                    <small style="font-size:.72rem;color:#64748b;">Formato requerido: minúsculas y números (ej: amejia, rmartinez).</small>
                 </div>
                 <div class="form-group" id="password-group">
                     <label for="modal-password">Contraseña</label>
@@ -443,25 +444,30 @@
             e.preventDefault();
             const action = document.getElementById('modal-action').value;
             const id = document.getElementById('modal-id').value;
+            const usernameInput = document.getElementById('modal-username');
+            const usernameRegex = /^[a-z][a-z0-9]{3,19}$/;
 
             try {
                 if (action === 'create') {
                     const password = document.getElementById('modal-password').value;
+                    const username = usernameInput.value.trim();
                     if (!password || password.length < 6) {
                         Swal.fire('Error', 'La contraseña debe tener al menos 6 caracteres.', 'error');
                         return;
                     }
-                    await request('api/users.php', 'POST', {
-                        action: 'create',
-                        username: document.getElementById('modal-username').value.trim(),
+                    if (!usernameRegex.test(username)) {
+                        Swal.fire('Error', 'El usuario debe cumplir el formato: amejia / rmartinez (4-20 caracteres).', 'error');
+                        return;
+                    }
+                    await api.manageUser('create', {
+                        username,
                         password,
                         full_name: document.getElementById('modal-fullname').value.trim(),
                         role: document.getElementById('modal-role').value,
                     });
                     Swal.fire('Éxito', 'Usuario creado correctamente.', 'success');
                 } else {
-                    await request('api/users.php', 'POST', {
-                        action: 'edit',
+                    await api.manageUser('edit', {
                         id: parseInt(id),
                         full_name: document.getElementById('modal-fullname').value.trim(),
                         role: document.getElementById('modal-role').value,
@@ -488,7 +494,7 @@
             if (!newPass) return;
 
             try {
-                await request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPass });
+                await api.manageUser('change_password', { id, new_password: newPass });
                 Swal.fire('Éxito', 'Contraseña actualizada.', 'success');
             } catch (err) {
                 Swal.fire('Error', err.message, 'error');
@@ -497,7 +503,7 @@
 
         async function unlockUser(id) {
             try {
-                await request('api/users.php', 'POST', { action: 'unlock', id });
+                await api.manageUser('unlock', { id });
                 Swal.fire('Éxito', 'Cuenta desbloqueada.', 'success');
                 loadUsers();
             } catch (err) {
@@ -518,7 +524,7 @@
             if (!result.isConfirmed) return;
 
             try {
-                await request('api/users.php', 'POST', { action: 'delete', id });
+                await api.manageUser('delete', { id });
                 Swal.fire('Eliminado', `Usuario "${username}" eliminado.`, 'success');
                 loadUsers();
             } catch (err) {

@@ -75,11 +75,13 @@ function setupUserInfo() {
 
     // Role-based sidebar link visibility
     const navConfig = document.getElementById('nav-config');
+    const navUsers = document.getElementById('nav-users');
+    const isAdmin = api.isAdmin();
     if (navConfig) {
-        const isAdmin = api.isAdmin();
         navConfig.style.display = isAdmin ? 'flex' : 'none';
         // Ensure "visible at all times" by making it flex if admin
     }
+    if (navUsers) navUsers.style.display = isAdmin ? 'flex' : 'none';
 }
 
 // ── TAREA 3: RESTRICCIONES CONSULTA ──────────────────────────────────────────

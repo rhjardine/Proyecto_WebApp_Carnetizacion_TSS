@@ -57,9 +57,11 @@ async function init() {
 
     // Role-based sidebar link visibility
     const navConfig = document.getElementById('nav-config');
+    const navUsers = document.getElementById('nav-users');
     if (navConfig) {
       navConfig.style.display = api.isAdmin() ? 'flex' : 'none';
     }
+    if (navUsers) navUsers.style.display = api.isAdmin() ? 'flex' : 'none';
   }
 
 

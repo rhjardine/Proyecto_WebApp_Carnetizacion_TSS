@@ -158,6 +158,16 @@ try {
              WHERE id = ?"
         )->execute([$newAttempts, $bloquear, $user['id']]);
 
+        $db->prepare(
+            "INSERT INTO auditoria_logs (usuario_id, accion, detalles, direccion_ip, agente_usuario)
+             VALUES (?, 'LOGIN_FALLIDO', ?, ?, ?)"
+        )->execute([
+            (int) $user['id'],
+            json_encode(['intentos_fallidos' => $newAttempts, 'bloqueado' => (bool) $bloquear], JSON_UNESCAPED_UNICODE),
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]);
+
         if ($bloquear) {
             sendResponse(
                 false,

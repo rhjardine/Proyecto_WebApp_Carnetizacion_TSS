@@ -55,7 +55,10 @@ CREATE TABLE usuarios (
                                   NOT NULL DEFAULT 'USUARIO'      COMMENT 'Rol principal permanente del operador',
     rol_temporal     ENUM('ADMIN','COORD','ANALISTA','USUARIO','CONSULTA')
                                   NULL     DEFAULT NULL            COMMENT 'Permiso delegado temporalmente; NULL si no hay delegación activa',
+    rol_temporal_expira_en TIMESTAMP NULL DEFAULT NULL             COMMENT 'Fecha de expiración de la delegación temporal',
     delegado_por     INT          NULL     DEFAULT NULL            COMMENT 'FK al usuario ADMIN que otorgó la delegación',
+    clave_ultima_rotacion DATE     NOT NULL DEFAULT (CURRENT_DATE) COMMENT 'Última fecha de rotación de contraseña',
+    requiere_cambio_clave TINYINT(1) NOT NULL DEFAULT 0            COMMENT 'Forzar cambio de contraseña en próximo inicio de sesión',
     bloqueado        TINYINT(1)   NOT NULL DEFAULT 0               COMMENT '0 = activa, 1 = bloqueada por intentos fallidos o admin',
     intentos_fallidos INT         NOT NULL DEFAULT 0               COMMENT 'Contador de fallos consecutivos para mitigar fuerza bruta',
     creado_el        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -93,8 +96,9 @@ CREATE TABLE empleados (
     fecha_ingreso    DATE         NOT NULL                        COMMENT 'Antigüedad en la institución',
     estado_laboral   ENUM('Activo','Inactivo')
                                   NOT NULL DEFAULT 'Activo',
-    foto_url         MEDIUMBLOB   NULL     DEFAULT NULL           COMMENT 'URL HTTP accesible desde el cliente web (CDN o ruta pública Apache)',
+    foto_url         VARCHAR(1000) NULL    DEFAULT NULL           COMMENT 'URL pública o data:image/...;base64,... para preproducción',
     foto_ruta        VARCHAR(255) NULL     DEFAULT NULL           COMMENT 'Ruta absoluta en el sistema de archivos del servidor (para procesamiento GD)',
+    nivel_permiso    VARCHAR(50)  NOT NULL DEFAULT 'Nivel 1'      COMMENT 'Nivel de permiso institucional asignado al funcionario',
     estado_carnet    ENUM('Pendiente por Imprimir','Carnet Impreso','Carnet Entregado')
                                   NOT NULL DEFAULT 'Pendiente por Imprimir',
     forma_entrega    VARCHAR(50)  NULL     DEFAULT NULL           COMMENT 'Manual, Digital, etc.',

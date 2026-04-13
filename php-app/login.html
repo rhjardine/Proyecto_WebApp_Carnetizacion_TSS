@@ -84,7 +84,8 @@
     <script src="assets/js/api.js"></script>
     <script>
         if (sessionStorage.getItem('current_user')) {
-            window.location.href = 'dashboard.html';
+            const saved = api.getCurrentUser();
+            window.location.href = saved.requires_password_change ? 'force-password-change.html' : 'dashboard.html';
         }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -100,8 +101,9 @@
 
             ui.setLoading(btn, true, 'Verificando...');
             try {
-                await api.login(username, password);
-                window.location.href = 'dashboard.html';
+                const res = await api.login(username, password);
+                const user = res.data || {};
+                window.location.href = user.requires_password_change ? 'force-password-change.html' : 'dashboard.html';
             } catch (err) {
                 ui.setLoading(btn, false, 'Iniciar Sesión');
                 const errMsg = err.message || 'Credenciales inválidas.';

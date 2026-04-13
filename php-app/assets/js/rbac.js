@@ -102,6 +102,7 @@ function applyRolePermissions(vista = 'dashboard') {
     // SECCIÓN 2: Navegación lateral — solo ADMIN/COORD ven "Configuración"
     // ──────────────────────────────────────────────────────────────────────────
     _toggleEl('nav-config', admin);
+    _toggleEl('nav-users', admin);
 
     // ──────────────────────────────────────────────────────────────────────────
     // SECCIÓN 3: Restricciones específicas por VISTA
