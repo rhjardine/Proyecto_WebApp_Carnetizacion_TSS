@@ -16,7 +16,8 @@ const MOCK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5
 const VALIDATION_BASE_URL = 'https://carnetizacion.tss.gob.ve/validar';
 
 // ── CONFIGURACIÓN ─────────────────────────────────────────────
-const OFFLINE_MODE = false;
+// MODO PRODUCCIÓN: todas las llamadas van al backend PHP/MySQL.
+// No existe modo demo ni OFFLINE_MODE en esta versión.
 const API_BASE = '';   // Relativa al servidor actual
 
 // ── NORMALIZACIÓN DE EMPLEADOS ────────────────────────────────
@@ -51,10 +52,6 @@ function normalizarEmpleado(emp) {
 
 // ── UTILIDAD FETCH ────────────────────────────────────────────
 async function request(url, method = 'GET', body = null) {
-    if (OFFLINE_MODE) {
-        return mockRequest(url, method, body);
-    }
-
     const options = {
         method,
         headers: {
@@ -345,173 +342,4 @@ const ui = {
     },
 };
 
-// ── MODO DEMO / OFFLINE ───────────────────────────────────────
-// Solo activo si OFFLINE_MODE = true arriba
-let _savedGerencias = null;
-let _savedEmployees = null;
-try {
-    _savedGerencias = JSON.parse(localStorage.getItem('tss_mock_gerencias'));
-    _savedEmployees = JSON.parse(localStorage.getItem('tss_mock_employees'));
-} catch (_) { /* LocalStorage no disponible */ }
 
-let MOCK_GERENCIAS = _savedGerencias || [
-    { id: 1, nombre: 'OFICINA DE TECNOLOGIA DE LA INFORMACION Y COMUNICACION' },
-    { id: 2, nombre: 'DESPACHO' },
-    { id: 3, nombre: 'AUDITORIA INTERNA' },
-    { id: 4, nombre: 'CONSULTORIA JURIDICA' },
-    { id: 5, nombre: 'OFICINA DE PLANIFICACION, ORGANIZACION Y PRESUPUESTO' },
-    { id: 6, nombre: 'OFICINA DE ADMINISTRACION Y GESTION INTERNA' },
-    { id: 7, nombre: 'GERENCIA GENERAL DE REGISTRO Y AFILIACION' },
-    { id: 8, nombre: 'GERENCIA GENERAL DE ESTUDIOS ACTUARIALES Y ECONOMICOS' },
-    { id: 9, nombre: 'GERENCIA GENERAL DE INVERSIONES Y GESTION FINANCIERA' },
-    { id: 10, nombre: 'OFICINA DE COMUNICACION Y RELACIONES INSTITUCIONALES' },
-];
-let nextGerenciaId = MOCK_GERENCIAS.length > 0 ? Math.max(...MOCK_GERENCIAS.map(g => g.id)) + 1 : 1;
-
-let MOCK_EMPLOYEES = _savedEmployees || [
-    {
-        id: 1, cedula: '27798979', nacionalidad: 'V',
-        primer_nombre: 'Nohely', segundo_nombre: 'Alexandra',
-        primer_apellido: 'Aponte', segundo_apellido: 'Contreras',
-        cargo: 'Apoyo Técnico',
-        gerencia: 'OFICINA DE COMUNICACION Y RELACIONES INSTITUCIONALES',
-        estado_carnet: 'Carnet Impreso', photo_url: '', fecha_ingreso: '2022-03-15',
-    },
-    {
-        id: 2, cedula: '12345678', nacionalidad: 'V',
-        primer_nombre: 'Juan', segundo_nombre: 'Alejandro',
-        primer_apellido: 'Pérez', segundo_apellido: null,
-        cargo: 'Analista de Sistemas',
-        gerencia: 'OFICINA DE TECNOLOGIA DE LA INFORMACION Y COMUNICACION',
-        estado_carnet: 'Pendiente por Imprimir', photo_url: '', fecha_ingreso: '2020-01-15',
-    },
-];
-let nextEmpId = MOCK_EMPLOYEES.length > 0 ? Math.max(...MOCK_EMPLOYEES.map(e => e.id)) + 1 : 1;
-
-function saveDB() {
-    try {
-        localStorage.setItem('tss_mock_gerencias', JSON.stringify(MOCK_GERENCIAS));
-        localStorage.setItem('tss_mock_employees', JSON.stringify(MOCK_EMPLOYEES));
-    } catch (_) { console.warn('[SCI-TSS] LocalStorage no disponible.'); }
-}
-
-async function mockRequest(url, method, body) {
-    console.warn('[SCI-TSS] MODO DEMO ACTIVO — datos simulados.');
-    await new Promise(r => setTimeout(r, 300));
-
-    if (url.includes('auth.php')) {
-        const userData = {
-            id: 1, username: body?.username || 'admin',
-            full_name: 'Usuario Demo', role: 'ADMIN',
-            temporary_role: null, effective_role: 'ADMIN',
-            csrf_token: 'demo_csrf_token',
-        };
-        return { success: true, message: 'Login exitoso (Demo).', data: userData };
-    }
-
-    if (url.includes('gerencias.php')) {
-        if (method === 'GET') return { success: true, data: [...MOCK_GERENCIAS] };
-        if (method === 'POST') {
-            if (body?.id) { const g = MOCK_GERENCIAS.find(x => x.id == body.id); if (g) g.nombre = body.nombre; }
-            else if (body?.nombre) MOCK_GERENCIAS.push({ id: nextGerenciaId++, nombre: body.nombre });
-            saveDB();
-            return { success: true, message: 'Operación completada (Demo).' };
-        }
-        if (method === 'DELETE') {
-            const id = new URLSearchParams(url.split('?')[1]).get('id');
-            MOCK_GERENCIAS = MOCK_GERENCIAS.filter(g => g.id != id);
-            saveDB();
-            return { success: true, message: 'Gerencia eliminada (Demo).' };
-        }
-    }
-
-    if (url.includes('employees.php')) {
-        if (method === 'GET') {
-            const params = new URLSearchParams(url.split('?')[1] || '');
-            const search = (params.get('search') || '').toLowerCase();
-            const status = params.get('status') || '';
-            const page = parseInt(params.get('page') || '1');
-            const limit = parseInt(params.get('limit') || '50');
-            const idFilter = params.get('id');
-
-            let lista = MOCK_EMPLOYEES.map(normalizarEmpleado);
-            if (idFilter) lista = lista.filter(e => String(e.id) === String(idFilter));
-            if (search) lista = lista.filter(e =>
-                (e.nombres || '').toLowerCase().includes(search) ||
-                (e.apellidos || '').toLowerCase().includes(search) ||
-                (e.cedula || '').includes(search)
-            );
-            if (status) lista = lista.filter(e => e.estado_carnet === status);
-
-            const total = lista.length;
-            const totalPages = Math.ceil(total / limit);
-            const paginada = lista.slice((page - 1) * limit, page * limit);
-
-            return { success: true, data: paginada, meta: { totalRecords: total, currentPage: page, totalPages, limit } };
-        }
-
-        if (method === 'POST') {
-            if (body?.action === 'upload_payroll' && body?.rows) {
-                let added = 0;
-                body.rows.forEach(r => {
-                    const ced = String(r['Cédula'] || r['cedula'] || '').replace(/[^0-9]/g, '');
-                    if (!ced) return;
-                    MOCK_EMPLOYEES.unshift({
-                        id: nextEmpId++, cedula: ced, nacionalidad: 'V',
-                        primer_nombre: String(r['Primer Nombre'] || r['nombres'] || '').trim(),
-                        segundo_nombre: String(r['Segundo Nombre'] || '').trim() || null,
-                        primer_apellido: String(r['Primer Apellido'] || r['apellidos'] || '').trim(),
-                        segundo_apellido: String(r['Segundo Apellido'] || '').trim() || null,
-                        cargo: String(r['Cargo'] || r['cargo'] || '').trim(),
-                        gerencia: String(r['Gerencia'] || r['gerencia'] || '').trim(),
-                        estado_carnet: 'Pendiente por Imprimir', photo_url: '',
-                    });
-                    added++;
-                });
-                if (added > 0) saveDB();
-                return { success: true, message: `Nómina importada: ${added} empleado(s) (Demo).` };
-            }
-
-            if (body?.action === 'auto_match') return { success: true, message: 'Auto-Match completado (Demo).' };
-
-            if (body?.id) {
-                const emp = MOCK_EMPLOYEES.find(e => e.id == body.id);
-                if (emp) {
-                    Object.keys(body).forEach(k => { if (k !== 'id') emp[k] = body[k]; });
-                    saveDB();
-                }
-                return { success: true, message: 'Empleado actualizado (Demo).' };
-            }
-
-            const cedulaLimpia = String(body?.cedula || '').replace(/[^0-9]/g, '');
-            MOCK_EMPLOYEES.unshift({
-                id: nextEmpId++, cedula: cedulaLimpia, nacionalidad: body?.nacionalidad || 'V',
-                primer_nombre: body?.primer_nombre || '', segundo_nombre: body?.segundo_nombre || null,
-                primer_apellido: body?.primer_apellido || '', segundo_apellido: body?.segundo_apellido || null,
-                cargo: body?.cargo || '', gerencia: body?.gerencia || '',
-                estado_carnet: 'Pendiente por Imprimir',
-                fecha_ingreso: body?.fecha_ingreso || new Date().toISOString().split('T')[0],
-                photo_url: '', nivel_permiso: body?.nivel_permiso || 'Nivel 1',
-            });
-            saveDB();
-            return { success: true, message: 'Empleado registrado (Demo).', data: { id: nextEmpId - 1 } };
-        }
-
-        if (method === 'DELETE') {
-            const id = new URLSearchParams(url.split('?')[1]).get('id');
-            MOCK_EMPLOYEES = MOCK_EMPLOYEES.filter(e => e.id != id);
-            saveDB();
-            return { success: true, message: 'Empleado eliminado (Demo).' };
-        }
-    }
-
-    if (url.includes('users.php')) {
-        return {
-            success: true, data: [
-                { id: 1, username: 'admin', full_name: 'Administrador Principal', role: 'ADMIN', temporary_role: null, delegated_by: null, is_locked: false, failed_attempts: 0 },
-            ]
-        };
-    }
-
-    return { success: true, message: 'Respuesta simulada (Demo).' };
-}
