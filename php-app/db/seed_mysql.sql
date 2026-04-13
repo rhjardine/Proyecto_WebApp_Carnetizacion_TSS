@@ -31,29 +31,30 @@ INSERT IGNORE INTO gerencias (nombre) VALUES
 
 -- ── USUARIOS DEL SISTEMA ─────────────────────────────────────
 -- COLUMNA CORRECTA: clave_hash (no password_hash)
--- Hashes bcrypt generados con PHP password_hash('contraseña', PASSWORD_BCRYPT)
--- Las claves iniciales para preproducción han sido rotadas.
+-- Hashes bcrypt generados con PHP password_hash('admin123', PASSWORD_BCRYPT)
+-- Todas las claves iniciales de demostración son 'admin123'. 
+-- Las contraseñas deben ser rotadas por el sistema al primer inicio.
 -- ────────────────────────────────────────────────────────────
 INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave)
 VALUES
     ('admin',
-     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
      'Administrador Principal SCI-TSS', 'ADMIN', 0, 0, 1),
 
     ('coordinador',
-     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
      'Coordinador de Carnetizacion', 'COORD', 0, 0, 1),
 
     ('analista',
-     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
      'Analista de Datos', 'ANALISTA', 0, 0, 1),
 
     ('usuario',
-     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
      'Usuario Operativo', 'USUARIO', 0, 0, 1),
 
     ('consulta',
-     '$2y$10$D2UeG7kO4O/d9dEDqH9Fze7gG8r2G6gE9Fze7gG8r2G6gE9Fze7g2', -- rotated hash
+     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
      'Usuario Solo Consulta', 'CONSULTA', 0, 0, 1)
 
 ON DUPLICATE KEY UPDATE

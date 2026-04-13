@@ -123,6 +123,11 @@ try {
                 sendResponse(false, 'Rol inválido. Valores permitidos: ' . implode(', ', $rolesValidos), null, 400);
             }
 
+            // Verificar formato de usuario
+            if (!preg_match('/^[a-z][a-z0-9]{2,19}$/', $newUser)) {
+                sendResponse(false, 'El usuario debe comenzar con letra minúscula y contener solo letras y números (ej: amejia, rmartinez).', null, 400);
+            }
+
             // Verificar duplicado
             $check = $db->prepare("SELECT id FROM usuarios WHERE usuario = ?");
             $check->execute([$newUser]);
@@ -132,8 +137,8 @@ try {
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
             $stmt = $db->prepare(
-                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, cambio_clave_obligatorio, ultimo_cambio_clave)
-                 VALUES (?, ?, ?, ?, 0, 0, 1, NOW())"
+                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave, clave_ultima_rotacion)
+                 VALUES (?, ?, ?, ?, 0, 0, 1, CURRENT_DATE)"
             );
             $stmt->execute([$newUser, $hash, $newName, $newRole]);
 

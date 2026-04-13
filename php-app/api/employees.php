@@ -32,16 +32,22 @@ require_once __DIR__ . '/../includes/cors.php';
 require_once __DIR__ . '/../includes/db_mysql.php';   // ← Conexión MySQL
 require_once __DIR__ . '/../api/middleware/auth_check.php';
 
-$method  = $_SERVER['REQUEST_METHOD'];
-$db      = getDB();
-$userId  = $_SESSION['user_id'] ?? null;
+$method = $_SERVER['REQUEST_METHOD'];
+$db = getDB();
+$userId = $_SESSION['user_id'] ?? null;
 
 // ── Whitelist de estados válidos ──────────────────────────────
-const ESTADOS_VALIDOS  = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
-const FORMAS_ENTREGA   = ['', 'Manual', 'Digital'];
+const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
+const FORMAS_ENTREGA = ['', 'Manual', 'Digital'];
 const CAMPOS_EDITABLES = [
-    'primer_nombre', 'segundo_nombre', 'primer_apellido', 'segundo_apellido',
-    'cargo', 'estado_laboral', 'forma_entrega',
+    'primer_nombre',
+    'segundo_nombre',
+    'primer_apellido',
+    'segundo_apellido',
+    'cargo',
+    'estado_laboral',
+    'forma_entrega',
+    'nivel_permiso',
 ];
 
 try {
@@ -79,8 +85,8 @@ try {
             }
 
             // ── Lista paginada ───────────────────────────────────────
-            $page   = max(1, intval($_GET['page']   ?? 1));
-            $limit  = min(200, max(1, intval($_GET['limit']  ?? 50)));
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $limit = min(200, max(1, intval($_GET['limit'] ?? 50)));
             $search = trim($_GET['search'] ?? '');
             $status = trim($_GET['status'] ?? '');
             $offset = ($page - 1) * $limit;
@@ -92,7 +98,7 @@ try {
 
             // ── Construcción del WHERE dinámico ──────────────────────
             $conditions = [];
-            $params     = [];
+            $params = [];
 
             if ($search !== '') {
                 // Búsqueda en campos disgregados (primer_nombre, primer_apellido, cedula)
@@ -108,7 +114,7 @@ try {
 
             if ($status !== '') {
                 $conditions[] = "e.estado_carnet = ?";
-                $params[]     = $status;
+                $params[] = $status;
             }
 
             $where = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -116,7 +122,7 @@ try {
             // ── Conteo total (para paginación) ───────────────────────
             $cStmt = $db->prepare("SELECT COUNT(*) FROM empleados e {$where}");
             $cStmt->execute($params);
-            $total      = (int) $cStmt->fetchColumn();
+            $total = (int) $cStmt->fetchColumn();
             $totalPages = (int) ceil($total / $limit);
 
             // ── Consulta principal ───────────────────────────────────
@@ -141,11 +147,11 @@ try {
                 'data' => $lista,
                 'meta' => [
                     'totalRecords' => $total,
-                    'currentPage'  => $page,
-                    'totalPages'   => $totalPages,
-                    'limit'        => $limit,
-                    'search'       => $search,
-                    'status'       => $status,
+                    'currentPage' => $page,
+                    'totalPages' => $totalPages,
+                    'limit' => $limit,
+                    'search' => $search,
+                    'status' => $status,
                 ],
             ]);
             break;
@@ -154,13 +160,13 @@ try {
         // POST — Crear o Actualizar empleado
         // ════════════════════════════════════════════════════════
         case 'POST':
-            $input  = json_decode(file_get_contents('php://input'), true) ?? [];
-            $id     = isset($input['id']) ? intval($input['id']) : null;
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+            $id = isset($input['id']) ? intval($input['id']) : null;
             $action = trim($input['action'] ?? '');
 
             // ── Acciones especiales ──────────────────────────────────
             if ($action === 'upload_payroll') {
-                $rows  = $input['rows'] ?? [];
+                $rows = $input['rows'] ?? [];
                 $added = 0;
                 $db->beginTransaction();
                 try {
@@ -174,7 +180,8 @@ try {
 
                     foreach ($rows as $r) {
                         $ced = preg_replace('/[^0-9]/', '', $r['Cédula'] ?? $r['cedula'] ?? '');
-                        if (strlen($ced) < 5) continue;
+                        if (strlen($ced) < 5)
+                            continue;
 
                         $nac = 'V';
                         if (isset($r['Nacionalidad'])) {
@@ -183,7 +190,7 @@ try {
 
                         // Resolución de gerencia por nombre
                         $gerNom = trim($r['Gerencia'] ?? $r['gerencia'] ?? '');
-                        $gerId  = null;
+                        $gerId = null;
                         if ($gerNom) {
                             $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
                             $gStmt->execute([$gerNom]);
@@ -200,7 +207,8 @@ try {
                             trim($r['Cargo'] ?? $r['cargo'] ?? ''),
                             $gerId,
                         ]);
-                        if ($db->lastInsertId()) $added++;
+                        if ($db->lastInsertId())
+                            $added++;
                     }
                     $db->commit();
                     logAction($db, $userId, 'NOMINA_IMPORTADA', ['filas' => count($rows), 'registrados' => $added]);
@@ -224,13 +232,13 @@ try {
             // ── Actualización parcial (PATCH semántico sobre POST) ──
             if ($id) {
                 $setClauses = [];
-                $values     = [];
+                $values = [];
 
                 // Campos básicos editables (whitelist)
                 foreach (CAMPOS_EDITABLES as $campo) {
                     if (array_key_exists($campo, $input)) {
                         $setClauses[] = "{$campo} = ?";
-                        $values[]     = $input[$campo] ?? null;
+                        $values[] = $input[$campo] ?? null;
                     }
                 }
 
@@ -238,7 +246,7 @@ try {
                 $nuevoEstado = $input['estado_carnet'] ?? $input['status'] ?? null;
                 if ($nuevoEstado !== null && in_array($nuevoEstado, ESTADOS_VALIDOS, true)) {
                     $setClauses[] = "estado_carnet = ?";
-                    $values[]     = $nuevoEstado;
+                    $values[] = $nuevoEstado;
                 }
 
                 // forma_entrega
@@ -246,7 +254,7 @@ try {
                     $forma = $input['forma_entrega'];
                     if ($forma === '' || in_array($forma, FORMAS_ENTREGA, true)) {
                         $setClauses[] = "forma_entrega = ?";
-                        $values[]     = $forma ?: null;
+                        $values[] = $forma ?: null;
                     }
                 }
 
@@ -257,7 +265,7 @@ try {
                     $gId = $gStmt->fetchColumn();
                     if ($gId) {
                         $setClauses[] = "gerencia_id = ?";
-                        $values[]     = $gId;
+                        $values[] = $gId;
                     }
                 }
 
@@ -265,7 +273,7 @@ try {
                 if (array_key_exists('photo_url', $input) || array_key_exists('foto_url', $input)) {
                     $foto = $input['foto_url'] ?? $input['photo_url'] ?? '';
                     $setClauses[] = "foto_url = ?";
-                    $values[]     = $foto ?: null;
+                    $values[] = $foto ?: null;
                 }
 
                 if (empty($setClauses)) {
@@ -274,7 +282,7 @@ try {
                 }
 
                 $setClauses[] = "actualizado_el = NOW()";
-                $values[]     = $id;
+                $values[] = $id;
 
                 $sql = "UPDATE empleados SET " . implode(', ', $setClauses) . " WHERE id = ?";
                 $db->prepare($sql)->execute($values);
@@ -286,18 +294,19 @@ try {
 
             // ── Creación de nuevo empleado ───────────────────────────
             // Extraer y validar campos obligatorios
-            $cedula         = preg_replace('/[^0-9]/', '', trim($input['cedula'] ?? ''));
-            $primerNombre   = trim($input['primer_nombre']  ?? $input['nombres']   ?? '');
-            $primerApellido = trim($input['primer_apellido']?? $input['apellidos'] ?? '');
-            $cargo          = trim($input['cargo']          ?? '');
-            $gerenciaNom    = trim($input['gerencia']       ?? '');
-            $nac            = strtoupper(trim($input['nacionalidad'] ?? 'V'));
-            $nac            = in_array($nac, ['V', 'E'], true) ? $nac : 'V';
+            $cedula = preg_replace('/[^0-9]/', '', trim($input['cedula'] ?? ''));
+            $primerNombre = trim($input['primer_nombre'] ?? $input['nombres'] ?? '');
+            $primerApellido = trim($input['primer_apellido'] ?? $input['apellidos'] ?? '');
+            $cargo = trim($input['cargo'] ?? '');
+            $gerenciaNom = trim($input['gerencia'] ?? '');
+            $nac = strtoupper(trim($input['nacionalidad'] ?? 'V'));
+            $nac = in_array($nac, ['V', 'E'], true) ? $nac : 'V';
 
             // Campos opcionales
-            $segundoNombre   = trim($input['segundo_nombre']   ?? '') ?: null;
+            $segundoNombre = trim($input['segundo_nombre'] ?? '') ?: null;
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
-            $fechaIngreso    = trim($input['fecha_ingreso']    ?? '');
+            $fechaIngreso = trim($input['fecha_ingreso'] ?? '');
+            $nivelPermiso = trim($input['nivel_permiso'] ?? 'Nivel 1');
 
             // ── Validaciones ─────────────────────────────────────────
             if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10) {
@@ -341,22 +350,29 @@ try {
                 INSERT INTO empleados
                     (nacionalidad, cedula, primer_nombre, segundo_nombre,
                      primer_apellido, segundo_apellido, cargo, gerencia_id,
-                     fecha_ingreso, estado_laboral, estado_carnet)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')
+                     fecha_ingreso, estado_laboral, estado_carnet, nivel_permiso)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir', ?)
             ");
             $stmt->execute([
-                $nac, $cedula, $primerNombre, $segundoNombre,
-                $primerApellido, $segundoApellido, $cargo,
-                $gerenciaId, $fechaFinal,
+                $nac,
+                $cedula,
+                $primerNombre,
+                $segundoNombre,
+                $primerApellido,
+                $segundoApellido,
+                $cargo,
+                $gerenciaId,
+                $fechaFinal,
+                $nivelPermiso,
             ]);
             $newId = $db->lastInsertId();
 
             logAction($db, $userId, 'EMPLEADO_CREADO', [
-                'empleado_id'  => $newId,
-                'cedula'       => "{$nac}-{$cedula}",
-                'nombre'       => "{$primerApellido}, {$primerNombre}",
-                'cargo'        => $cargo,
-                'gerencia'     => $gerenciaNom,
+                'empleado_id' => $newId,
+                'cedula' => "{$nac}-{$cedula}",
+                'nombre' => "{$primerApellido}, {$primerNombre}",
+                'cargo' => $cargo,
+                'gerencia' => $gerenciaNom,
             ]);
 
             http_response_code(201);
@@ -382,8 +398,8 @@ try {
 
             logAction($db, $userId, 'EMPLEADO_ELIMINADO', [
                 'empleado_id' => $id,
-                'cedula'      => $empData['cedula'] ?? 'N/A',
-                'nombre'      => ($empData['primer_apellido'] ?? '') . ', ' . ($empData['primer_nombre'] ?? ''),
+                'cedula' => $empData['cedula'] ?? 'N/A',
+                'nombre' => ($empData['primer_apellido'] ?? '') . ', ' . ($empData['primer_nombre'] ?? ''),
             ]);
 
             sendResponse(true, 'Empleado eliminado correctamente.');

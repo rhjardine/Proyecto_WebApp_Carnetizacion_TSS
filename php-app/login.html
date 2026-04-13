@@ -100,8 +100,56 @@
 
             ui.setLoading(btn, true, 'Verificando...');
             try {
-                await api.login(username, password);
-                window.location.href = 'dashboard.html';
+                const res = await api.login(username, password);
+                const userData = api.getCurrentUser();
+                if (userData.requires_password_change) {
+                    ui.setLoading(btn, false, 'Iniciar Sesión');
+                    const { value: formValues } = await Swal.fire({
+                        title: 'Cambio de contraseña requerido',
+                        html: `
+                            <p style="font-size:.85rem;color:#64748b;margin-bottom:12px;">
+                                Su contraseña ha expirado o el sistema requiere que la cambie antes de continuar.
+                            </p>
+                            <input id="swal-current" type="password" class="swal2-input" placeholder="Contraseña actual">
+                            <input id="swal-new" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6 caracteres)">
+                        `,
+                        confirmButtonText: 'Cambiar y continuar',
+                        showCancelButton: false,
+                        allowOutsideClick: false,
+                        preConfirm: () => {
+                            const current = document.getElementById('swal-current').value;
+                            const nuevo = document.getElementById('swal-new').value;
+                            if (!current || !nuevo) { Swal.showValidationMessage('Ambos campos son requeridos'); return false; }
+                            if (nuevo.length < 6) { Swal.showValidationMessage('Mínimo 6 caracteres'); return false; }
+                            return { current, nuevo };
+                        }
+                    });
+
+                    if (formValues) {
+                        try {
+                            const pwRes = await fetch('api/auth/force-password-change.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': userData.csrf_token || ''
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    current_password: formValues.current,
+                                    new_password: formValues.nuevo
+                                })
+                            }).then(r => r.json());
+                            if (!pwRes.success) throw new Error(pwRes.message);
+                            await api.logout();
+                            Swal.fire('Contraseña actualizada', 'Por seguridad, inicie sesión nuevamente con su nueva clave.', 'success')
+                                .then(() => window.location.href = 'login.html');
+                        } catch (pwErr) {
+                            ui.showAlert('alert-box', pwErr.message);
+                        }
+                    }
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
             } catch (err) {
                 ui.setLoading(btn, false, 'Iniciar Sesión');
                 const errMsg = err.message || 'Credenciales inválidas.';

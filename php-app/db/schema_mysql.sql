@@ -56,8 +56,11 @@ CREATE TABLE usuarios (
     rol_temporal     ENUM('ADMIN','COORD','ANALISTA','USUARIO','CONSULTA')
                                   NULL     DEFAULT NULL            COMMENT 'Permiso delegado temporalmente; NULL si no hay delegación activa',
     delegado_por     INT          NULL     DEFAULT NULL            COMMENT 'FK al usuario ADMIN que otorgó la delegación',
+    rol_temporal_expira_en TIMESTAMP NULL  DEFAULT NULL            COMMENT 'Expiración automática del rol delegado',
     bloqueado        TINYINT(1)   NOT NULL DEFAULT 0               COMMENT '0 = activa, 1 = bloqueada por intentos fallidos o admin',
     intentos_fallidos INT         NOT NULL DEFAULT 0               COMMENT 'Contador de fallos consecutivos para mitigar fuerza bruta',
+    clave_ultima_rotacion DATE    DEFAULT (CURRENT_DATE)           COMMENT 'Fecha de última actualización de contraseña',
+    requiere_cambio_clave TINYINT(1) NOT NULL DEFAULT 0            COMMENT 'Obliga rotación en el próximo login (1=Sí, 0=No)',
     creado_el        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actualizado_el   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -93,7 +96,10 @@ CREATE TABLE empleados (
     fecha_ingreso    DATE         NOT NULL                        COMMENT 'Antigüedad en la institución',
     estado_laboral   ENUM('Activo','Inactivo')
                                   NOT NULL DEFAULT 'Activo',
-    foto_url         MEDIUMBLOB   NULL     DEFAULT NULL           COMMENT 'URL HTTP accesible desde el cliente web (CDN o ruta pública Apache)',
+    foto_url         VARCHAR(1000) NULL     DEFAULT NULL
+        COMMENT 'URL pública o data:image/jpeg;base64,... para preproducción',
+    nivel_permiso    VARCHAR(50)  NULL     DEFAULT 'Nivel 1'
+        COMMENT 'Nivel de acceso institucional del funcionario',
     foto_ruta        VARCHAR(255) NULL     DEFAULT NULL           COMMENT 'Ruta absoluta en el sistema de archivos del servidor (para procesamiento GD)',
     estado_carnet    ENUM('Pendiente por Imprimir','Carnet Impreso','Carnet Entregado')
                                   NOT NULL DEFAULT 'Pendiente por Imprimir',

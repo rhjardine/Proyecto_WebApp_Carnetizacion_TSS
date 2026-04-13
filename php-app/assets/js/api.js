@@ -191,6 +191,22 @@ const api = {
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
 
+    // ── GESTIÓN DE USUARIOS ───────────────────────────────────────
+    createUser: async (username, password, fullName, role) =>
+        request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role }),
+
+    editUser: async (id, fullName, role) =>
+        request('api/users.php', 'POST', { action: 'edit', id, full_name: fullName, role }),
+
+    changeUserPassword: async (id, newPassword) =>
+        request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPassword }),
+
+    unlockUser: async (id) =>
+        request('api/users.php', 'POST', { action: 'unlock', id }),
+
+    deleteUser: async (id) =>
+        request('api/users.php', 'POST', { action: 'delete', id }),
+
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),
     createGerencia: async (nombre) => request('api/gerencias.php', 'POST', { nombre }),
