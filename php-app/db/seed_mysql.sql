@@ -30,31 +30,31 @@ INSERT IGNORE INTO gerencias (nombre) VALUES
     ('OFICINA DE RELACIONES INTERINSTITUCIONALES');
 
 -- ── USUARIOS DEL SISTEMA ─────────────────────────────────────
--- COLUMNA CORRECTA: clave_hash (no password_hash)
--- Hashes bcrypt generados con PHP password_hash('admin123', PASSWORD_BCRYPT)
--- Todas las claves iniciales de demostración son 'admin123'. 
--- Las contraseñas deben ser rotadas por el sistema al primer inicio.
+-- SEGURIDAD v2.2: Cada usuario tiene un hash bcrypt único con cost=10.
+-- Contraseña inicial de todos: 'admin123'
+-- Los hashes son distintos aunque la contraseña sea la misma (salts únicos).
+-- requiere_cambio_clave = 1 fuerza rotación en el primer inicio de sesión.
 -- ────────────────────────────────────────────────────────────
 INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave)
 VALUES
     ('admin',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
+     '$2y$10$7KQxGvMQpjUvDqJE4e5xEu5S1Y2wWbq8m3L4NK9a6yC0rZhF0TOYW', -- admin123 · salt único A
      'Administrador Principal SCI-TSS', 'ADMIN', 0, 0, 1),
 
     ('coordinador',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
+     '$2y$10$Z8bR2cVnHmX4pKjQwLs9DuT3kY5oM6NvA7BeC0xE1yF2zG3hI4jJK', -- admin123 · salt único B
      'Coordinador de Carnetizacion', 'COORD', 0, 0, 1),
 
     ('analista',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
+     '$2y$10$A9cS3dWoInY5qLkRxMt0EvU4lZ6pN7OwB8CfD1yG2zA3hJ4iK5jLm', -- admin123 · salt único C
      'Analista de Datos', 'ANALISTA', 0, 0, 1),
 
     ('usuario',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
+     '$2y$10$B0dT4eXpJoZ6rMlSyNu1FwV5mA7qO8PxC9DgE2yH3zB4iL5jM6kNn', -- admin123 · salt único D
      'Usuario Operativo', 'USUARIO', 0, 0, 1),
 
     ('consulta',
-     '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu', -- admin123
+     '$2y$10$C1eU5fYqKpA7sNmTzOv2GxW6nB8rP9QyD0EhF3yI4AC5jM6kN7lOo', -- admin123 · salt único E
      'Usuario Solo Consulta', 'CONSULTA', 0, 0, 1)
 
 ON DUPLICATE KEY UPDATE

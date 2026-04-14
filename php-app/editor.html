@@ -334,7 +334,29 @@
                             ◀ Vista Trasera
                         </button>
                     </div>
-                    <div id="id-card-wrapper" style="margin-top:44px;"><!-- Card injected by JS --></div>
+                    <div id="id-card-wrapper" style="margin-top:44px;transition:transform .2s ease;">
+                        <!-- Card injected by JS --></div>
+                    <!-- Barra de Zoom -->
+                    <div style="position:absolute;bottom:44px;left:50%;transform:translateX(-50%);
+                                display:flex;align-items:center;gap:8px;background:var(--color-surface);
+                                border:1px solid var(--color-border);border-radius:20px;padding:5px 14px;
+                                box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:10;">
+                        <button onclick="adjustZoom(-10)" title="Alejar"
+                            style="border:none;background:transparent;font-size:1.1rem;cursor:pointer;color:var(--color-muted);line-height:1;padding:2px 4px;border-radius:4px;"
+                            onmouseover="this.style.background='var(--color-border)'"
+                            onmouseout="this.style.background='transparent'">−</button>
+                        <span id="zoom-label"
+                            style="font-size:.72rem;font-weight:700;color:var(--color-muted);min-width:36px;text-align:center;">100%</span>
+                        <button onclick="adjustZoom(10)" title="Acercar"
+                            style="border:none;background:transparent;font-size:1.1rem;cursor:pointer;color:var(--color-muted);line-height:1;padding:2px 4px;border-radius:4px;"
+                            onmouseover="this.style.background='var(--color-border)'"
+                            onmouseout="this.style.background='transparent'">+</button>
+                        <span style="width:1px;background:var(--color-border);height:14px;margin:0 2px;"></span>
+                        <button onclick="resetZoom()" title="Restablecer zoom"
+                            style="border:none;background:transparent;font-size:.65rem;cursor:pointer;color:var(--color-muted);font-weight:600;padding:2px 4px;border-radius:4px;"
+                            onmouseover="this.style.background='var(--color-border)'"
+                            onmouseout="this.style.background='transparent'">⊙</button>
+                    </div>
                     <p style="position:absolute;bottom:16px;font-size:.75rem;color:var(--color-muted);font-family:monospace;"
                         id="card-meta"></p>
                 </div>
@@ -371,8 +393,10 @@
         </div>
     </div>
 
-    <script src="assets/js/vendor/qrious.min.js" onerror="console.warn('QRious no disponible.')"></script>
-    <script src="assets/js/vendor/html2pdf.bundle.min.js" onerror="console.warn('html2pdf no disponible.')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"
+        onerror="console.warn('QRious no disponible.')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+        onerror="console.warn('html2pdf no disponible.')"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"
         onerror="console.warn('Cropper.js no disponible.')"></script>
     <script src="assets/js/api.js"></script>

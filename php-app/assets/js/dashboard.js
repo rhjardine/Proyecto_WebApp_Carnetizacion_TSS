@@ -29,8 +29,6 @@ async function init() {
     setupModal();
     setupAutoMatch();
     setupPayrollImport();
-    setupGerenciasManager();
-    setupDelegation();
 }
 
 function setupDelegation() {
@@ -92,7 +90,7 @@ function applyConsultaRestrictions() {
     const isAdmin = effRole === 'ADMIN';
 
     if (!isAdmin) {
-        ['btn-new-employee', 'btn-import-excel', 'btn-auto-match', 'btn-manage-gerencias', 'btn-delegate-perms'].forEach(id => {
+        ['btn-new-employee', 'btn-import-excel', 'btn-auto-match'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });

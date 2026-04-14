@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Carga de Datos — Sistema de Carnetización TSS</title>
     <link rel="stylesheet" href="assets/css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -114,12 +115,15 @@
             if (!cedula) return alert("Ingrese una cédula.");
 
             const btn = document.getElementById('btn-validate');
-            ui.setLoading(btn, true, 'Buscando...');
+            const originalText = btn.textContent;
+            btn.textContent = 'Buscando...';
+            btn.disabled = true;
 
-            const res = await api.getEmployees();
-            const found = res.data.find(e => e.cedula.includes(cedula.replace(/v-|V-|\./g, '')));
+            const res = await api.getEmployees({ search: cedula.replace(/v-|V-|\./g, '') });
+            const found = res.data.length > 0 ? res.data[0] : null;
 
-            ui.setLoading(btn, false, 'Validar');
+            btn.textContent = originalText;
+            btn.disabled = false;
             const alertBox = document.getElementById('validation-alert');
             const previewContainer = document.getElementById('preview-container');
 
@@ -198,7 +202,9 @@
             if (!currentEmpId || !photoBase64) return;
 
             const btn = document.getElementById('btn-upload');
-            ui.setLoading(btn, true, 'Guardando en registro...');
+            const originalText = btn.textContent;
+            btn.textContent = 'Guardando en registro...';
+            btn.disabled = true;
 
             // Adjuntamos la imagen ya convertida en código
             const fd = new FormData();
@@ -207,7 +213,8 @@
 
             await api.uploadPhoto(fd);
 
-            ui.setLoading(btn, false);
+            btn.textContent = originalText;
+            btn.disabled = false;
 
             // Notificación visual sin redirigir de inmediato
             const previewContainer = document.getElementById('preview-container');

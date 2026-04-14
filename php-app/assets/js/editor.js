@@ -21,8 +21,8 @@
 // (api.js se carga antes que este script via <script src> — NO redeclarar aquí)
 
 let employee = null;
-let currentTemplate = '2025';
-let currentOrientation = 'horizontal';
+let currentTemplate = 'blanco';
+let currentOrientation = 'vertical';
 let currentFace = 'anverso';
 let qrDataUrl = null;
 let customBackground = null;   // Tarea 5: fondo personalizado (Base64)
@@ -32,6 +32,13 @@ let cropperInstance = null;   // Cropper.js
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
+  // Guard: si no hay sesion activa, redirigir al login
+  const sessionUser = api.getCurrentUser();
+  if (!sessionUser || !sessionUser.username) {
+    window.location.href = 'login.html';
+    return;
+  }
+
   if (typeof api.initCsrf === 'function') await api.initCsrf();
 
   const user = api.getCurrentUser();
@@ -137,6 +144,7 @@ async function init() {
     generateQR();
     renderDetails();
     renderCard();
+    setupZoom();
   } catch (err) {
     console.error(err);
     showEditorToast('Error al cargar datos: ' + err.message, 'danger');
@@ -186,6 +194,35 @@ function applyConsultaRestrictions(force = false) {
   }
 }
 
+
+// ── ZOOM ──────────────────────────────────────────────────────────────────────
+let currentZoom = 100; // Porcentaje de zoom (50-200)
+
+function setupZoom() {
+  // Restaurar último zoom de sesión si existía
+  const savedZoom = parseInt(sessionStorage.getItem('editor_zoom') || '100', 10);
+  currentZoom = savedZoom;
+  _applyZoom();
+}
+
+function adjustZoom(delta) {
+  currentZoom = Math.min(200, Math.max(40, currentZoom + delta));
+  _applyZoom();
+  sessionStorage.setItem('editor_zoom', String(currentZoom));
+}
+
+function resetZoom() {
+  currentZoom = 100;
+  _applyZoom();
+  sessionStorage.removeItem('editor_zoom');
+}
+
+function _applyZoom() {
+  const wrapper = document.getElementById('id-card-wrapper');
+  const label = document.getElementById('zoom-label');
+  if (wrapper) wrapper.style.transform = `scale(${currentZoom / 100})`;
+  if (label) label.textContent = currentZoom + '%';
+}
 
 // ── QR ────────────────────────────────────────────────────────────────────────
 function generateQR() {

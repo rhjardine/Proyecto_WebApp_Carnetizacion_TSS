@@ -293,7 +293,65 @@ const api = {
             };
         }
     },
+
+    // ── CONFIGURACIÓN INSTITUCIONAL ───────────────────────────
+    getSettings: async () => request('api/settings.php'),
+    updateSetting: async (clave, valor, seccion = 'global') =>
+        request('api/settings.php', 'POST', { seccion, clave, valor }),
 };
+
+// ── INIT GLOBAL UI ────────────────────────────────────────────
+function initGlobalUI() {
+    const isAdminUser = api.isAdmin();
+    const navConfig = document.getElementById('nav-config');
+    if (navConfig) navConfig.style.display = isAdminUser ? 'flex' : 'none';
+    const navUsuarios = document.getElementById('nav-usuarios');
+    if (navUsuarios) navUsuarios.style.display = isAdminUser ? 'flex' : 'none';
+
+    setupGlobalLogout();
+}
+
+function setupGlobalLogout() {
+    // Si la página tiene un script propio que hace init() re-añadiendo el listener,
+    // debemos usar un clon para borrar listeners previos y asegurar que solo corra este modal.
+    const btnLogout = document.getElementById('btn-logout');
+    if (!btnLogout) return;
+
+    const newBtn = btnLogout.cloneNode(true);
+    btnLogout.parentNode.replaceChild(newBtn, btnLogout);
+
+    newBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (typeof Swal !== 'undefined') {
+            const res = await Swal.fire({
+                title: '¿Desea salir del Sistema?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0f172a',
+                cancelButtonColor: '#dc2626',
+                confirmButtonText: 'Sí',
+                cancelButtonText: 'No'
+            });
+            if (!res.isConfirmed) return;
+        } else {
+            if (!confirm('¿Desea salir del Sistema?')) return;
+        }
+
+        newBtn.textContent = '...';
+        await api.logout();
+        window.location.href = 'login.html';
+    });
+}
+
+// Ejecutar logica de UI global luego que el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGlobalUI);
+} else {
+    initGlobalUI();
+}
+// ── FIN DE api.js ──
 
 // ── UTILIDADES DE UI ──────────────────────────────────────────
 const ui = {

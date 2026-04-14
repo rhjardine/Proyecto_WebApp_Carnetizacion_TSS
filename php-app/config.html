@@ -175,6 +175,47 @@
                         </ul>
                     </div>
 
+                    <!-- Ajustes Institucionales -->
+                    <div class="config-card" style="grid-column: 1 / -1;">
+                        <h2>Configuración Institucional (Global)</h2>
+                        <form id="form-ajustes-globales">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                                <div class="form-group">
+                                    <label class="form-label"
+                                        style="display:block; margin-bottom:5px; font-weight:600; font-size:0.8rem;">Nombre
+                                        de la Institución</label>
+                                    <input type="text" id="inst-name" class="form-input" style="width:100%;"
+                                        placeholder="Ej: Tesorería de Seguridad Social">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label"
+                                        style="display:block; margin-bottom:5px; font-weight:600; font-size:0.8rem;">Siglas
+                                        / Acrónimo</label>
+                                    <input type="text" id="inst-abbr" class="form-input" style="width:100%;"
+                                        placeholder="Ej: TSS">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label"
+                                        style="display:block; margin-bottom:5px; font-weight:600; font-size:0.8rem;">URL
+                                        Base de Validación QR</label>
+                                    <input type="url" id="inst-url" class="form-input" style="width:100%;"
+                                        placeholder="https://carnetizacion.tss.gob.ve/validar">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label"
+                                        style="display:block; margin-bottom:5px; font-weight:600; font-size:0.8rem;">País
+                                        de Origen</label>
+                                    <input type="text" id="inst-country" class="form-input" style="width:100%;"
+                                        placeholder="Ej: Venezuela">
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:flex-end;">
+                                <button type="submit" class="btn btn-primary" id="btn-save-settings">Guardar
+                                    Configuración Global</button>
+                            </div>
+                        </form>
+                    </div>
+
                 </div>
             </div>
         </main>
@@ -248,8 +289,22 @@
 
             await cargarGerencias();
             await cargarUsuarios();
+            await cargarAjustes();
             setupForms();
         });
+
+        async function cargarAjustes() {
+            try {
+                const res = await api.getSettings();
+                const s = res.data?.global || {};
+                document.getElementById('inst-name').value = s.nombre_institucion || '';
+                document.getElementById('inst-abbr').value = s.siglas || '';
+                document.getElementById('inst-url').value = s.url_validacion || '';
+                document.getElementById('inst-country').value = s.pais || '';
+            } catch (err) {
+                console.error('[SCI-TSS] Error al cargar ajustes:', err);
+            }
+        }
 
         function getRoleBadge(role, isTemp = false) {
             const map = {
@@ -326,6 +381,27 @@
 
             document.getElementById('btn-cancel-role').addEventListener('click', () => {
                 document.getElementById('role-modal').style.display = 'none';
+            });
+
+            document.getElementById('form-ajustes-globales').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('btn-save-settings');
+                const settings = {
+                    nombre_institucion: document.getElementById('inst-name').value.trim(),
+                    siglas: document.getElementById('inst-abbr').value.trim(),
+                    url_validacion: document.getElementById('inst-url').value.trim(),
+                    pais: document.getElementById('inst-country').value.trim()
+                };
+
+                api.setLoading(btn, true, 'Guardando...');
+                try {
+                    await api.updateSetting('global', settings, 'global');
+                    Swal.fire('Éxito', 'Configuración institucional guardada correctamente en el servidor.', 'success');
+                } catch (err) {
+                    Swal.fire('Error', err.message, 'error');
+                } finally {
+                    api.setLoading(btn, false);
+                }
             });
         }
 
