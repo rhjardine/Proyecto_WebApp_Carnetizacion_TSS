@@ -214,10 +214,9 @@ try {
                 sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
             }
 
-            // Solo ADMIN puede cambiar la contraseña de otros.
-            // Un usuario puede cambiar la suya propia.
-            if ($id !== $authUser['id'] && $authUser['rol_efectivo'] !== 'ADMIN') {
-                sendResponse(false, 'Solo ADMIN puede cambiar la contraseña de otros usuarios.', null, 403);
+            // Solo ADMIN o COORD pueden cambiar la contraseña de otros.
+            if ($id !== $authUser['id'] && !in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+                sendResponse(false, 'Solo Administradores y Coordinadores pueden cambiar la contraseña de otros usuarios.', null, 403);
             }
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
@@ -299,8 +298,8 @@ try {
 
         // ── Desbloquear cuenta ───────────────────────────────
         if ($action === 'unlock') {
-            if ($authUser['rol_efectivo'] !== 'ADMIN') {
-                sendResponse(false, 'Solo ADMIN puede desbloquear cuentas.', null, 403);
+            if (!in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+                sendResponse(false, 'Solo Administradores y Coordinadores pueden desbloquear cuentas.', null, 403);
             }
 
             $id = intval($body['id'] ?? 0);
