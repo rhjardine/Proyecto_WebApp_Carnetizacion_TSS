@@ -24,6 +24,8 @@ function loadEnv($path)
 }
 loadEnv(__DIR__ . '/../../.env');
 
+require_once __DIR__ . '/config_fixed.php';
+
 // 2. CONSTANTES GLOBALES -------------------------------------------------------
 if (!defined('DB_HOST'))
     define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
@@ -55,7 +57,7 @@ if (!defined('UPLOAD_DIR'))
     define('UPLOAD_DIR', __DIR__ . '/../../uploads/');
 
 // 3. SEGURIDAD CORS (Solo para peticiones Web) --------------------------------
-require_once __DIR__ . '/cors_fixed.php';
+require_once __DIR__ . '/cors.php';
 
 /**
  * getDB() — Singleton de conexión PDO a MySQL.

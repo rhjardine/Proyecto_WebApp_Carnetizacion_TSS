@@ -83,6 +83,44 @@ CREATE TABLE IF NOT EXISTS temporary_permissions (
     INDEX idx_temp_perm_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 1.5.b Capa de compatibilidad Spanish usada por la app actual
+CREATE TABLE IF NOT EXISTS permisos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion VARCHAR(255) NULL,
+    recurso VARCHAR(100) NULL,
+    accion VARCHAR(50) NULL,
+    INDEX idx_permisos_recurso_accion (recurso, accion)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS usuario_rol (
+    usuario_id INT NOT NULL,
+    rol_id INT NOT NULL,
+    PRIMARY KEY (usuario_id, rol_id),
+    INDEX idx_usuario_rol_usuario (usuario_id),
+    INDEX idx_usuario_rol_rol (rol_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS rol_permiso (
+    rol_id INT NOT NULL,
+    permiso_id INT NOT NULL,
+    PRIMARY KEY (rol_id, permiso_id),
+    INDEX idx_rol_permiso_rol (rol_id),
+    INDEX idx_rol_permiso_permiso (permiso_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS permisos_temporales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    permiso_id INT NOT NULL,
+    otorgado_por INT NOT NULL,
+    otorgado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expira_en TIMESTAMP NULL DEFAULT NULL,
+    UNIQUE KEY uq_permiso_temporal (usuario_id, permiso_id),
+    INDEX idx_permiso_temporal_lookup (usuario_id, permiso_id, expira_en),
+    INDEX idx_permiso_temporal_expira (expira_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 1.6 Tabla de Auditoría Inmutable (SQL-005)
 CREATE TABLE IF NOT EXISTS audit_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -189,6 +227,20 @@ INSERT IGNORE INTO permissions (id, name, description) VALUES
 (11, 'gerencia.manage', 'Crear, editar y eliminar gerencias'),
 (12, 'carnet.delete', 'Eliminar registros de carnet');
 
+INSERT IGNORE INTO permisos (id, nombre, descripcion, recurso, accion) VALUES
+(1, 'carnet.create', 'Solicitar un nuevo carné', 'carnet', 'create'),
+(2, 'carnet.view_own', 'Ver estado de carné propio', 'carnet', 'read_own'),
+(3, 'carnet.view_all', 'Ver listado de todos los carnés', 'carnet', 'read'),
+(4, 'carnet.update_status', 'Avanzar estado del carné (Impreso/Entregado)', 'carnet', 'update_status'),
+(5, 'carnet.approve', 'Aprobar o anular solicitudes de carné', 'carnet', 'approve'),
+(6, 'user.manage', 'Crear, editar y desactivar usuarios', 'usuarios', 'manage'),
+(7, 'security.sudo', 'Otorgar permisos temporales a otros', 'security', 'sudo'),
+(8, 'auth.change_password', 'Cambiar contraseña de otro usuario (Admin)', 'auth', 'change_password'),
+(9, 'auth.self_password', 'Cambiar propia contraseña (Todos autenticados)', 'auth', 'self_password'),
+(10, 'settings.manage', 'Gestionar configuración institucional', 'config', 'update'),
+(11, 'gerencia.manage', 'Crear, editar y eliminar gerencias', 'gerencias', 'manage'),
+(12, 'carnet.delete', 'Eliminar registros de carnet', 'carnet', 'delete');
+
 -- 3.2 Asignación de Permisos a Roles
 -- Administrador: Todo (1 al 12)
 INSERT IGNORE INTO role_permission (role_id, permission_id) VALUES 
@@ -206,6 +258,12 @@ INSERT IGNORE INTO role_permission (role_id, permission_id) VALUES
 INSERT IGNORE INTO role_permission (role_id, permission_id) VALUES 
 (4,1), (4,2), (4,9);
 
+INSERT IGNORE INTO rol_permiso (rol_id, permiso_id) VALUES
+(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10), (1,11), (1,12),
+(2,3), (2,4), (2,5), (2,7), (2,9), (2,11),
+(3,3), (3,4), (3,9),
+(4,1), (4,2), (4,9);
+
 -- 3.3 Creación de Usuarios Iniciales
 -- NOTA: Estos hashes BCRYPT corresponden a la contraseña 'Admin123!'
 -- DEBEN SER CAMBIADOS INMEDIATAMENTE EN EL PRIMER INICIO DE SESIÓN
@@ -216,5 +274,8 @@ INSERT IGNORE INTO users (id, username, password, email, full_name, requires_pas
 -- 3.4 Asignación de Usuarios a Roles
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1, 1);
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (2, 2);
+
+INSERT IGNORE INTO usuario_rol (usuario_id, rol_id) VALUES (1, 1);
+INSERT IGNORE INTO usuario_rol (usuario_id, rol_id) VALUES (2, 2);
 
 SET FOREIGN_KEY_CHECKS = 1;

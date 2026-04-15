@@ -7,12 +7,12 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../middleware/RBAC.php';
+require_once __DIR__ . '/../middleware/auth_check.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
 try {
     $pdo = getDB();
-    Security::initSession();
 
     // Requerir permiso específico para gestionar SUDO
     Security::requirePermission($pdo, 'security.sudo');
