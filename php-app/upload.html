@@ -110,7 +110,8 @@
     <script src="assets/js/api.js"></script>
     <script>
         let currentEmpId = null;
-        let photoBase64 = null; // Almacenará la foto de forma persistente
+        let selectedPhotoFile = null;
+        let selectedPhotoPreviewUrl = null;
 
         async function demoValidate() {
             const cedula = document.getElementById('cedula-input').value.trim();
@@ -163,7 +164,11 @@
                 document.getElementById('upload-section').style.opacity = '0.4';
                 document.getElementById('upload-section').style.pointerEvents = 'none';
                 currentEmpId = null;
-                photoBase64 = null;
+                selectedPhotoFile = null;
+                if (selectedPhotoPreviewUrl) {
+                    URL.revokeObjectURL(selectedPhotoPreviewUrl);
+                    selectedPhotoPreviewUrl = null;
+                }
 
                 // Reiniciar el contenedor de preview
                 previewContainer.innerHTML = `
@@ -178,42 +183,58 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // Convertimos la imagen a Base64 para que pueda guardarse y persistir
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                photoBase64 = e.target.result;
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                alert('Solo se permiten imágenes JPG y PNG.');
+                event.target.value = '';
+                return;
+            }
 
-                // Mostrar Vista Previa de la Foto
-                const previewContainer = document.getElementById('preview-container');
-                previewContainer.innerHTML = `
-                    <img src="${photoBase64}" style="max-height: 180px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;" />
-                    <div style="font-size:0.75rem; color:#10b981; font-weight:bold; margin-top:10px;">✅ Nueva Imagen Lista</div>
-                `;
+            if (file.size > 8 * 1024 * 1024) {
+                alert('El archivo supera el límite de 8 MB.');
+                event.target.value = '';
+                return;
+            }
 
-                // Habilitar Botón
-                const btn = document.getElementById('btn-upload');
-                btn.disabled = false;
-                btn.textContent = "Confirmar y Guardar Foto";
-                btn.style.background = "#10b981"; // Verde éxito
-                btn.style.color = "#fff";
-            };
-            reader.readAsDataURL(file);
+            selectedPhotoFile = file;
+
+            if (selectedPhotoPreviewUrl) {
+                URL.revokeObjectURL(selectedPhotoPreviewUrl);
+            }
+            selectedPhotoPreviewUrl = URL.createObjectURL(file);
+
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.innerHTML = `
+                <img src="${selectedPhotoPreviewUrl}" style="max-height: 180px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;" />
+                <div style="font-size:0.75rem; color:#10b981; font-weight:bold; margin-top:10px;">✅ Nueva Imagen Lista</div>
+            `;
+
+            const btn = document.getElementById('btn-upload');
+            btn.disabled = false;
+            btn.textContent = "Confirmar y Guardar Foto";
+            btn.style.background = "#10b981";
+            btn.style.color = "#fff";
         }
 
         async function demoUpload() {
-            if (!currentEmpId || !photoBase64) return;
+            if (!currentEmpId || !selectedPhotoFile) return;
 
             const btn = document.getElementById('btn-upload');
             const originalText = btn.textContent;
             btn.textContent = 'Guardando en registro...';
             btn.disabled = true;
 
-            // Adjuntamos la imagen ya convertida en código
             const fd = new FormData();
             fd.append('employee_id', currentEmpId);
-            fd.append('photo_base64', photoBase64);
+            fd.append('photo', selectedPhotoFile);
 
             await api.uploadPhoto(fd);
+
+            if (selectedPhotoPreviewUrl) {
+                URL.revokeObjectURL(selectedPhotoPreviewUrl);
+                selectedPhotoPreviewUrl = null;
+            }
+            selectedPhotoFile = null;
+            document.getElementById('photo-input').value = '';
 
             btn.textContent = originalText;
             btn.disabled = false;

@@ -176,17 +176,41 @@ try {
     $db = getDB();
 
     // Obtener la foto anterior para borrarla del disco
-    $prev = $db->prepare('SELECT photo_url FROM employees WHERE id = :id');
+    $prev = $db->prepare('SELECT foto_url FROM empleados WHERE id = :id');
     $prev->execute([':id' => $employeeId]);
     $prevPhoto = $prev->fetchColumn();
 
     // Actualizar con la nueva URL
-    $stmt = $db->prepare('UPDATE employees SET photo_url = :url WHERE id = :id RETURNING *');
+    $stmt = $db->prepare('UPDATE empleados SET foto_url = :url, actualizado_el = NOW() WHERE id = :id');
     $stmt->execute([':url' => $publicUrl, ':id' => $employeeId]);
-    $employee = $stmt->fetch();
+
+    if ($stmt->rowCount() < 1) {
+        // Empleado no encontrado → borrar la imagen recién guardada
+        @unlink($destPath);
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Empleado no encontrado.']);
+        exit;
+    }
+
+    $empStmt = $db->prepare('
+        SELECT
+            id,
+            cedula,
+            nacionalidad,
+            primer_nombre,
+            segundo_nombre,
+            primer_apellido,
+            segundo_apellido,
+            cargo,
+            foto_url
+        FROM empleados
+        WHERE id = :id
+        LIMIT 1
+    ');
+    $empStmt->execute([':id' => $employeeId]);
+    $employee = $empStmt->fetch();
 
     if (!$employee) {
-        // Empleado no encontrado → borrar la imagen recién guardada
         @unlink($destPath);
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Empleado no encontrado.']);
@@ -202,10 +226,17 @@ try {
     }
 
     // ── AUDIT LOG ──────────────────────────────────────────
+    $fullName = trim(implode(' ', array_filter([
+        $employee['primer_nombre'] ?? '',
+        $employee['segundo_nombre'] ?? '',
+        $employee['primer_apellido'] ?? '',
+        $employee['segundo_apellido'] ?? '',
+    ])));
+
     logAction($db, $authUser['id'], 'EMPLOYEE_PHOTO_UPLOADED', [
         'employee_id' => $employee['id'],
         'cedula' => $employee['cedula'],
-        'nombre' => $employee['nombre'],
+        'nombre' => $fullName,
         'filename' => $secureFilename,
         'original_type' => $allowedMimeTypes[$imageType],
         'size_bytes' => $_FILES['photo']['size'],

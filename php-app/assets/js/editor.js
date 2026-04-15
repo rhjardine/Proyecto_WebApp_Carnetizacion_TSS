@@ -133,17 +133,33 @@ async function init() {
   }
 
   const urlId = urlParams.get('id');
+  const urlCedula = (urlParams.get('cedula') || '').replace(/[^0-9]/g, '');
   const storedId = urlId || localStorage.getItem('selected_employee_id');
   if (urlId) localStorage.setItem('selected_employee_id', urlId);
 
   try {
-    const res = await api.getEmployees();
-    const list = res.data || [];
-    if (!list.length) {
-      showEditorToast('Atención: No hay empleados registrados en el sistema.', 'info');
-      return; // Cero redirecciones
+    let list = [];
+
+    if (storedId) {
+      const res = await api.getEmployees({ id: storedId });
+      list = res.data || [];
+    } else if (urlCedula) {
+      const res = await api.getEmployees({ cedula: urlCedula, limit: 1 });
+      list = res.data || [];
+    } else {
+      const res = await api.getEmployees({ limit: 1 });
+      list = res.data || [];
     }
-    employee = list.find(e => String(e.id) === String(storedId)) || list[0];
+
+    if (!list.length) {
+      const lookupLabel = storedId
+        ? `ID ${storedId}`
+        : (urlCedula ? `cédula ${urlCedula}` : 'la selección solicitada');
+      showEditorToast(`No se encontró un funcionario para ${lookupLabel}.`, 'warning');
+      return;
+    }
+
+    employee = list[0];
     generateQR();
     renderDetails();
     renderCard();

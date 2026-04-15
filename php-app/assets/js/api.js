@@ -111,6 +111,60 @@ async function request(url, method = 'GET', body = null) {
     return result;
 }
 
+async function requestFormData(url, method = 'POST', formData) {
+    const options = {
+        method,
+        headers: {
+            'Accept': 'application/json',
+        },
+        body: formData,
+        credentials: 'same-origin',
+    };
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
+        try {
+            const u = api.getCurrentUser();
+            if (u && u.csrf_token) {
+                options.headers['X-CSRF-Token'] = u.csrf_token;
+            }
+        } catch (_) { /* Sin token CSRF disponible */ }
+    }
+
+    let response;
+    try {
+        response = await fetch(API_BASE + url, options);
+    } catch (_) {
+        throw new Error(
+            'Error de conexión: No se pudo alcanzar el servidor. ' +
+            'Verifique que Apache y MySQL estén activos en XAMPP.'
+        );
+    }
+
+    const text = await response.text();
+
+    if (text.trim().startsWith('<')) {
+        console.error('[SCI-TSS API] Respuesta HTML inesperada:', text.substring(0, 300));
+        throw new Error(
+            `El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). ` +
+            'Revise los logs de Apache en XAMPP Control Panel.'
+        );
+    }
+
+    let result;
+    try {
+        result = JSON.parse(text);
+    } catch (_) {
+        console.error('[SCI-TSS API] JSON inválido recibido:', text.substring(0, 300));
+        throw new Error('Respuesta del servidor inválida. Contacte al administrador.');
+    }
+
+    if (!result.success) {
+        throw new Error(result.message || 'Error en la petición al servidor.');
+    }
+
+    return result;
+}
+
 // ── GENERADOR DE AVATARES ─────────────────────────────────────
 function makeAvatar(name = '?', bg = null) {
     const words = String(name).trim().split(/\s+/);
@@ -241,6 +295,7 @@ const api = {
         const qs = new URLSearchParams();
 
         if (params.id) qs.set('id', params.id);
+        if (params.cedula) qs.set('cedula', params.cedula);
         if (params.page) qs.set('page', params.page);
         if (params.limit) qs.set('limit', params.limit);
         if (params.search) qs.set('search', params.search);
@@ -289,7 +344,13 @@ const api = {
 
     uploadPhoto: async (formData) => {
         const id = formData.get ? formData.get('employee_id') : formData.employee_id;
+        const photoFile = formData.get ? formData.get('photo') : formData.photo;
         const photoBase64 = formData.get ? formData.get('photo_base64') : formData.photo_base64;
+
+        if (photoFile instanceof File) {
+            return requestFormData('api/employees/upload.php', 'POST', formData);
+        }
+
         return request('api/employees.php', 'POST', { id, photo_url: photoBase64, foto_url: photoBase64 });
     },
 

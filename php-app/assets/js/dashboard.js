@@ -371,12 +371,12 @@ async function deleteEmployee(id) {
 
 function openEditor(id) {
     localStorage.setItem('selected_employee_id', id);
-    window.location.href = 'editor.html';
+    window.location.href = `editor.html?id=${encodeURIComponent(id)}`;
 }
 
 function viewEmployee(id) {
     localStorage.setItem('selected_employee_id', id);
-    window.location.href = `editor.html?mode=view`;
+    window.location.href = `editor.html?id=${encodeURIComponent(id)}&mode=view`;
 }
 
 // ── TAREA 4: GERENCIAS ────────────────────────────────────────────────────────
