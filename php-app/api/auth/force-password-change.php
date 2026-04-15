@@ -5,7 +5,6 @@
  * o el sistema se los requiere.
  */
 
-require_once __DIR__ . '/../../includes/cors.php';
 require_once __DIR__ . '/../config/db.php';
 
 $isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');

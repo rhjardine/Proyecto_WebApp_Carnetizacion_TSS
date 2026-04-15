@@ -18,10 +18,9 @@
  * Body JSON: { "username": "admin", "password": "admin123" }
  */
 
-require_once __DIR__ . '/../includes/cors.php';
 require_once __DIR__ . '/config/db.php';
 
-// ── Configuración de sesión segura ───────────────────────────
+// ── Gestión de Sesión para Login ─────────────────────────────
 $isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
 session_set_cookie_params([
     'lifetime' => SESSION_LIFETIME,
@@ -31,12 +30,8 @@ session_set_cookie_params([
     'httponly' => true,
     'samesite' => 'Strict',
 ]);
-session_start();
-
-// ── Solo aceptar POST y OPTIONS ──────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

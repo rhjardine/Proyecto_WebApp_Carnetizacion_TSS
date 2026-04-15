@@ -8,7 +8,6 @@
  * Este archivo se mantiene por compatibilidad con rutas legacy.
  * La lógica real está en api/auth.php.
  */
-require_once __DIR__ . '/../../includes/cors.php';
 require_once __DIR__ . '/../config/db.php';
 
 // ── Configuración de sesión segura ───────────────────────────
