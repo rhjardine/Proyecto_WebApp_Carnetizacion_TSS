@@ -43,6 +43,20 @@ CREATE TABLE IF NOT EXISTS permisos_temporales (
     INDEX idx_temp_perm_lookup (usuario_id, permiso_id, expira_en)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS configuracion_sistema (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    clave VARCHAR(100) NOT NULL UNIQUE,
+    valor TEXT NULL,
+    seccion VARCHAR(50) NOT NULL DEFAULT 'global',
+    tipo ENUM('string', 'number', 'boolean', 'json') NOT NULL DEFAULT 'string',
+    descripcion VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_configuracion_seccion (seccion),
+    INDEX idx_configuracion_clave (clave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- 3. Migración de Semilla (Seed) a las nuevas tablas Spanish
 INSERT IGNORE INTO permisos (id, nombre, descripcion)
 SELECT id, name, description FROM permissions;

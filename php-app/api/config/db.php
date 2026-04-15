@@ -55,22 +55,7 @@ if (!defined('UPLOAD_DIR'))
     define('UPLOAD_DIR', __DIR__ . '/../../uploads/');
 
 // 3. SEGURIDAD CORS (Solo para peticiones Web) --------------------------------
-if (PHP_SAPI !== 'cli') {
-    $allowedOrigins = ['http://localhost', 'http://localhost:80', 'http://127.0.0.1', 'http://localhost:3000', 'http://127.0.0.1:3000'];
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if (in_array($origin, $allowedOrigins, true)) {
-        header('Access-Control-Allow-Origin: ' . $origin);
-        header('Access-Control-Allow-Credentials: true');
-    }
-    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, Accept, X-CSRF-Token');
-    header('Vary: Origin');
-
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(204);
-        exit;
-    }
-}
+require_once __DIR__ . '/cors_fixed.php';
 
 /**
  * getDB() — Singleton de conexión PDO a MySQL.
