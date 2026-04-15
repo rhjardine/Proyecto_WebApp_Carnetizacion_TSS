@@ -61,17 +61,11 @@ async function init() {
         : user.username[0].toUpperCase();
       av.textContent = initials;
     }
-    const user = api.getCurrentUser();
-    if (!user.username) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    // Bloqueo de seguridad: Solo Admin/Coord pueden estar en esta página
+    // Redirección de seguridad: Roles de muy baja jerarquía (ej. CONSULTA pura) 
+    // Ahora permitimos ANALISTA, USUARIO y OPERATIVO entrar para CONSULTAR.
     const role = (user.effective_role || user.role || '').toUpperCase();
-    if (role !== 'ADMIN' && role !== 'COORD') {
-      window.location.href = 'dashboard.html';
-      return;
+    if (role === 'OPERATIVO' || role === 'USUARIO') {
+      // Podrían entrar si es necesario, pero por ahora delegamos a applyConsultaRestrictions
     }
   }
 
@@ -177,11 +171,15 @@ function applyConsultaRestrictions(force = false) {
         if (el) el.style.display = 'none';
       });
 
+    // REQUERIMIENTO: Analistas y usuarios no pueden IMPRIMIR.
+    const btnPrint = document.querySelector('button[onclick="printCurrentCard()"]');
+    if (btnPrint) btnPrint.style.display = 'none';
+
     // Ocultar módulo de foto
     const photoModule = document.getElementById('card-photo-module');
     if (photoModule) photoModule.style.display = 'none';
 
-    showEditorToast('Modo solo consulta — edición deshabilitada.', 'info');
+    showEditorToast('Modo solo consulta — edición e impresión física deshabilitadas.', 'info');
   } else if (isAdmin) {
     // Garantizar que estén habilitados para Admin
     document.querySelectorAll('#form-edit-employee input').forEach(el => {
