@@ -17,7 +17,11 @@
  */
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
+
+$db = getDB();
+Security::requirePermission($db, 'user.manage');
 
 $method = strtoupper($_SERVER['REQUEST_METHOD']);
 
@@ -101,9 +105,7 @@ try {
 
         // ── Crear usuario ────────────────────────────────────
         if ($action === 'create') {
-            if ($authUser['rol_efectivo'] !== 'ADMIN') {
-                sendResponse(false, 'Solo ADMIN puede crear usuarios.', null, 403);
-            }
+            // Validado por Security::requirePermission('user.manage')
 
             $newUser = trim($body['username'] ?? '');
             $newPass = $body['password'] ?? '';
@@ -154,9 +156,7 @@ try {
 
         // ── Editar usuario ───────────────────────────────────
         if ($action === 'edit') {
-            if ($authUser['rol_efectivo'] !== 'ADMIN') {
-                sendResponse(false, 'Solo ADMIN puede editar usuarios.', null, 403);
-            }
+            // Validado por Security::requirePermission('user.manage')
 
             $id = intval($body['id'] ?? 0);
             $newName = trim($body['full_name'] ?? '');

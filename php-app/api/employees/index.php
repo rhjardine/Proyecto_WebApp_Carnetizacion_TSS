@@ -8,9 +8,17 @@
  *
  * SECURITY: Todos los filtros usan parámetros enlazados (PDO) → sin SQL Injection.
  */
+require_once __DIR__ . '/../../middleware/RBAC.php';
 require_once __DIR__ . '/../../middleware/auth_check.php';
 
+$db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
+
+// HARDENING: NIST RBAC Enforcement
+if ($method === 'GET')
+    Security::requirePermission($db, 'carnet.view_all');
+if ($method === 'POST')
+    Security::requirePermission($db, 'carnet.create');
 
 // ==============================================================
 // GET — List employees (paginated + filtered)
@@ -18,8 +26,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
 
     // --- Parámetros de paginación con valores por defecto seguros ---
-    $page   = max(1, intval($_GET['page']  ?? 1));
-    $limit  = min(200, max(1, intval($_GET['limit'] ?? 50))); // máx 200 filas por página
+    $page = max(1, intval($_GET['page'] ?? 1));
+    $limit = min(200, max(1, intval($_GET['limit'] ?? 50))); // máx 200 filas por página
     $offset = ($page - 1) * $limit;
 
     // --- Parámetros de filtro ---
@@ -34,7 +42,7 @@ if ($method === 'GET') {
 
     // --- Construcción dinámica del WHERE seguro ---
     $conditions = [];
-    $params     = [];
+    $params = [];
 
     if ($search !== '') {
         // ILIKE en PostgreSQL → búsqueda case-insensitive
@@ -58,7 +66,7 @@ if ($method === 'GET') {
         $countStmt = $db->prepare("SELECT COUNT(*) AS total FROM employees {$whereClause}");
         $countStmt->execute($params);
         $totalRecords = (int) $countStmt->fetchColumn();
-        $totalPages   = (int) ceil($totalRecords / $limit);
+        $totalPages = (int) ceil($totalRecords / $limit);
 
         // --- Consulta principal con LIMIT/OFFSET ---
         $dataStmt = $db->prepare("
@@ -77,7 +85,7 @@ if ($method === 'GET') {
             $dataStmt->bindValue($key, $value);
         }
         // Vincular paginación como enteros
-        $dataStmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
+        $dataStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 
         $dataStmt->execute();
@@ -85,14 +93,14 @@ if ($method === 'GET') {
 
         echo json_encode([
             'success' => true,
-            'data'    => $employees,
-            'meta'    => [
+            'data' => $employees,
+            'meta' => [
                 'totalRecords' => $totalRecords,
-                'currentPage'  => $page,
-                'totalPages'   => $totalPages,
-                'limit'        => $limit,
-                'search'       => $search,
-                'status'       => $status,
+                'currentPage' => $page,
+                'totalPages' => $totalPages,
+                'limit' => $limit,
+                'search' => $search,
+                'status' => $status,
             ],
         ]);
 
@@ -109,12 +117,12 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $body = json_decode(file_get_contents('php://input'), true);
 
-    $cedula       = trim($body['cedula']       ?? '');
-    $nombre       = trim($body['nombre']       ?? '');
-    $cargo        = trim($body['cargo']        ?? '');
+    $cedula = trim($body['cedula'] ?? '');
+    $nombre = trim($body['nombre'] ?? '');
+    $cargo = trim($body['cargo'] ?? '');
     $departamento = trim($body['departamento'] ?? '');
-    $tipo_sangre  = trim($body['tipo_sangre']  ?? '');
-    $nss          = trim($body['nss']          ?? '');
+    $tipo_sangre = trim($body['tipo_sangre'] ?? '');
+    $nss = trim($body['nss'] ?? '');
 
     if (empty($cedula) || empty($nombre) || empty($cargo) || empty($departamento)) {
         http_response_code(400);
@@ -139,22 +147,22 @@ if ($method === 'POST') {
             RETURNING *
         ');
         $stmt->execute([
-            ':cedula'       => $cedula,
-            ':nombre'       => $nombre,
-            ':cargo'        => $cargo,
+            ':cedula' => $cedula,
+            ':nombre' => $nombre,
+            ':cargo' => $cargo,
             ':departamento' => $departamento,
-            ':tipo_sangre'  => $tipo_sangre ?: null,
-            ':nss'          => $nss ?: null,
+            ':tipo_sangre' => $tipo_sangre ?: null,
+            ':nss' => $nss ?: null,
         ]);
         $employee = $stmt->fetch();
 
         // ── AUDIT LOG ──────────────────────────────────────────
         logAction($db, $authUser['id'], 'EMPLOYEE_CREATED', [
             'employee_id' => $employee['id'],
-            'cedula'      => $employee['cedula'],
-            'nombre'      => $employee['nombre'],
-            'cargo'       => $employee['cargo'],
-            'departamento'=> $employee['departamento'],
+            'cedula' => $employee['cedula'],
+            'nombre' => $employee['nombre'],
+            'cargo' => $employee['cargo'],
+            'departamento' => $employee['departamento'],
         ]);
         // ───────────────────────────────────────────────────────
 

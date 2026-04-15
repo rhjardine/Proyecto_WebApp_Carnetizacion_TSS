@@ -4,7 +4,11 @@
  * PATCH — Update employee status
  * Accepts: { "id": 1, "status": "Verificado" }
  */
+require_once __DIR__ . '/../../../middleware/RBAC.php';
 require_once __DIR__ . '/../../../middleware/auth_check.php';
+
+$db = getDB();
+Security::requirePermission($db, 'carnet.update_status');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
     http_response_code(405);
@@ -12,8 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
     exit;
 }
 
-$body   = json_decode(file_get_contents('php://input'), true);
-$id     = intval($body['id'] ?? 0);
+$body = json_decode(file_get_contents('php://input'), true);
+$id = intval($body['id'] ?? 0);
 $status = trim($body['status'] ?? '');
 
 $allowed = ['Pendiente', 'Verificado', 'Impreso', 'Rechazado'];
@@ -24,7 +28,7 @@ if (!$id || !in_array($status, $allowed, true)) {
 }
 
 try {
-    $db   = getDB();
+    $db = getDB();
     $stmt = $db->prepare('UPDATE employees SET status = :status WHERE id = :id RETURNING *');
     $stmt->execute([':status' => $status, ':id' => $id]);
     $employee = $stmt->fetch();
@@ -38,9 +42,9 @@ try {
     // ── AUDIT LOG ──────────────────────────────────────────
     logAction($db, $authUser['id'], 'EMPLOYEE_STATUS_CHANGED', [
         'employee_id' => $employee['id'],
-        'cedula'      => $employee['cedula'],
-        'nombre'      => $employee['nombre'],
-        'new_status'  => $status,
+        'cedula' => $employee['cedula'],
+        'nombre' => $employee['nombre'],
+        'new_status' => $status,
     ]);
     // ───────────────────────────────────────────────────────
 

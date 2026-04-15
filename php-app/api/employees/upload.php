@@ -12,7 +12,11 @@
  *
  * Requiere: ext-gd habilitado en PHP (incluido en PHP 8 por defecto).
  */
+require_once __DIR__ . '/../../middleware/RBAC.php';
 require_once __DIR__ . '/../../middleware/auth_check.php';
+
+$db = getDB();
+Security::requirePermission($db, 'carnet.create');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -35,10 +39,10 @@ if (!$employeeId) {
 // ──────────────────────────────────────────────────────────────
 if (empty($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
     $uploadErrors = [
-        UPLOAD_ERR_INI_SIZE   => 'El archivo supera upload_max_filesize en php.ini.',
-        UPLOAD_ERR_FORM_SIZE  => 'El archivo supera el límite del formulario.',
-        UPLOAD_ERR_PARTIAL    => 'El archivo fue subido parcialmente.',
-        UPLOAD_ERR_NO_FILE    => 'No se subió ningún archivo.',
+        UPLOAD_ERR_INI_SIZE => 'El archivo supera upload_max_filesize en php.ini.',
+        UPLOAD_ERR_FORM_SIZE => 'El archivo supera el límite del formulario.',
+        UPLOAD_ERR_PARTIAL => 'El archivo fue subido parcialmente.',
+        UPLOAD_ERR_NO_FILE => 'No se subió ningún archivo.',
         UPLOAD_ERR_NO_TMP_DIR => 'Falta directorio temporal en el servidor.',
         UPLOAD_ERR_CANT_WRITE => 'Error al escribir en disco.',
     ];
@@ -74,7 +78,7 @@ if ($imageInfo === false) {
 
 $allowedMimeTypes = [
     IMAGETYPE_JPEG => 'JPEG',
-    IMAGETYPE_PNG  => 'PNG',
+    IMAGETYPE_PNG => 'PNG',
 ];
 
 $imageType = $imageInfo[2]; // IMAGETYPE_JPEG (2) o IMAGETYPE_PNG (3)
@@ -102,8 +106,8 @@ if (!extension_loaded('gd')) {
 // ──────────────────────────────────────────────────────────────
 $sourceImage = match ($imageType) {
     IMAGETYPE_JPEG => @imagecreatefromjpeg($tmpPath),
-    IMAGETYPE_PNG  => @imagecreatefrompng($tmpPath),
-    default        => false,
+    IMAGETYPE_PNG => @imagecreatefrompng($tmpPath),
+    default => false,
 };
 
 if ($sourceImage === false) {
@@ -113,16 +117,16 @@ if ($sourceImage === false) {
 }
 
 // Dimensiones de la imagen original
-$origWidth  = imagesx($sourceImage);
+$origWidth = imagesx($sourceImage);
 $origHeight = imagesy($sourceImage);
 
 // Redimensionar si es demasiado grande (max 1200×1200) → ahorra disco y BW
 $maxDim = 1200;
 if ($origWidth > $maxDim || $origHeight > $maxDim) {
-    $ratio     = min($maxDim / $origWidth, $maxDim / $origHeight);
-    $newWidth  = (int) round($origWidth  * $ratio);
+    $ratio = min($maxDim / $origWidth, $maxDim / $origHeight);
+    $newWidth = (int) round($origWidth * $ratio);
     $newHeight = (int) round($origHeight * $ratio);
-    $resized   = imagecreatetruecolor($newWidth, $newHeight);
+    $resized = imagecreatetruecolor($newWidth, $newHeight);
 
     // Fondo blanco para PNGs con canal alpha
     imagefill($resized, 0, 0, imagecolorallocate($resized, 255, 255, 255));
@@ -139,9 +143,9 @@ if ($origWidth > $maxDim || $origHeight > $maxDim) {
 //    Nunca incluye datos del empleado ni timestamps.
 // ──────────────────────────────────────────────────────────────
 $secureFilename = bin2hex(random_bytes(16)) . '.jpg'; // siempre guardamos como JPEG
-$uploadDir      = __DIR__ . '/../../../uploads/';
-$destPath       = $uploadDir . $secureFilename;
-$publicUrl      = '/uploads/' . $secureFilename;
+$uploadDir = __DIR__ . '/../../../uploads/';
+$destPath = $uploadDir . $secureFilename;
+$publicUrl = '/uploads/' . $secureFilename;
 
 // Asegurarse que el directorio existe y es escribible
 if (!is_dir($uploadDir) || !is_writable($uploadDir)) {
@@ -199,19 +203,19 @@ try {
 
     // ── AUDIT LOG ──────────────────────────────────────────
     logAction($db, $authUser['id'], 'EMPLOYEE_PHOTO_UPLOADED', [
-        'employee_id'   => $employee['id'],
-        'cedula'        => $employee['cedula'],
-        'nombre'        => $employee['nombre'],
-        'filename'      => $secureFilename,
+        'employee_id' => $employee['id'],
+        'cedula' => $employee['cedula'],
+        'nombre' => $employee['nombre'],
+        'filename' => $secureFilename,
         'original_type' => $allowedMimeTypes[$imageType],
-        'size_bytes'    => $_FILES['photo']['size'],
+        'size_bytes' => $_FILES['photo']['size'],
     ]);
     // ───────────────────────────────────────────────────────
 
     echo json_encode([
         'success' => true,
         'message' => 'Fotografía procesada y actualizada correctamente.',
-        'data'    => $employee,
+        'data' => $employee,
     ]);
 
 } catch (Exception $e) {

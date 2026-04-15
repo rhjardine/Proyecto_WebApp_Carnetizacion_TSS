@@ -12,7 +12,11 @@
  *   "photo_url"   : null         ← null elimina la foto
  * }
  */
+require_once __DIR__ . '/../../../middleware/RBAC.php';
 require_once __DIR__ . '/../../../middleware/auth_check.php';
+
+$db = getDB();
+Security::requirePermission($db, 'carnet.update_status');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
     http_response_code(405);
@@ -21,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
 }
 
 $body = json_decode(file_get_contents('php://input'), true);
-$id   = intval($body['id'] ?? 0);
+$id = intval($body['id'] ?? 0);
 
 if (!$id) {
     http_response_code(400);
@@ -30,13 +34,14 @@ if (!$id) {
 }
 
 // --- Campos permitidos para actualizar (whitelist) ---
-$allowed  = ['nombre', 'cargo', 'departamento', 'tipo_sangre', 'photo_url'];
+$allowed = ['nombre', 'cargo', 'departamento', 'tipo_sangre', 'photo_url'];
 $setClauses = [];
-$params     = [':id' => $id];
-$changed    = [];   // Para audit log
+$params = [':id' => $id];
+$changed = [];   // Para audit log
 
 foreach ($allowed as $field) {
-    if (!array_key_exists($field, $body)) continue;   // Solo los que vienen en la petición
+    if (!array_key_exists($field, $body))
+        continue;   // Solo los que vienen en la petición
 
     $value = $body[$field];
 
@@ -45,7 +50,7 @@ foreach ($allowed as $field) {
         // Aceptar null (eliminar foto) o una URL válida relativa
         $value = ($value === null) ? null : trim($value);
     } else {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         if (in_array($field, ['nombre', 'cargo', 'departamento'], true) && $value === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => "El campo '{$field}' no puede estar vacío."]);
@@ -54,9 +59,9 @@ foreach ($allowed as $field) {
         $value = $value === '' ? null : $value;
     }
 
-    $setClauses[]       = "{$field} = :{$field}";
+    $setClauses[] = "{$field} = :{$field}";
     $params[":{$field}"] = $value;
-    $changed[$field]    = $value;
+    $changed[$field] = $value;
 }
 
 if (empty($setClauses)) {
@@ -68,7 +73,7 @@ if (empty($setClauses)) {
 try {
     $db = getDB();
 
-    $sql  = 'UPDATE employees SET ' . implode(', ', $setClauses) . ' WHERE id = :id RETURNING *';
+    $sql = 'UPDATE employees SET ' . implode(', ', $setClauses) . ' WHERE id = :id RETURNING *';
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     $employee = $stmt->fetch();

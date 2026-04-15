@@ -3,7 +3,11 @@
  * api/gerencias.php — Gestión de Gerencias
  */
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/middleware/RBAC.php';
+require_once __DIR__ . '/middleware/auth_check.php';
+
 $pdo = getDB();
+Security::requirePermission($pdo, 'gerencia.manage');
 
 $method = $_SERVER['REQUEST_METHOD'];
 

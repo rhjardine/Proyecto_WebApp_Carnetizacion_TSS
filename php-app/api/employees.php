@@ -28,12 +28,21 @@
  *  DELETE api/employees.php?id={n}         → Eliminar empleado
  */
 
-require_once __DIR__ . '/config/db.php';   // ← Nueva Conexión Única PDO
-require_once __DIR__ . '/../api/middleware/auth_check.php';
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/middleware/RBAC.php';
+require_once __DIR__ . '/middleware/auth_check.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 $userId = $_SESSION['user_id'] ?? null;
+
+// HARDENING: NIST RBAC Enforcement
+if ($method === 'GET')
+    Security::requirePermission($db, 'carnet.view_all');
+if ($method === 'POST')
+    Security::requirePermission($db, 'carnet.create');
+if ($method === 'DELETE')
+    Security::requirePermission($db, 'carnet.delete');
 
 // ── Whitelist de estados válidos ──────────────────────────────
 const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
