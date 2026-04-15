@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/db_mysql.php';
+require_once __DIR__ . '/api/config/db.php';
 try {
     $db = getDB();
     $hash = '$2y$10$INF/JbG/i3qMWhb0sDogIOBvUobRwpDLVoD3jVJK8qve9A8lsbrFu';

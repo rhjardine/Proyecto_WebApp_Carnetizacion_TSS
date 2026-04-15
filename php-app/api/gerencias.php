@@ -3,7 +3,7 @@
  * api/gerencias.php — Gestión de Gerencias
  */
 require_once __DIR__ . '/../includes/cors.php';
-require_once __DIR__ . '/../includes/db_mysql.php';
+require_once __DIR__ . '/config/db.php';
 $pdo = getDB();
 
 $method = $_SERVER['REQUEST_METHOD'];

@@ -302,14 +302,19 @@ const api = {
 
 // ── INIT GLOBAL UI ────────────────────────────────────────────
 function initGlobalUI() {
-    const isAdminUser = api.isAdmin();
+    const user = api.getCurrentUser();
+    const role = (user.effective_role || user.role || '').toUpperCase();
+    const isAdminCoord = (role === 'ADMIN' || role === 'COORD');
+    const isAdmin = (role === 'ADMIN');
+
+    // 1. AJUSTES (nav-config)
     const navConfig = document.getElementById('nav-config');
     if (navConfig) {
-        if (!isAdminUser) {
+        if (!isAdminCoord) {
             navConfig.style.opacity = '0.5';
             navConfig.style.pointerEvents = 'none';
             navConfig.href = '#';
-            navConfig.setAttribute('title', 'Acceso denegado: Se requieren permisos de Administrador.');
+            navConfig.setAttribute('title', 'Acceso denegado: Se requieren permisos de Administrador o Coordinador.');
         } else {
             navConfig.style.opacity = '1';
             navConfig.style.pointerEvents = 'auto';
@@ -317,8 +322,28 @@ function initGlobalUI() {
             navConfig.removeAttribute('title');
         }
     }
+
+    // 2. EDITOR (nav-editor)
+    const navEditor = document.getElementById('nav-editor');
+    if (navEditor) {
+        if (!isAdminCoord) {
+            navEditor.style.opacity = '0.5';
+            navEditor.style.pointerEvents = 'none';
+            navEditor.href = '#';
+            navEditor.setAttribute('title', 'Acceso denegado: Solo Administradores y Coordinadores pueden editar carnets.');
+        } else {
+            navEditor.style.opacity = '1';
+            navEditor.style.pointerEvents = 'auto';
+            if (navEditor.tagName === 'A') navEditor.href = 'editor.html';
+            navEditor.removeAttribute('title');
+        }
+    }
+
+    // 3. USUARIOS (nav-usuarios)
     const navUsuarios = document.getElementById('nav-usuarios');
-    if (navUsuarios) navUsuarios.style.display = isAdminUser ? 'flex' : 'none';
+    if (navUsuarios) {
+        navUsuarios.style.display = isAdmin ? 'flex' : 'none';
+    }
 
     setupGlobalLogout();
 }

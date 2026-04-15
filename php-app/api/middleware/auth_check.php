@@ -19,7 +19,7 @@
  * EXPORTA $authUser[] con:
  *   id, username, rol, rol_temporal, rol_efectivo, nombre
  */
-require_once __DIR__ . '/../../includes/db_mysql.php';
+require_once __DIR__ . '/../config/db.php';
 
 // ── Session Hardening ────────────────────────────────────────
 $isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');

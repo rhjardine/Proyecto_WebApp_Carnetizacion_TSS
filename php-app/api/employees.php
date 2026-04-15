@@ -29,7 +29,7 @@
  */
 
 require_once __DIR__ . '/../includes/cors.php';
-require_once __DIR__ . '/../includes/db_mysql.php';   // ← Conexión MySQL
+require_once __DIR__ . '/config/db.php';   // ← Nueva Conexión Única PDO
 require_once __DIR__ . '/../api/middleware/auth_check.php';
 
 $method = $_SERVER['REQUEST_METHOD'];

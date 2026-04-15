@@ -6,7 +6,7 @@
  */
 
 require_once __DIR__ . '/../../includes/cors.php';
-require_once __DIR__ . '/../../includes/db_mysql.php';
+require_once __DIR__ . '/../config/db.php';
 
 $isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
 session_set_cookie_params([

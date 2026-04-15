@@ -61,11 +61,17 @@ async function init() {
         : user.username[0].toUpperCase();
       av.textContent = initials;
     }
+    const user = api.getCurrentUser();
+    if (!user.username) {
+      window.location.href = 'login.html';
+      return;
+    }
 
-    // Role-based sidebar link visibility
-    const navConfig = document.getElementById('nav-config');
-    if (navConfig) {
-      navConfig.style.display = api.isAdmin() ? 'flex' : 'none';
+    // Bloqueo de seguridad: Solo Admin/Coord pueden estar en esta página
+    const role = (user.effective_role || user.role || '').toUpperCase();
+    if (role !== 'ADMIN' && role !== 'COORD') {
+      window.location.href = 'dashboard.html';
+      return;
     }
   }
 

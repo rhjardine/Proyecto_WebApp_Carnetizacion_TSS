@@ -1,68 +1,107 @@
 <?php
 /**
- * Database Configuration — Sistema de Carnetización TSS
- * Uses PDO with PostgreSQL for secure, typed queries.
- * NEVER expose this file via web server (protected by .htaccess).
+ * api/config/db.php — Única Fuente de Verdad para Conexión DB (MySQL Singleton)
+ * ===========================================================================
+ * Centraliza la conexión, auditoría y respuestas de API.
  */
 
-define('DB_HOST', 'localhost');
-define('DB_PORT', '5432');
-define('DB_NAME', 'carnetizacion_db');
-define('DB_USER', 'postgres');
-define('DB_PASS', 'postgres'); // Change in production
+// ── CONFIGURACIÓN BÁSICA (Carga .env si existe) ───────────────────────────────
+function loadEnv($path)
+{
+    if (!file_exists($path))
+        return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || strpos($line, '#') === 0)
+            continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            putenv(trim($name) . '=' . trim($value));
+        }
+    }
+}
+loadEnv(__DIR__ . '/../../includes/config.php'); // Cargar constantes si aún dependen de ahí temporalmente
+loadEnv(__DIR__ . '/../../.env'); // Prioridad .env
 
-function getDB(): PDO {
+// Valores por defecto (MySQL)
+if (!defined('DB_HOST'))
+    define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+if (!defined('DB_PORT'))
+    define('DB_PORT', getenv('DB_PORT') ?: '3306');
+if (!defined('DB_NAME'))
+    define('DB_NAME', getenv('DB_NAME') ?: 'carnetizacion_tss');
+if (!defined('DB_USER'))
+    define('DB_USER', getenv('DB_USER') ?: 'root');
+if (!defined('DB_PASS'))
+    define('DB_PASS', getenv('DB_PASS') ?: '');
+if (!defined('DB_CHARSET'))
+    define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
+
+/**
+ * getDB() — Singleton de conexión PDO.
+ */
+function getDB(): PDO
+{
     static $pdo = null;
     if ($pdo === null) {
         try {
-            $dsn = sprintf(
-                'pgsql:host=%s;port=%s;dbname=%s',
-                DB_HOST, DB_PORT, DB_NAME
-            );
+            $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
             $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET . " COLLATE " . DB_CHARSET . "_unicode_ci"
             ]);
         } catch (PDOException $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
-            exit;
+            error_log('[DB CONNECTION FAILED] ' . $e->getMessage());
+            sendResponse(false, 'Error de conexión a la base de datos.', null, 500);
         }
     }
     return $pdo;
 }
 
 /**
- * logAction — Registra una acción de auditoría en la tabla audit_log.
- *
- * @param PDO        $db      Instancia de conexión PDO (de getDB())
- * @param int|null   $userId  ID del usuario de sesión ($_SESSION['user_id'])
- * @param string     $action  Acción ejecutada (ej. 'EMPLOYEE_CREATED')
- * @param array      $details Datos contextuales como arreglo asociativo (se guarda como JSON)
- *
- * El log es NO BLOQUEANTE: si falla, no interrumpe la operación principal.
- * Los detalles son útiles para auditoría:  quién, qué objeto, qué valores cambiaron.
+ * sendResponse() — Utilidad para respuestas API uniformes.
  */
-function logAction(PDO $db, ?int $userId, string $action, array $details = []): void {
-    try {
-        // Añadimos timestamp ISO8601 y IP en los detalles automáticamente
-        $details['_ip']        = $_SERVER['REMOTE_ADDR']      ?? null;
-        $details['_userAgent'] = $_SERVER['HTTP_USER_AGENT']   ?? null;
-        $details['_timestamp'] = date('c');                   // ISO 8601
+function sendResponse(bool $success, string $message = '', $data = null, int $code = 200): void
+{
+    if (!headers_sent()) {
+        http_response_code($code);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    $body = ['success' => $success, 'message' => $message];
+    if ($data !== null) {
+        if (is_array($data) && (isset($data['data']) || isset($data['meta']))) {
+            $body = array_merge($body, $data);
+        } else {
+            $body['data'] = $data;
+        }
+    }
+    echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
-        $stmt = $db->prepare(
-            'INSERT INTO audit_log (action, details, user_id, created_at)
-             VALUES (:action, :details, :user_id, NOW())'
-        );
+/**
+ * logAction() — Auditoría centralizada.
+ */
+function logAction(PDO $db, ?int $userId, string $accion, array $detalles = []): void
+{
+    try {
+        $detalles['_ip'] = $_SERVER['REMOTE_ADDR'] ?? null;
+        $detalles['_userAgent'] = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        $detalles['_timestamp'] = date('c');
+
+        $stmt = $db->prepare('INSERT INTO auditoria_logs (usuario_id, accion, detalles, direccion_ip, agente_usuario, creado_el)
+                              VALUES (:uid, :acc, :det, :ip, :ua, NOW())');
         $stmt->execute([
-            ':action'  => strtoupper(substr($action, 0, 100)),
-            ':details' => json_encode($details, JSON_UNESCAPED_UNICODE),
-            ':user_id' => $userId,
+            ':uid' => $userId,
+            ':acc' => strtoupper(substr($accion, 0, 50)),
+            ':det' => json_encode($detalles, JSON_UNESCAPED_UNICODE),
+            ':ip' => substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45),
+            ':ua' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
         ]);
     } catch (Exception $e) {
-        // El fallo de auditoría no debe romper la operación principal.
-        // Loguear en el error_log del servidor para revisión técnica.
-        error_log('[AUDIT LOG FAILED] action=' . $action . ' error=' . $e->getMessage());
+        error_log('[AUDIT LOG FAIL] ' . $e->getMessage());
     }
 }

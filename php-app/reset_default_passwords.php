@@ -6,7 +6,7 @@
  * CORRECCIÓN: Genera hashes dinámicos para mayor fiabilidad.
  */
 
-require_once __DIR__ . '/includes/db_mysql.php';
+require_once __DIR__ . '/api/config/db.php';
 
 try {
     $db = getDB();
