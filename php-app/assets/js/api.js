@@ -304,7 +304,19 @@ const api = {
 function initGlobalUI() {
     const isAdminUser = api.isAdmin();
     const navConfig = document.getElementById('nav-config');
-    if (navConfig) navConfig.style.display = isAdminUser ? 'flex' : 'none';
+    if (navConfig) {
+        if (!isAdminUser) {
+            navConfig.style.opacity = '0.5';
+            navConfig.style.pointerEvents = 'none';
+            navConfig.href = '#';
+            navConfig.setAttribute('title', 'Acceso denegado: Se requieren permisos de Administrador.');
+        } else {
+            navConfig.style.opacity = '1';
+            navConfig.style.pointerEvents = 'auto';
+            if (navConfig.tagName === 'A') navConfig.href = 'config.html';
+            navConfig.removeAttribute('title');
+        }
+    }
     const navUsuarios = document.getElementById('nav-usuarios');
     if (navUsuarios) navUsuarios.style.display = isAdminUser ? 'flex' : 'none';
 

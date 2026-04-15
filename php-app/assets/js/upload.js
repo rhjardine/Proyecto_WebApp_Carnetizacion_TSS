@@ -31,14 +31,15 @@ async function validateCedula() {
 
     ui.setLoading(btn, true, 'Buscando...');
     try {
-        const res = await api.getEmployees();
-        const found = (res.data || []).find(e => e.cedula.replace(/\s/g, '') === cedula.replace(/\s/g, ''));
-        if (!found) {
+        const res = await api.getEmployees({ cedula });
+
+        if (!res.data || res.data.length === 0) {
             errEl.textContent = `No se encontró ningún funcionario con la cédula "${cedula}".`;
             errEl.style.display = 'flex';
             validatedEmployee = null;
             document.getElementById('upload-section').style.cssText = 'opacity:.4;pointer-events:none;';
         } else {
+            const found = res.data[0];
             validatedEmployee = found;
             resEl.innerHTML = `✅ <strong>${found.nombre}</strong> · ${found.cargo} · ${found.departamento}`;
             resEl.style.display = 'flex';

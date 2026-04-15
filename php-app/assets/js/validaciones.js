@@ -40,7 +40,16 @@ const CEDULA_SELECTORS = [
 const MSG_SOLO_NUMEROS = 'Solo se permiten dígitos (0-9). No escriba prefijos como V-, E- ni puntos o guiones.';
 const MSG_LONGITUD_MIN = 'La cédula debe tener al menos 5 dígitos.';
 const MSG_LONGITUD_MAX = 'La cédula no puede exceder los 10 dígitos.';
-const MSG_VALIDA       = ''; // Sin mensaje cuando es válida
+const MSG_SOLO_LETRAS = 'Debe contener únicamente letras (sin números ni símbolos raros).';
+const MSG_VALIDA = ''; // Sin mensaje cuando es válida
+
+// ── SELECTOR DE CAMPOS DE NOMBRES/APELLIDOS ─────────────────────────────────
+const NOMBRES_SELECTORS = [
+  'input[name="primer_nombre"]',
+  'input[name="segundo_nombre"]',
+  'input[name="primer_apellido"]',
+  'input[name="segundo_apellido"]'
+];
 
 // ── UTILIDADES DE UI ──────────────────────────────────────────────────────────
 /**
@@ -74,17 +83,17 @@ function mostrarErrorCedula(input, mensaje) {
 
   // Estilos visuales del input
   if (isValido) {
-    input.style.borderColor  = '';
-    input.style.boxShadow    = '';
+    input.style.borderColor = '';
+    input.style.boxShadow = '';
   } else {
     input.style.borderColor = '#dc2626';
-    input.style.boxShadow   = '0 0 0 2px rgba(220,38,38,.2)';
+    input.style.boxShadow = '0 0 0 2px rgba(220,38,38,.2)';
   }
 
   // Mostrar/ocultar el mensaje de error
   if (errorEl) {
-    errorEl.textContent    = mensaje;
-    errorEl.style.display  = isValido ? 'none' : 'block';
+    errorEl.textContent = mensaje;
+    errorEl.style.display = isValido ? 'none' : 'block';
   }
 }
 
@@ -102,8 +111,8 @@ function mostrarErrorCedula(input, mensaje) {
 function validarCedula(valor) {
   if (!valor) return ''; // Vacío es aceptable (el 'required' del HTML lo maneja)
   if (!/^[0-9]+$/.test(valor)) return MSG_SOLO_NUMEROS;
-  if (valor.length < 5)        return MSG_LONGITUD_MIN;
-  if (valor.length > 10)       return MSG_LONGITUD_MAX;
+  if (valor.length < 5) return MSG_LONGITUD_MIN;
+  if (valor.length > 10) return MSG_LONGITUD_MAX;
   return MSG_VALIDA;
 }
 
@@ -196,7 +205,7 @@ function configurarValidacionCedula(input) {
     e.preventDefault();
 
     const textoOriginal = (e.clipboardData || window.clipboardData).getData('text');
-    const soloDigitos   = textoOriginal.replace(/[^0-9]/g, '');
+    const soloDigitos = textoOriginal.replace(/[^0-9]/g, '');
 
     if (!soloDigitos && textoOriginal) {
       // El texto pegado no contenía ningún dígito
@@ -211,13 +220,13 @@ function configurarValidacionCedula(input) {
 
     // Insertar los dígitos limpios en la posición del cursor
     const start = input.selectionStart ?? input.value.length;
-    const end   = input.selectionEnd   ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
     const valorActual = input.value;
-    const nuevoValor  = valorActual.substring(0, start) + soloDigitos + valorActual.substring(end);
+    const nuevoValor = valorActual.substring(0, start) + soloDigitos + valorActual.substring(end);
 
     // Respetar longitud máxima
-    const maxLen  = parseInt(input.maxLength) || 10;
-    input.value   = nuevoValor.substring(0, maxLen);
+    const maxLen = parseInt(input.maxLength) || 10;
+    input.value = nuevoValor.substring(0, maxLen);
 
     // Actualizar posición del cursor
     const nuevaPos = Math.min(start + soloDigitos.length, maxLen);
@@ -232,11 +241,11 @@ function configurarValidacionCedula(input) {
   // inputs de voz, etc.).
   input.addEventListener('input', (e) => {
     const valorOriginal = input.value;
-    const valorLimpio   = valorOriginal.replace(/[^0-9]/g, '');
+    const valorLimpio = valorOriginal.replace(/[^0-9]/g, '');
 
     if (valorOriginal !== valorLimpio) {
       const posicion = input.selectionStart;
-      input.value    = valorLimpio;
+      input.value = valorLimpio;
       // Intentar mantener la posición del cursor (aproximada)
       const nuevaPos = Math.max(0, posicion - (valorOriginal.length - valorLimpio.length));
       input.setSelectionRange(nuevaPos, nuevaPos);
@@ -263,7 +272,7 @@ function configurarValidacionCedula(input) {
     // Solo limpiar el borde rojo si el valor actual es válido
     if (!input.value || /^[0-9]+$/.test(input.value)) {
       input.style.borderColor = '';
-      input.style.boxShadow   = '';
+      input.style.boxShadow = '';
     }
   });
 
@@ -296,6 +305,53 @@ function inicializarValidacionesCedula() {
   document.querySelectorAll(selector).forEach(input => {
     configurarValidacionCedula(input);
   });
+
+  // TAREA: Limitar a solo letras (nombres y apellidos)
+  const nomSelector = NOMBRES_SELECTORS.join(', ');
+  document.querySelectorAll(nomSelector).forEach(input => {
+    configurarValidacionNombres(input);
+  });
+}
+
+// ── VALIDACIÓN ESTRICTA NOMBRES Y APELLIDOS (SOLO LETRAS) ────────────────
+function configurarValidacionNombres(input) {
+  if (!input || input._nombresValidado) return;
+  input._nombresValidado = true;
+
+  // Filtramos al escribir (solo letras, espacios y letras acentuadas comunes)
+  input.addEventListener('input', (e) => {
+    const original = input.value;
+    // Replace anything that is NOT a letter (a-z, A-Z), accented letter, or space
+    const valorLimpio = original.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+
+    if (original !== valorLimpio) {
+      const posicion = input.selectionStart;
+      input.value = valorLimpio;
+      // Intenta mantener la posición del cursor si es posible
+      const diff = original.length - valorLimpio.length;
+      input.setSelectionRange(Math.max(0, posicion - diff), Math.max(0, posicion - diff));
+
+      mostrarErrorCedula(input, MSG_SOLO_LETRAS);
+      setTimeout(() => {
+        mostrarErrorCedula(input, '');
+      }, 2500);
+    }
+  });
+
+  // Prevenir que peguen textos con números
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const textoPegado = (e.clipboardData || window.clipboardData).getData('text');
+    const soloLetras = textoPegado.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const valorActual = input.value;
+    input.value = valorActual.substring(0, start) + soloLetras + valorActual.substring(end);
+
+    // Dispara input para normalizar
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 }
 
 // ── MUTATION OBSERVER — Detectar campos añadidos dinámicamente ────────────────
@@ -321,13 +377,25 @@ function observarNuevosInputs() {
             configurarValidacionCedula(input);
           });
         }
+
+        // Lo mismo para Nombres y Apellidos
+        const nomSelector = NOMBRES_SELECTORS.join(', ');
+        if (nodo.matches && nodo.matches(nomSelector)) {
+          configurarValidacionNombres(nodo);
+        }
+        if (nodo.querySelectorAll) {
+          nodo.querySelectorAll(nomSelector).forEach(input => {
+            configurarValidacionNombres(input);
+          });
+        }
+
       }
     }
   });
 
   observer.observe(document.body, {
     childList: true,  // Observar hijos directos
-    subtree:   true,  // Observar todos los descendientes
+    subtree: true,  // Observar todos los descendientes
   });
 
   return observer;

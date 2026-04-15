@@ -71,14 +71,6 @@ function setupUserInfo() {
         av.textContent = initials;
     }
 
-    // Role-based sidebar link visibility
-    const navConfig = document.getElementById('nav-config');
-    if (navConfig) {
-        const isAdmin = api.isAdmin();
-        navConfig.style.display = isAdmin ? 'flex' : 'none';
-        // Ensure "visible at all times" by making it flex if admin
-    }
-
     const navUsuarios = document.getElementById('nav-usuarios');
     if (navUsuarios) navUsuarios.style.display = api.isAdmin() ? 'flex' : 'none';
 }

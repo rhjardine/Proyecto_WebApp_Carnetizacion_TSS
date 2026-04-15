@@ -100,6 +100,12 @@ try {
             $conditions = [];
             $params = [];
 
+            $cedulaQuery = trim($_GET['cedula'] ?? '');
+            if ($cedulaQuery !== '') {
+                $conditions[] = "e.cedula = ?";
+                $params[] = $cedulaQuery;
+            }
+
             if ($search !== '') {
                 // Búsqueda en campos disgregados (primer_nombre, primer_apellido, cedula)
                 // MySQL usa LIKE en lugar de ILIKE (PostgreSQL)
@@ -134,7 +140,7 @@ try {
                 FROM empleados e
                 LEFT JOIN gerencias g ON e.gerencia_id = g.id
                 {$where}
-                ORDER BY e.creado_el DESC
+                ORDER BY e.fecha_ingreso DESC
                 LIMIT ? OFFSET ?
             ");
 
