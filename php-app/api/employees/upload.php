@@ -143,9 +143,11 @@ if ($origWidth > $maxDim || $origHeight > $maxDim) {
 //    Nunca incluye datos del empleado ni timestamps.
 // ──────────────────────────────────────────────────────────────
 $secureFilename = bin2hex(random_bytes(16)) . '.jpg'; // siempre guardamos como JPEG
-$uploadDir = __DIR__ . '/../../../uploads/';
+$uploadDir = rtrim(UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 $destPath = $uploadDir . $secureFilename;
-$publicUrl = '/uploads/' . $secureFilename;
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$appBase = rtrim(dirname(dirname(dirname($scriptName))), '/');
+$publicUrl = ($appBase ? $appBase : '') . '/uploads/' . $secureFilename;
 
 // Asegurarse que el directorio existe y es escribible
 if (!is_dir($uploadDir) || !is_writable($uploadDir)) {

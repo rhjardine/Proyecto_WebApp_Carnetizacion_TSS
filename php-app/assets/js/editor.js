@@ -43,6 +43,7 @@ async function init() {
 
   const user = api.getCurrentUser();
   if (user.username) {
+    const ra = document.getElementById('user-role');
     const displayName = user.full_name
       ? `${user.username} (${user.full_name})`
       : user.username.charAt(0).toUpperCase() + user.username.slice(1);
@@ -128,6 +129,10 @@ async function init() {
 
   // View mode (read-only) — from dashboard "Consultar" button
   const urlParams = new URLSearchParams(window.location.search);
+  const templateSelector = document.getElementById('template-selector');
+  if (templateSelector && templateSelector.value) {
+    currentTemplate = templateSelector.value;
+  }
   if (urlParams.get('mode') === 'view') {
     applyConsultaRestrictions(true); // Force read-only even for admins
   }
@@ -173,6 +178,7 @@ async function init() {
 // ── TAREA 3: RESTRICCIONES PARA ROL CONSULTA ─────────────────────────────────
 function applyConsultaRestrictions(force = false) {
   const isAdminCoord = api.isAdminCoord();
+  const isAdmin = api.isAdmin();
   const user = api.getCurrentUser();
   const role = (user.effective_role || user.role || '').toUpperCase();
   const isConsulta = (role === 'CONSULTA' || role === 'USUARIO');

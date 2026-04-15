@@ -19,6 +19,28 @@ const VALIDATION_BASE_URL = 'https://carnetizacion.tss.gob.ve/validar';
 // MODO PRODUCCIÓN: todas las llamadas van al backend PHP/MySQL.
 // No existe modo demo ni OFFLINE_MODE en esta versión.
 const API_BASE = '';   // Relativa al servidor actual
+const APP_BASE_PATH = window.location.pathname.replace(/\/[^/]*$/, '');
+
+function resolvePhotoUrl(rawUrl) {
+    if (!rawUrl) return '';
+
+    const value = String(rawUrl).trim();
+    if (!value) return '';
+
+    if (/^(data:|blob:|https?:)/i.test(value)) {
+        return value;
+    }
+
+    if (value.startsWith('/uploads/')) {
+        return `${APP_BASE_PATH}${value}`;
+    }
+
+    if (value.startsWith('uploads/')) {
+        return `${APP_BASE_PATH}/${value}`;
+    }
+
+    return value;
+}
 
 // ── NORMALIZACIÓN DE EMPLEADOS ────────────────────────────────
 function normalizarEmpleado(emp) {
@@ -42,8 +64,8 @@ function normalizarEmpleado(emp) {
         segundo_apellido: segundoApellido,
         status: emp.status || emp.estado_carnet || 'Pendiente por Imprimir',
         estado_carnet: emp.estado_carnet || emp.status || 'Pendiente por Imprimir',
-        photo_url: emp.photo_url || emp.foto_url || '',
-        foto_url: emp.foto_url || emp.photo_url || '',
+        photo_url: resolvePhotoUrl(emp.photo_url || emp.foto_url || ''),
+        foto_url: resolvePhotoUrl(emp.foto_url || emp.photo_url || ''),
         gerencia: emp.gerencia || '',
         forma_entrega: emp.forma_entrega || '',
         nivel_permiso: emp.nivel_permiso || 'Nivel 1',
