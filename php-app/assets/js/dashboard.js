@@ -57,8 +57,12 @@ function setupUserInfo() {
 
     const ra = document.getElementById('user-role');
     if (ra) {
-        const effRole = user.effective_role || user.role;
-        let roleText = effRole === 'ADMIN' ? 'Administrador' : 'Solo Consulta';
+        const effRole = (user.effective_role || user.role || '').toUpperCase();
+        let roleText = 'Solo Consulta';
+        if (effRole === 'ADMIN') roleText = 'Administrador';
+        if (effRole === 'COORD') roleText = 'Coordinador';
+        if (effRole === 'ANALISTA') roleText = 'Analista';
+
         if (user.temporary_role) roleText += ' ⚡Temp.';
         ra.textContent = roleText;
     }
@@ -77,18 +81,16 @@ function setupUserInfo() {
 
 // ── TAREA 3: RESTRICCIONES CONSULTA ──────────────────────────────────────────
 function applyConsultaRestrictions() {
-    const user = api.getCurrentUser();
-    const effRole = user.effective_role || user.role;
-    const isAdmin = effRole === 'ADMIN';
+    const isAdminCoord = api.isAdminCoord();
 
-    if (!isAdmin) {
+    if (!isAdminCoord) {
         ['btn-new-employee', 'btn-import-excel', 'btn-auto-match'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
     } else {
-        // Show admin-only buttons
-        ['btn-manage-gerencias', 'btn-delegate-perms'].forEach(id => {
+        // Show buttons for authorized users
+        ['btn-new-employee', 'btn-import-excel', 'btn-auto-match', 'btn-manage-gerencias', 'btn-delegate-perms'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'inline-flex';
         });

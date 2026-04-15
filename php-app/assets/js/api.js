@@ -175,8 +175,26 @@ const api = {
 
     isAdmin: () => {
         const u = api.getCurrentUser();
-        const role = u.effective_role || u.temporary_role || u.role;
-        return ['ADMIN', 'COORD'].includes((role || '').toUpperCase());
+        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
+        return role === 'ADMIN';
+    },
+
+    isCoord: () => {
+        const u = api.getCurrentUser();
+        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
+        return role === 'COORD';
+    },
+
+    isAnalyst: () => {
+        const u = api.getCurrentUser();
+        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
+        return role === 'ANALISTA';
+    },
+
+    isAdminCoord: () => {
+        const u = api.getCurrentUser();
+        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
+        return ['ADMIN', 'COORD'].includes(role);
     },
 
     // ── USUARIOS / DELEGACIÓN ─────────────────────────────────
@@ -187,6 +205,13 @@ const api = {
 
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
+
+    // ── SUDO PATTERN (Privilegios Temporales) ─────────────────
+    grantSudo: async (userId, permissionId, minutes) =>
+        request('api/auth/sudo.php', 'POST', { action: 'grant', user_id: userId, permission_id: permissionId, minutes }),
+
+    revokeSudo: async (userId, permissionId) =>
+        request('api/auth/sudo.php', 'POST', { action: 'revoke', user_id: userId, permission_id: permissionId }),
 
     // ── GESTIÓN DE USUARIOS ───────────────────────────────────────
     createUser: async (username, password, fullName, role) =>

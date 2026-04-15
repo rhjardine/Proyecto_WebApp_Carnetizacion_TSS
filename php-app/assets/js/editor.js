@@ -47,10 +47,13 @@ async function init() {
       ? `${user.username} (${user.full_name})`
       : user.username.charAt(0).toUpperCase() + user.username.slice(1);
     const el = document.getElementById('user-name'); if (el) el.textContent = displayName;
-    const effRole = user.effective_role || user.role;
-    const ra = document.getElementById('user-role');
     if (ra) {
-      let rt = effRole === 'ADMIN' ? 'Administrador' : 'Solo Consulta';
+      const effRole = (user.effective_role || user.role || '').toUpperCase();
+      let rt = 'Solo Consulta';
+      if (effRole === 'ADMIN') rt = 'Administrador';
+      if (effRole === 'COORD') rt = 'Coordinador';
+      if (effRole === 'ANALISTA') rt = 'Analista';
+
       if (user.temporary_role) rt += ' ⚡Temp.';
       ra.textContent = rt;
     }
@@ -153,11 +156,12 @@ async function init() {
 
 // ── TAREA 3: RESTRICCIONES PARA ROL CONSULTA ─────────────────────────────────
 function applyConsultaRestrictions(force = false) {
-  const currentUser = api.getCurrentUser();
-  const isAdmin = currentUser.role === 'ADMIN' || currentUser.temporary_role === 'ADMIN';
-  const isConsulta = currentUser.role === 'CONSULTA' || currentUser.role === 'USUARIO';
+  const isAdminCoord = api.isAdminCoord();
+  const user = api.getCurrentUser();
+  const role = (user.effective_role || user.role || '').toUpperCase();
+  const isConsulta = (role === 'CONSULTA' || role === 'USUARIO');
 
-  const shouldBlock = force || (!isAdmin && isConsulta);
+  const shouldBlock = force || (!isAdminCoord && isConsulta);
 
   if (shouldBlock) {
     // Hacer los inputs del formulario de solo lectura

@@ -141,10 +141,21 @@ class Security
             $stmt = $pdo->prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW(), last_login_ip = ? WHERE id = ?");
             $stmt->execute([$_SERVER['REMOTE_ADDR'] ?? '', $user['id']]);
 
+            // Obtener el nombre del rol base
+            $roleStmt = $pdo->prepare("
+                SELECT r.name FROM roles r
+                JOIN user_role ur ON r.id = ur.role_id
+                WHERE ur.user_id = ?
+                LIMIT 1
+            ");
+            $roleStmt->execute([$user['id']]);
+            $role = $roleStmt->fetchColumn() ?: 'USUARIO';
+
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['full_name'] = $user['full_name'];
+            $_SESSION['role'] = $role;
             self::generateCSRF();
 
             self::logAudit($pdo, $user['id'], 'LOGIN_SUCCESS', 'users', $user['id']);
@@ -152,11 +163,13 @@ class Security
             return [
                 'success' => true,
                 'message' => 'Login exitoso.',
-                'csrf_token' => $_SESSION['csrf_token'],
+                'csrf_token' => $_SESSION['csrf_token'] ?? '',
                 'data' => [
                     'id' => (int) $user['id'],
                     'username' => $user['username'],
                     'full_name' => $user['full_name'],
+                    'role' => $role,
+                    'effective_role' => $role, // Por defecto igual al base
                     'requires_password_change' => (bool) $user['requires_password_change']
                 ]
             ];
