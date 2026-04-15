@@ -28,6 +28,7 @@ try {
     $permissionId = (int) ($body['permission_id'] ?? 0);
     $durationMinutes = (int) ($body['minutes'] ?? 60);
 
+    // Los métodos en RBAC.php ya han sido actualizados a español internamente
     if ($action === 'grant') {
         if (!$targetUserId || !$permissionId) {
             throw new Exception('Datos incompletos para asignar permiso.', 400);

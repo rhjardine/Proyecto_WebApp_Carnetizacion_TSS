@@ -1,164 +1,75 @@
 <?php
 /**
- * SCI-TSS Security Middleware (RBAC + Hardening)
- * ============================================
- * Implementa NIST RBAC, SUDO Pattern, CSRF, Brute Force Protection y Session Hardening.
+ * RBAC.php — Motor de Seguridad NIST RBAC + Patrón SUDO (Consolidado)
+ * ====================================================================
+ * Provee:
+ *  - Autenticación segura (Bcrypt + Brute Force Protection)
+ *  - Autorización granular (Permissions, Role Inheritance)
+ *  - Patrón SUDO (Temporary Permission Delegation)
+ *  - Auditoría Inmutable (NIST/OWASP Compliance)
  */
 
 class Security
 {
-
     /**
-     * Inicializa la sesión con hardening estricto y fingerprinting.
+     * Verifica si hay demasiados intentos fallidos (Anti-Brute Force).
      */
-    public static function initSession()
+    private static function isBruteForce(PDO $pdo, $username)
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            $isSecure = ENFORCE_HTTPS || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
-
-            session_set_cookie_params([
-                'lifetime' => SESSION_LIFETIME,
-                'path' => '/',
-                'domain' => '',
-                'secure' => $isSecure,
-                'httponly' => true,
-                'samesite' => 'Strict',
-            ]);
-
-            session_start();
-        }
-
-        // Fingerprinting para prevenir secuestro de sesión (Session Hijacking)
-        $fingerprint = md5(
-            ($_SERVER['HTTP_USER_AGENT'] ?? 'none') .
-            ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0') .
-            ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'none')
-        );
-
-        if (!isset($_SESSION['fingerprint'])) {
-            $_SESSION['fingerprint'] = $fingerprint;
-            $_SESSION['last_activity'] = time();
-        } else {
-            // Verificar anomalía de sesión o timeout
-            if ($_SESSION['fingerprint'] !== $fingerprint || (time() - $_SESSION['last_activity'] > SESSION_LIFETIME)) {
-                self::logout();
-                return false;
-            }
-            $_SESSION['last_activity'] = time();
-        }
-        return true;
+        $stmt = $pdo->prepare("SELECT intentos_fallidos, bloqueado FROM usuarios WHERE usuario = ?");
+        $stmt->execute([$username]);
+        $res = $stmt->fetch();
+        return ($res && (int) $res['bloqueado'] === 1);
     }
 
     /**
-     * Cierra la sesión y limpia cookies.
-     */
-    public static function logout()
-    {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION = [];
-            if (ini_get("session.use_cookies")) {
-                $params = session_get_cookie_params();
-                setcookie(
-                    session_name(),
-                    '',
-                    time() - 42000,
-                    $params["path"],
-                    $params["domain"],
-                    $params["secure"],
-                    $params["httponly"]
-                );
-            }
-            session_destroy();
-        }
-    }
-
-    /**
-     * Generación de Token CSRF (OWASP).
-     */
-    public static function generateCSRF()
-    {
-        if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
-        return $_SESSION['csrf_token'];
-    }
-
-    /**
-     * Validación de Token CSRF.
-     */
-    public static function validateCSRF($token)
-    {
-        return !empty($token) && hash_equals($_SESSION['csrf_token'] ?? '', $token);
-    }
-
-    /**
-     * Detección de Fuerza Bruta mediante Audit Log inmutable.
-     */
-    public static function isBruteForce(PDO $pdo, $username)
-    {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-
-        // Bloqueo si hay más de 5 intentos fallidos en los últimos 15 minutos (por IP o Usuario)
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) 
-            FROM audit_log 
-            WHERE action = 'LOGIN_FAILURE' 
-            AND (new_values->>'$.username' = ? OR ip_address = ?) 
-            AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-        ");
-        $stmt->execute([$username, $ip]);
-        return $stmt->fetchColumn() >= 5;
-    }
-
-    /**
-     * Autenticación Centralizada y Hardened.
+     * Autenticación NIST: Verifica credenciales en la tabla usuarios.
      */
     public static function loginUser(PDO $pdo, $username, $password)
     {
-        self::initSession();
-
+        // Protección contra Brute Force (OWASP)
         if (self::isBruteForce($pdo, $username)) {
-            self::logAudit($pdo, null, 'LOGIN_BLOCKED_BRUTEFORCE', 'users', null, null, ['username' => $username, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
-            return ['success' => false, 'message' => 'Seguridad: Demasiada actividad inusual. Cuenta bloqueada temporalmente.', 'code' => 403];
+            self::logAudit($pdo, null, 'LOGIN_BLOCKED_BRUTEFORCE', 'usuarios', null);
+            return ['success' => false, 'message' => 'Seguridad: Cuenta bloqueada por demasiados intentos.'];
         }
 
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? AND active = 1 LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE usuario = ? AND activa = 1 LIMIT 1");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
         if (!$user) {
-            self::logAudit($pdo, null, 'LOGIN_FAILURE', 'users', null, null, ['username' => $username, 'reason' => 'user_not_found']);
-            return ['success' => false, 'message' => 'Credenciales inválidas.', 'code' => 401];
+            self::logAudit($pdo, null, 'LOGIN_FAILURE', 'usuarios', null);
+            return ['success' => false, 'message' => 'Credenciales inválidas.'];
         }
 
-        // Verificar bloqueo manual o temporal
-        if ($user['locked_until'] && strtotime($user['locked_until']) > time()) {
-            return ['success' => false, 'message' => 'Cuenta bloqueada por seguridad. Reintente más tarde.', 'code' => 403];
+        // Verificar bloqueo manual
+        if ((int) $user['bloqueado'] === 1) {
+            return ['success' => false, 'message' => 'Cuenta bloqueada. Contacte al administrador.'];
         }
 
-        if (password_verify($password, $user['password'])) {
+        if (password_verify($password, $user['clave_hash'])) {
             // Login Exitoso: Limpiar fallos y regenerar ID
-            $stmt = $pdo->prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW(), last_login_ip = ? WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE usuarios SET intentos_fallidos = 0, last_login_at = NOW(), last_login_ip = ? WHERE id = ?");
             $stmt->execute([$_SERVER['REMOTE_ADDR'] ?? '', $user['id']]);
 
-            // Obtener el nombre del rol base
+            // Obtener el nombre del rol base (desde usuario_rol)
             $roleStmt = $pdo->prepare("
                 SELECT r.name FROM roles r
-                JOIN user_role ur ON r.id = ur.role_id
-                WHERE ur.user_id = ?
+                JOIN usuario_rol ur ON r.id = ur.rol_id
+                WHERE ur.usuario_id = ?
                 LIMIT 1
             ");
             $roleStmt->execute([$user['id']]);
-            $role = $roleStmt->fetchColumn() ?: 'USUARIO';
+            $roleName = $roleStmt->fetchColumn() ?: 'USUARIO';
 
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int) $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['full_name'] = $user['full_name'];
-            $_SESSION['role'] = $role;
+            $_SESSION['username'] = $user['usuario'];
+            $_SESSION['nombre'] = $user['nombre_completo'];
+            $_SESSION['role'] = $roleName;
             self::generateCSRF();
 
-            self::logAudit($pdo, $user['id'], 'LOGIN_SUCCESS', 'users', $user['id']);
+            self::logAudit($pdo, $user['id'], 'LOGIN_SUCCESS', 'usuarios', $user['id']);
 
             return [
                 'success' => true,
@@ -166,25 +77,23 @@ class Security
                 'csrf_token' => $_SESSION['csrf_token'] ?? '',
                 'data' => [
                     'id' => (int) $user['id'],
-                    'username' => $user['username'],
-                    'full_name' => $user['full_name'],
-                    'role' => $role,
-                    'effective_role' => $role, // Por defecto igual al base
-                    'requires_password_change' => (bool) $user['requires_password_change']
+                    'username' => $user['usuario'],
+                    'full_name' => $user['nombre_completo'],
+                    'role' => $roleName,
+                    'effective_role' => $roleName,
+                    'requires_password_change' => (bool) $user['requiere_cambio_clave']
                 ]
             ];
         } else {
-            // Login Fallido: Incrementar contador y bloquear si es necesario
-            $newAttempts = (int) $user['failed_attempts'] + 1;
-            $lockUntil = ($newAttempts >= 5) ? date('Y-m-d H:i:s', strtotime('+15 minutes')) : null;
+            // Login Fallido: Incrementar contador
+            $newAttempts = (int) $user['intentos_fallidos'] + 1;
+            $bloquear = ($newAttempts >= 5) ? 1 : 0;
 
-            $stmt = $pdo->prepare("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?");
-            $stmt->execute([$newAttempts, $lockUntil, $user['id']]);
+            $stmt = $pdo->prepare("UPDATE usuarios SET intentos_fallidos = ?, bloqueado = ? WHERE id = ?");
+            $stmt->execute([$newAttempts, $bloquear, $user['id']]);
 
-            self::logAudit($pdo, (int) $user['id'], 'LOGIN_FAILURE', 'users', $user['id'], null, ['username' => $username, 'reason' => 'invalid_password']);
-
-            $msg = ($newAttempts >= 5) ? 'Demasiados intentos. Cuenta bloqueada por 15 minutos.' : 'Credenciales inválidas.';
-            return ['success' => false, 'message' => $msg, 'code' => 401];
+            self::logAudit($pdo, (int) $user['id'], 'LOGIN_FAILURE', 'usuarios', $user['id']);
+            return ['success' => false, 'message' => 'Credenciales inválidas.'];
         }
     }
 
@@ -201,15 +110,15 @@ class Security
 
         $sql = "SELECT COUNT(*) FROM (
                     -- RBAC Estándar
-                    SELECT p.id FROM permissions p
-                    JOIN role_permission rp ON p.id = rp.permission_id
-                    JOIN user_role ur ON rp.role_id = ur.role_id
-                    WHERE ur.user_id = ? AND p.name = ?
+                    SELECT p.id FROM permisos p
+                    JOIN rol_permiso rp ON p.id = rp.permiso_id
+                    JOIN usuario_rol ur ON rp.rol_id = ur.rol_id
+                    WHERE ur.usuario_id = ? AND p.nombre = ?
                     UNION
                     -- Patrón SUDO (Permisos temporales)
-                    SELECT tp.permission_id FROM temporary_permissions tp
-                    JOIN permissions p ON tp.permission_id = p.id
-                    WHERE tp.user_id = ? AND p.name = ? AND tp.expires_at > NOW()
+                    SELECT tp.permiso_id FROM permisos_temporales tp
+                    JOIN permisos p ON tp.permiso_id = p.id
+                    WHERE tp.usuario_id = ? AND p.nombre = ? AND tp.expira_en > NOW()
                 ) AS allowed_set";
 
         $stmt = $pdo->prepare($sql);
@@ -228,46 +137,63 @@ class Security
      */
     public static function grantTemporaryPermission(PDO $pdo, $userId, $permissionId, $durationMinutes = 60)
     {
+        $adminId = $_SESSION['user_id'];
         $expiresAt = date('Y-m-d H:i:s', strtotime("+$durationMinutes minutes"));
-        $stmt = $pdo->prepare("INSERT INTO temporary_permissions (user_id, permission_id, granted_by, expires_at) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$userId, $permissionId, $_SESSION['user_id'], $expiresAt]);
 
-        self::logAudit($pdo, $_SESSION['user_id'], 'SUDO_GRANT', 'temporary_permissions', $pdo->lastInsertId(), null, ['to_user' => $userId, 'perm_id' => $permissionId, 'expires' => $expiresAt]);
+        $sql = "INSERT INTO permisos_temporales (usuario_id, permiso_id, otorgado_por, expira_en) 
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE expira_en = VALUES(expira_en)";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $permissionId, $adminId, $expiresAt]);
+
+        self::logAudit($pdo, $adminId, 'GRANT_TEMP_PERMISSION', 'usuarios', $userId);
+        return true;
     }
 
-    /**
-     * SUDO Pattern: Revoca permiso temporal.
-     */
     public static function revokeTemporaryPermission(PDO $pdo, $userId, $permissionId)
     {
-        $stmt = $pdo->prepare("DELETE FROM temporary_permissions WHERE user_id = ? AND permission_id = ?");
+        $adminId = $_SESSION['user_id'];
+        $sql = "DELETE FROM permisos_temporales WHERE usuario_id = ? AND permiso_id = ?";
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId, $permissionId]);
 
-        self::logAudit($pdo, $_SESSION['user_id'], 'SUDO_REVOKE', 'temporary_permissions', null, null, ['to_user' => $userId, 'perm_id' => $permissionId]);
+        self::logAudit($pdo, $adminId, 'REVOKE_TEMP_PERMISSION', 'usuarios', $userId);
+        return true;
     }
 
     /**
-     * Auditoría Inmutable.
+     * Auditoría Inmutable (Consolidada con auditoria_logs).
      */
     public static function logAudit(PDO $pdo, $userId, $action, $entityType = null, $entityId = null, $oldValues = null, $newValues = null)
     {
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO audit_log (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO auditoria_logs (usuario_id, accion, detalles, direccion_ip, agente_usuario, creado_el) 
+                VALUES (?, ?, ?, ?, ?, NOW())
             ");
+            $details = [
+                'tabla' => $entityType,
+                'id' => $entityId,
+                'antes' => $oldValues,
+                'despues' => $newValues
+            ];
             $stmt->execute([
                 $userId,
-                $action,
-                $entityType,
-                $entityId,
-                $oldValues ? json_encode($oldValues) : null,
-                $newValues ? json_encode($newValues) : null,
+                substr($action, 0, 50),
+                json_encode($details, JSON_UNESCAPED_UNICODE),
                 $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
-                $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+                substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 500)
             ]);
         } catch (Exception $e) {
-            error_log("[CRITICAL SECURITY] AuditLog Fail: " . $e->getMessage());
+            error_log("[SECURITY] AuditLog Fail: " . $e->getMessage());
+        }
+    }
+
+    public static function generateCSRF()
+    {
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
     }
 }
