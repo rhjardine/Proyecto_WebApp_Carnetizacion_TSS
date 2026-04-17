@@ -20,10 +20,10 @@ $body = json_decode(file_get_contents('php://input'), true);
 $id = intval($body['id'] ?? 0);
 $status = trim($body['status'] ?? '');
 
-$allowed = ['Pendiente', 'Verificado', 'Impreso', 'Rechazado'];
+$allowed = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
 if (!$id || !in_array($status, $allowed, true)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'ID y estado válido requeridos.']);
+    echo json_encode(['success' => false, 'message' => 'ID y estado institucional válido requeridos.']);
     exit;
 }
 

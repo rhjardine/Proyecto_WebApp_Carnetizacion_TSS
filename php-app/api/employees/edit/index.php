@@ -33,8 +33,17 @@ if (!$id) {
     exit;
 }
 
-// --- Campos permitidos para actualizar (whitelist) ---
-$allowed = ['nombre', 'cargo', 'departamento', 'tipo_sangre', 'photo_url'];
+// --- Campos permitidos para actualizar (whitelist canónica v2.0) ---
+$allowed = [
+    'primer_nombre',
+    'segundo_nombre',
+    'primer_apellido',
+    'segundo_apellido',
+    'cargo',
+    'gerencia_id',
+    'tipo_sangre',
+    'foto_url'
+];
 $setClauses = [];
 $params = [':id' => $id];
 $changed = [];   // Para audit log
@@ -46,12 +55,14 @@ foreach ($allowed as $field) {
     $value = $body[$field];
 
     // Validaciones mínimas
-    if ($field === 'photo_url') {
-        // Aceptar null (eliminar foto) o una URL válida relativa
-        $value = ($value === null) ? null : trim($value);
+    if ($field === 'foto_url') {
+        $value = ($value === null) ? null : trim((string) $value);
+    } elseif ($field === 'gerencia_id') {
+        $value = $value ? intval($value) : null;
     } else {
         $value = trim((string) $value);
-        if (in_array($field, ['nombre', 'cargo', 'departamento'], true) && $value === '') {
+        // Campos obligatorios si se envían
+        if (in_array($field, ['primer_nombre', 'primer_apellido', 'cargo'], true) && $value === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => "El campo '{$field}' no puede estar vacío."]);
             exit;
