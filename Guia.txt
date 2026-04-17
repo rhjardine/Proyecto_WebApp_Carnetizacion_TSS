@@ -18,13 +18,17 @@ Abra el panel de control de XAMPP/WAMP y asegúrese de que Apache y MySQL estén
 
 Ingrese a phpMyAdmin en su navegador: http://localhost/phpmyadmin
 
-Vaya a la pestaña Bases de datos y cree una nueva base de datos llamada: sci_tss (Seleccione el cotejamiento utf8mb4_unicode_ci).
+Vaya a la pestaña Bases de datos y cree una nueva base de datos llamada: carnetizacion_tss (Seleccione el cotejamiento utf8mb4_unicode_ci).
 
-Haga clic sobre la base de datos sci_tss recién creada, vaya a la pestaña Importar.
+Haga clic sobre la base de datos carnetizacion_tss recién creada, vaya a la pestaña Importar.
 
-Seleccione el archivo SQL maestro ubicado en la carpeta del proyecto: db/01_schema_produccion_final.sql.
+Importe los archivos SQL en el siguiente orden OBLIGATORIO:
+1. db/00_tablas_espanol.sql  ← PRIMERO: Crea las tablas en español (usuarios, empleados, auditoria_logs)
+2. db/01_schema_produccion_final.sql  ← RBAC, auditoría y tablas de soporte
+3. db/02_consolidacion_spanish.sql  ← Migra permisos y roles al esquema español
+4. db/fix_indexes.sql  ← Índices de rendimiento (idempotente)
 
-Haga clic en Continuar / Importar. Esto creará automáticamente toda la estructura RBAC, la máquina de estados, el log de auditoría y los usuarios iniciales.
+El paso 1 es crítico: sin él el sistema falla al autenticar. Haga clic en Continuar / Importar tras cada archivo.
 
 PASO 3: Configuración de Variables de Entorno (.env)
 
@@ -38,7 +42,7 @@ Cópielo y renombre la copia para que se llame exactamente .env (sin ninguna ext
 
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=sci_tss
+DB_NAME=carnetizacion_tss
 DB_USER=root
 DB_PASS=
 

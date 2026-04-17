@@ -222,7 +222,7 @@ const api = {
      * Guardamos res.data (no res) en sessionStorage.
      */
     login: async (username, password) => {
-        const res = await request('api/auth.php', 'POST', { username, password });
+        const res = await request('api/auth/login.php', 'POST', { username, password });
 
         // El backend devuelve los datos del usuario en res.data
         const userData = res.data || res;
