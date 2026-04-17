@@ -73,10 +73,15 @@ if (empty($setClauses)) {
 try {
     $db = getDB();
 
-    $sql = 'UPDATE employees SET ' . implode(', ', $setClauses) . ' WHERE id = :id RETURNING *';
+    // MySQL: actualizar en la tabla canónica 'empleados' y luego obtener el registro
+    $sql = 'UPDATE empleados SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    $employee = $stmt->fetch();
+
+    // Recuperar datos actualizados
+    $sel = $db->prepare('SELECT e.*, g.nombre AS gerencia FROM empleados e LEFT JOIN gerencias g ON e.gerencia_id = g.id WHERE e.id = :id LIMIT 1');
+    $sel->execute([':id' => $id]);
+    $employee = $sel->fetch();
 
     if (!$employee) {
         http_response_code(404);

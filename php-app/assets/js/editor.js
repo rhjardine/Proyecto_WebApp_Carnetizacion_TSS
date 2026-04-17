@@ -119,7 +119,12 @@ async function init() {
   // Tarea 3: Restricciones CONSULTA
   applyConsultaRestrictions();
 
-  await populateGerenciaSelect();
+  try {
+    await populateGerenciaSelect();
+  } catch (err) {
+    console.warn('No se pudo cargar la lista de gerencias:', err.message);
+  }
+
   setupManualPhoto();
   setupSmartExtraction();
   setupInlineEdit();
@@ -804,15 +809,28 @@ function setupManualPhoto() {
   // Helper: persiste la foto y re-renderiza el carnet
   async function applyPhoto(dataUrl) {
     try {
-      await api.updateEmployee(employee.id, { photo_url: dataUrl });
-      employee.photo_url = dataUrl;
+      // ── REFACTORIZACIÓN v2.3: No guardar Base64 (trunca en VARCHAR 255) ──
+      // Convertir dataUrl (Base64) a Blob para usar Multipart/FormData
+      const blob = await (await fetch(dataUrl)).blob();
+      const fd = new FormData();
+      fd.append('employee_id', employee.id);
+      fd.append('photo', blob, `emp_${employee.id}.jpg`);
+
+      const res = await api.uploadPhoto(fd);
+      const serverPhotoUrl = res.data.photo_url || res.data.foto_url;
+
+      employee.photo_url = serverPhotoUrl;
+      employee.foto_url = serverPhotoUrl;
+
       renderCard();
       renderDetails();
+
       const btnR = document.getElementById('btn-remove-photo');
       if (btnR) btnR.style.display = 'inline-flex';
-      showEditorToast('Fotografía cargada y aplicada correctamente.', 'success');
+      showEditorToast('Fotografía procesada y guardada en servidor.', 'success');
     } catch (err) {
-      showEditorToast(err.message || 'Error al guardar la foto.', 'danger');
+      console.error('[Editor Photo Error]', err);
+      showEditorToast('Error al procesar foto: ' + (err.message || 'Error técnico'), 'danger');
     }
   }
 

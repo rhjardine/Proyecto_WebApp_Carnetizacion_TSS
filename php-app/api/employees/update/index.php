@@ -29,9 +29,14 @@ if (!$id || !in_array($status, $allowed, true)) {
 
 try {
     $db = getDB();
-    $stmt = $db->prepare('UPDATE employees SET status = :status WHERE id = :id RETURNING *');
+    // Actualizar estado en la tabla canonical 'empleados' (MySQL)
+    $stmt = $db->prepare('UPDATE empleados SET estado_carnet = :status WHERE id = :id');
     $stmt->execute([':status' => $status, ':id' => $id]);
-    $employee = $stmt->fetch();
+
+    // Recuperar registro actualizado
+    $sel = $db->prepare('SELECT id, cedula, primer_nombre, primer_apellido, estado_carnet FROM empleados WHERE id = :id LIMIT 1');
+    $sel->execute([':id' => $id]);
+    $employee = $sel->fetch();
 
     if (!$employee) {
         http_response_code(404);
@@ -43,7 +48,7 @@ try {
     logAction($db, $authUser['id'], 'EMPLOYEE_STATUS_CHANGED', [
         'employee_id' => $employee['id'],
         'cedula' => $employee['cedula'],
-        'nombre' => $employee['nombre'],
+        'nombre' => trim(($employee['primer_nombre'] ?? '') . ' ' . ($employee['primer_apellido'] ?? '')),
         'new_status' => $status,
     ]);
     // ───────────────────────────────────────────────────────

@@ -7,7 +7,11 @@ require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
 
 $pdo = getDB();
-Security::requirePermission($pdo, 'gerencia.manage');
+if ($method === 'GET') {
+    Security::requirePermission($pdo, 'carnet.view_all');
+} else {
+    Security::requirePermission($pdo, 'gerencia.manage');
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
