@@ -152,13 +152,14 @@ async function init() {
 
     if (storedId) {
       const res = await api.getEmployees({ id: storedId });
-      list = res.data || [];
+      // Normalizar: res.data puede ser array o objeto individual (Fix v2.6)
+      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
     } else if (urlCedula) {
       const res = await api.getEmployees({ cedula: urlCedula, limit: 1 });
-      list = res.data || [];
+      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
     } else {
       const res = await api.getEmployees({ limit: 1 });
-      list = res.data || [];
+      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
     }
 
     if (!list.length) {
