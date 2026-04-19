@@ -175,7 +175,7 @@ function renderTable(list) {
         const photoSrc = emp.photo_url || emp.foto_url || makeAvatar(avatarNames);
 
         return `
-    <tr data-id="${emp.id}" onclick="openEditor(${emp.id})">
+    <tr data-id="${emp.id}" onclick="viewEmployee(${emp.id})">
       <td>
         <div class="emp-info">
           <img src="${photoSrc}" class="avatar" alt="${fullName}" onerror="this.style.display='none'" />
@@ -268,6 +268,7 @@ window.toggleDropdown = function (id) {
     const curr = document.getElementById(`dropdown-${id}`);
     if (!curr) return;
 
+    const btn = curr.previousElementSibling;
     const isOpening = curr.style.display === 'none' || !curr.style.display;
 
     // Cerrar todos los demás
@@ -275,23 +276,41 @@ window.toggleDropdown = function (id) {
 
     if (isOpening) {
         curr.style.display = 'block';
-        // Lógica de Smart Dropdown (Drop-up si está cerca del borde)
-        const rect = curr.getBoundingClientRect();
-        const container = curr.closest('.table-responsive');
-        const containerRect = container ? container.getBoundingClientRect() : { bottom: window.innerHeight };
 
-        // Si el menú se sale por abajo del contenedor o del viewport, lo abrimos hacia arriba
-        const spaceBelow = containerRect.bottom - rect.top;
-        if (spaceBelow < rect.height + 20) {
-            curr.classList.add('drop-up');
+        // Calcular posición fija para evitar recortes de overflow
+        const btnRect = btn.getBoundingClientRect();
+        curr.style.position = 'fixed';
+        curr.style.margin = '0';
+
+        // Asegurar que el elemento esté renderizado para obtener su altura final
+        const dropdownHeight = curr.offsetHeight || 100;
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+
+        if (spaceBelow < dropdownHeight + 15 && btnRect.top > dropdownHeight + 15) {
+            // Abrir hacia arriba (drop-up)
+            curr.style.top = (btnRect.top - dropdownHeight - 5) + 'px';
         } else {
-            curr.classList.remove('drop-up');
+            // Abrir hacia abajo (drop-down)
+            curr.style.top = (btnRect.bottom + 5) + 'px';
         }
+
+        curr.style.left = 'auto';
+        curr.style.right = (window.innerWidth - btnRect.right) + 'px';
+        curr.style.zIndex = '9999';
     } else {
         curr.style.display = 'none';
-        curr.classList.remove('drop-up');
     }
 };
+
+// Cerrar dropdowns si se hace scroll para que no floten en position: fixed
+document.addEventListener('scroll', function (e) {
+    if (!e.target.closest || !e.target.closest('.action-dropdown')) {
+        document.querySelectorAll('.action-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+}, true);
+
 
 // ── PAGINATION & FILTERS ──────────────────────────────────────────────────────
 function goToPage(page) {

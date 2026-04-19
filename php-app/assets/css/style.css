@@ -325,11 +325,8 @@ button {
 
 .table-responsive {
   overflow-x: auto;
-  padding-bottom: 80px;
-  /* Margen para asegurar que el dropdown no se corte */
-  margin-bottom: -80px;
-  /* Compensación para no afectar el layout */
   position: relative;
+  min-height: 250px;
 }
 
 /* --- Action Dropdown --- */
