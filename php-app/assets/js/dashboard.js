@@ -214,16 +214,16 @@ function renderTable(list) {
                     title="Opciones" style="background:transparent;color:var(--color-muted);border:none;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;">
               ⋮
             </button>
-            <div id="dropdown-${emp.id}" class="action-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:5px;background:#fff;border:1px solid var(--color-border);border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.15);z-index:99;min-width:140px;padding:6px 0;font-size:.8rem;">
-              <button onclick="event.stopPropagation();viewEmployee(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:var(--color-text);transition:background .2s;">
+            <div id="dropdown-${emp.id}" class="action-dropdown">
+              <button onclick="event.stopPropagation();viewEmployee(${emp.id})">
                 👁️ Consultar
               </button>
               ${isAdmin ? `
-              <hr style="margin:4px 0;border:none;border-top:1px solid #f1f5f9;"/>
-              <button onclick="event.stopPropagation();openEditor(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:#0284c7;transition:background .2s;">
+              <hr/>
+              <button onclick="event.stopPropagation();openEditor(${emp.id})" style="color:#0284c7;">
                 ✏️ Editar
               </button>
-              <button onclick="event.stopPropagation();deleteEmployee(${emp.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;background:none;border:none;cursor:pointer;color:#dc2626;transition:background .2s;">
+              <button onclick="event.stopPropagation();deleteEmployee(${emp.id})" style="color:#dc2626;">
                 🗑️ Eliminar
               </button>` : ''}
             </div>
@@ -264,11 +264,33 @@ function renderPagination(meta) {
 
 // ── DROPDOWN TOGGLE ────────────────────────────────────────────────────────
 window.toggleDropdown = function (id) {
-    document.querySelectorAll('.action-dropdown').forEach(d => {
-        if (d.id !== `dropdown-${id}`) d.style.display = 'none';
-    });
+    const all = document.querySelectorAll('.action-dropdown');
     const curr = document.getElementById(`dropdown-${id}`);
-    if (curr) curr.style.display = curr.style.display === 'none' ? 'block' : 'none';
+    if (!curr) return;
+
+    const isOpening = curr.style.display === 'none' || !curr.style.display;
+
+    // Cerrar todos los demás
+    all.forEach(d => { if (d.id !== `dropdown-${id}`) d.style.display = 'none'; });
+
+    if (isOpening) {
+        curr.style.display = 'block';
+        // Lógica de Smart Dropdown (Drop-up si está cerca del borde)
+        const rect = curr.getBoundingClientRect();
+        const container = curr.closest('.table-responsive');
+        const containerRect = container ? container.getBoundingClientRect() : { bottom: window.innerHeight };
+
+        // Si el menú se sale por abajo del contenedor o del viewport, lo abrimos hacia arriba
+        const spaceBelow = containerRect.bottom - rect.top;
+        if (spaceBelow < rect.height + 20) {
+            curr.classList.add('drop-up');
+        } else {
+            curr.classList.remove('drop-up');
+        }
+    } else {
+        curr.style.display = 'none';
+        curr.classList.remove('drop-up');
+    }
 };
 
 // ── PAGINATION & FILTERS ──────────────────────────────────────────────────────

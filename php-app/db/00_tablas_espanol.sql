@@ -99,13 +99,13 @@ CREATE TABLE IF NOT EXISTS empleados (
 -- Usada por logAction() en api/config/db.php
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS auditoria_logs (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id  INT NULL,
-    accion      VARCHAR(100) NOT NULL,
-    detalles    JSON NULL,
-    ip          VARCHAR(45) NULL,
-    user_agent  TEXT NULL,
-    creado_el   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id      INT NULL,
+    accion          VARCHAR(100) NOT NULL,
+    detalles        JSON NULL,
+    direccion_ip    VARCHAR(45) NULL,
+    agente_usuario  TEXT NULL,
+    creado_el       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_auditoria_logs_usuario (usuario_id),
     INDEX idx_auditoria_logs_accion (accion),

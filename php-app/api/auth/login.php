@@ -1,62 +1,63 @@
 <?php
-/**
- * SCI-TSS Authentication Endpoint
- * ===============================
- * Refactored to use Security class (Middleware/RBAC.php)
- * Cumple con el estándar de Hardening y protección contra fuerza bruta.
- */
-
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../middleware/RBAC.php';
 
-// Configuración de respuesta estricta JSON
-if (!headers_sent()) {
-    header('Content-Type: application/json; charset=utf-8');
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-}
+header('Content-Type: application/json');
 
+$pdo = getDB();
+
+// Manejo de peticiones preflight CORS (Live Server)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
+    http_response_code(200);
+    exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Método no permitido.']);
-    exit;
-}
-
-// Lectura de inputs sanitizada
-$body = json_decode(file_get_contents('php://input'), true) ?? [];
-$username = trim($body['username'] ?? '');
-$password = (string) ($body['password'] ?? '');
+$data = json_decode(file_get_contents("php://input"), true);
+$username = $data['username'] ?? $_POST['username'] ?? '';
+$password = $data['password'] ?? $_POST['password'] ?? '';
 
 if (empty($username) || empty($password)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Credenciales incompletas.']);
+    echo json_encode(['success' => false, 'error' => 'Usuario y contraseña son requeridos.']);
     exit;
 }
 
-try {
-    $pdo = getDB();
+// Delegamos la validación a la clase de seguridad
+$result = Security::loginUser($pdo, $username, $password);
 
-    // Delegación al núcleo de seguridad (RBAC.php)
-    $result = Security::loginUser($pdo, $username, $password);
+if (isset($result['success']) && $result['success'] === true) {
 
-    // Ajuste de código HTTP según el resultado de seguridad
-    if (!$result['success']) {
-        $httpCode = isset($result['code']) ? $result['code'] : 401;
-        http_response_code($httpCode);
-    } else {
-        http_response_code(200);
+    // Arquitectura Definitiva: El frontend necesita el ROL para renderizar la UI.
+    // Nivel más bajo por defecto por seguridad.
+    $role = 'USUARIO';
+
+    try {
+        // Única Fuente de Verdad: Consultamos exclusivamente el esquema consolidado
+        $stmt = $pdo->prepare("SELECT rol FROM usuarios WHERE usuario = ? LIMIT 1");
+        $stmt->execute([$username]);
+        $fetchedRole = $stmt->fetchColumn();
+
+        if ($fetchedRole) {
+            $role = strtoupper($fetchedRole);
+        }
+    } catch (PDOException $e) {
+        // En un entorno de producción limpio, esto solo fallará si se cae la BD.
+        error_log("[LOGIN CRITICAL] Error obteniendo rol para $username: " . $e->getMessage());
     }
 
-    echo json_encode($result);
+    // Retornamos el JSON completo con el Rol inyectado
+    echo json_encode([
+        'success' => true,
+        'message' => 'Login exitoso.',
+        'csrf_token' => Security::generateCsrfToken(),
+        'role' => $role, // <-- ESTO DEVUELVE LA VISTA AL FRONTEND
+        'requires_password_change' => $_SESSION['requires_password_change'] ?? false
+    ]);
 
-} catch (Exception $e) {
-    // Registro de error crítico sin exponer detalles al cliente (OWASP)
-    error_log('[SECURITY CRITICAL] Fallo en endpoint de login: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Error de seguridad interno.']);
+} else {
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'error' => $result['error'] ?? 'Credenciales inválidas.'
+    ]);
 }

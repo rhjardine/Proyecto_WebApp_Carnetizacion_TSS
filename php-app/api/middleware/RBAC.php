@@ -12,6 +12,17 @@
 class Security
 {
     /**
+     * Inicia una sesión local de forma segura, suprimiendo advertencias (como headers sent)
+     * que pueden romper la respuesta JSON esperada por el Frontend.
+     */
+    public static function startSecureSession()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+    }
+
+    /**
      * Verifica si hay demasiados intentos fallidos (Anti-Brute Force).
      */
     private static function isBruteForce(PDO $pdo, $username)
@@ -62,12 +73,13 @@ class Security
             $roleStmt->execute([$user['id']]);
             $roleName = $roleStmt->fetchColumn() ?: 'USUARIO';
 
-            session_regenerate_id(true);
+            self::startSecureSession();
+            @session_regenerate_id(true);
             $_SESSION['user_id'] = (int) $user['id'];
             $_SESSION['username'] = $user['usuario'];
             $_SESSION['nombre'] = $user['nombre_completo'];
             $_SESSION['role'] = $roleName;
-            self::generateCSRF();
+            self::generateCsrfToken();
 
             self::logAudit($pdo, $user['id'], 'LOGIN_SUCCESS', 'usuarios', $user['id']);
 
@@ -190,10 +202,12 @@ class Security
         }
     }
 
-    public static function generateCSRF()
+    public static function generateCsrfToken()
     {
+        self::startSecureSession();
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
+        return $_SESSION['csrf_token'];
     }
 }
