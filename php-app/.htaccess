@@ -1,40 +1,39 @@
 # ============================================================
-# SCI-TSS .htaccess — Configuración Apache para php-app/
+# SCI-TSS .htaccess — REMEDIADO v2.3
 # ============================================================
-# CORREGIDO v2.2: Eliminado <DirectoryMatch> (no permitido en .htaccess)
 
-# 1. Enable Rewrite Engine
+# 1. Motor de reescritura
 RewriteEngine On
 
-# 2. Prevent directory listing (Security)
+# 2. Deshabilitar listado de directorios
 Options -Indexes
 
-# 3. Protect sensitive files (dotfiles, SQL, env, config)
-<FilesMatch "^\.">
+# 3. Proteger archivos sensibles: dotfiles, SQL, env, log, backups
+<FilesMatch "^\.|\.sql$|\.env$|\.ini$|\.log$|\.bak$|\.rar$|\.zip$">
     Require all denied
 </FilesMatch>
 
-<FilesMatch "\.(sql|env|ini|log|bak|rar|zip)$">
+# 4. Proteger scripts de utilidad (vulnerabilidad crítica de seguridad)
+# Estos archivos permiten resetear contraseñas sin autenticación y deben
+# bloquearse en producción. Si se necesitan en desarrollo, comentar esta sección.
+<FilesMatch "^(reset_admin|reset_default_passwords|hash|test_hash|fix_endpoints|db_index_patch|check_db)\.php$">
     Require all denied
 </FilesMatch>
 
-# 4. Protect sensitive directories via Rewrite (since DirectoryMatch not allowed here)
-# Block direct access to db/, config/, includes/ directories
+# 5. Proteger directorios sensibles via Rewrite
 RewriteRule ^db/ - [F,L]
 RewriteRule ^includes/ - [F,L]
 RewriteRule ^api/config/ - [F,L]
 
-# 5. Handle CORS headers
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Header set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token"
-    Header set Access-Control-Allow-Credentials "true"
-</IfModule>
+# 6. CORS — ELIMINADO el wildcard inseguro.
+# Las cabeceras CORS correctas las gestiona exclusivamente cors_fixed.php
+# (whitelist de orígenes) que se carga desde api/config/db.php en cada petición.
+# NO agregar Header set Access-Control-Allow-Origin aquí.
 
-# 6. PHP settings for uploads
+# 7. PHP settings para uploads de imágenes
 <IfModule mod_php.c>
     php_value upload_max_filesize 12M
     php_value post_max_size 14M
-    php_value max_execution_time 30
+    php_value max_execution_time 120
+    php_value memory_limit 256M
 </IfModule>
