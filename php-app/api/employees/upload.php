@@ -142,18 +142,24 @@ if ($origWidth > $maxDim || $origHeight > $maxDim) {
 //    bin2hex(random_bytes(16)) → 32 caracteres hexadecimales únicos, no predecibles.
 //    Nunca incluye datos del empleado ni timestamps.
 // ──────────────────────────────────────────────────────────────
+$uploadDir = __DIR__ . '/../../uploads/';
+
+// Crea el directorio si no existe para evitar errores (FIX CRÍTICO)
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
+
 $secureFilename = bin2hex(random_bytes(16)) . '.jpg'; // siempre guardamos como JPEG
-$uploadDir = rtrim(UPLOAD_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 $destPath = $uploadDir . $secureFilename;
 $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 $appBase = rtrim(dirname(dirname(dirname($scriptName))), '/');
 $publicUrl = ($appBase ? $appBase : '') . '/uploads/' . $secureFilename;
 
-// Asegurarse que el directorio existe y es escribible
-if (!is_dir($uploadDir) || !is_writable($uploadDir)) {
+// Asegurarse que el directorio sea escribible
+if (!is_writable($uploadDir)) {
     imagedestroy($finalImage);
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'El directorio de uploads no es accesible.']);
+    echo json_encode(['success' => false, 'message' => 'El directorio de uploads no es escribible.']);
     exit;
 }
 

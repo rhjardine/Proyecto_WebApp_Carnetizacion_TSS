@@ -69,7 +69,7 @@ try {
             $id = isset($_GET['id']) ? intval($_GET['id']) : null;
 
             if ($id) {
-                // ── Empleado individual ──────────────────────────────
+                // ── Empleado individual (Para el Editor) ──────────────
                 $sql = "SELECT
                             e.*,
                             g.nombre AS gerencia,
@@ -80,16 +80,15 @@ try {
                         LIMIT 1";
                 $stmt = $db->prepare($sql);
                 $stmt->execute([$id]);
-                $emp = $stmt->fetch();
+                $emp = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($emp) {
-                    sendResponse(true, 'Empleado encontrado.', [
-                        'data' => [$emp],
-                        'meta' => ['totalRecords' => 1, 'currentPage' => 1, 'totalPages' => 1, 'limit' => 1],
-                    ]);
+                    echo json_encode(['success' => true, 'data' => $emp]);
                 } else {
-                    sendResponse(false, 'Empleado no encontrado.', null, 404);
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Registro de empleado no encontrado.']);
                 }
+                exit; // CRÍTICO: Prevenir doble respuesta JSON concatenada
             }
 
             // ── Lista paginada ───────────────────────────────────────
