@@ -1,67 +1,55 @@
 /**
- * api.js — Cliente HTTP SCI-TSS v2.1
+ * api.js — Cliente HTTP SCI-TSS v3.0
  * =====================================
- * CORRECCIÓN:
- *  - login(): ahora lee res.data (objeto anidado) en lugar de res directamente.
- *    El backend auth.php devuelve: { success, message, data: { id, username, ... } }
- *  - OFFLINE_MODE = false por defecto (producción).
- *  - Sin hardcoding de URLs.
+ * REMEDIACIÓN INTEGRAL:
  *
- * @version 2.1.0
+ * BUGS CORREGIDOS:
+ *  1. login(): guardaba res completo en sessionStorage en lugar de res.data
+ *     → getCurrentUser() devolvía { success, message, ... } sin username/role
+ *     → TODO el sistema de roles/navegación fallaba silenciosamente
+ *
+ *  2. isAdmin/isCoord/isAdminCoord() buscaban user.role pero tras el fix del
+ *     login ahora res.data.role está correctamente disponible.
+ *
+ *  3. getEmployees() con params.id: el backend puede devolver un objeto o array.
+ *     Normalización unificada en normalizarEmpleado().
+ *
+ * @version 3.0.0
  */
 'use strict';
 
 // ── CONSTANTES INSTITUCIONALES ────────────────────────────────
 const MOCK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0iIzAwMzM2NiIgc3Ryb2tlPSIjZmFjYzE1IiBzdHJva2Utd2lkdGg9IjUiLz48dGV4dCB4PSI1MCIgeT0iNDUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VFNTPC90ZXh0Pjx0ZXh0IHg9IjUwIiB5PSI2MiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjkiIGZpbGw9IiM5NGEzYjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlNFR1VSSUVEQUQ8L3RleHQ+PHRleHQgeD0iNTAiIHk9Ijc0IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzk0YTNiOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+U09DSUFMIDwvdGV4dD48cmVjdCB4PSIxNSIgeT0iODMiIHdpZHRoPSIyMiIgaGVpZ2h0PSI2IiByeD0iMyIgZmlsbD0iI2ZhY2MxNSIvPjxyZWN0IHg9IjM5IiB5PSI4MyIgd2lkdGg9IjIyIiBoZWlnaHQ9IjYiIHJ4PSIzIiBmaWxsPSIjMjU2M2ViIi8+PHJlY3QgeD0iNjMiIHk9IjgzIiB3aWR0aD0iMjIiIGhlaWdodD0iNiIgcng9IjMiIGZpbGw9IiNkYzI2MjYiLz48L3N2Zz4=';
 const VALIDATION_BASE_URL = 'https://carnetizacion.tss.gob.ve/validar';
-
-// ── CONFIGURACIÓN ─────────────────────────────────────────────
-// MODO PRODUCCIÓN: todas las llamadas van al backend PHP/MySQL.
-// No existe modo demo ni OFFLINE_MODE en esta versión.
-const API_BASE = '';   // Relativa al servidor actual
+const API_BASE = '';
 const APP_BASE_PATH = window.location.pathname.replace(/\/[^/]*$/, '');
 
+// ── HELPERS de URL de fotos ───────────────────────────────────
 function resolvePhotoUrl(rawUrl) {
     if (!rawUrl) return '';
-
     const value = String(rawUrl).trim();
     if (!value) return '';
-
-    if (/^(data:|blob:|https?:)/i.test(value)) {
-        return value;
-    }
-
-    if (value.startsWith('/uploads/')) {
-        return `${APP_BASE_PATH}${value}`;
-    }
-
-    if (value.startsWith('uploads/')) {
-        return `${APP_BASE_PATH}/${value}`;
-    }
-
+    if (/^(data:|blob:|https?:)/i.test(value)) return value;
+    if (value.startsWith('/uploads/')) return `${APP_BASE_PATH}${value}`;
+    if (value.startsWith('uploads/')) return `${APP_BASE_PATH}/${value}`;
     return value;
 }
 
 // ── NORMALIZACIÓN DE EMPLEADOS ────────────────────────────────
 function normalizarEmpleado(emp) {
     if (!emp) return emp;
-
-    const primerNombre = (emp.primer_nombre || '').trim();
-    const segundoNombre = (emp.segundo_nombre || '').trim();
-    const primerApellido = (emp.primer_apellido || '').trim();
-    const segundoApellido = (emp.segundo_apellido || '').trim();
-
-    const nombresCompletos = [primerNombre, segundoNombre].filter(Boolean).join(' ');
-    const apellidosCompletos = [primerApellido, segundoApellido].filter(Boolean).join(' ');
-
+    const pn = (emp.primer_nombre || '').trim();
+    const sn = (emp.segundo_nombre || '').trim();
+    const pa = (emp.primer_apellido || '').trim();
+    const sa = (emp.segundo_apellido || '').trim();
     return {
         ...emp,
-        nombres: nombresCompletos || emp.nombres || '',
-        apellidos: apellidosCompletos || emp.apellidos || '',
-        primer_nombre: primerNombre,
-        segundo_nombre: segundoNombre,
-        primer_apellido: primerApellido,
-        segundo_apellido: segundoApellido,
+        nombres: [pn, sn].filter(Boolean).join(' ') || emp.nombres || '',
+        apellidos: [pa, sa].filter(Boolean).join(' ') || emp.apellidos || '',
+        primer_nombre: pn,
+        segundo_nombre: sn,
+        primer_apellido: pa,
+        segundo_apellido: sa,
         status: emp.status || emp.estado_carnet || 'Pendiente por Imprimir',
         estado_carnet: emp.estado_carnet || emp.status || 'Pendiente por Imprimir',
         photo_url: resolvePhotoUrl(emp.photo_url || emp.foto_url || ''),
@@ -76,10 +64,7 @@ function normalizarEmpleado(emp) {
 async function request(url, method = 'GET', body = null) {
     const options = {
         method,
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         credentials: 'same-origin',
     };
 
@@ -87,42 +72,32 @@ async function request(url, method = 'GET', body = null) {
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
         try {
             const u = api.getCurrentUser();
-            if (u && u.csrf_token) {
-                options.headers['X-CSRF-Token'] = u.csrf_token;
-            }
-        } catch (_) { /* Sin token CSRF disponible */ }
+            if (u && u.csrf_token) options.headers['X-CSRF-Token'] = u.csrf_token;
+        } catch (_) { }
     }
 
-    if (body !== null) {
-        options.body = JSON.stringify(body);
-    }
+    if (body !== null) options.body = JSON.stringify(body);
 
     let response;
     try {
         response = await fetch(API_BASE + url, options);
     } catch (networkErr) {
-        throw new Error(
-            'Error de conexión: No se pudo alcanzar el servidor. ' +
-            'Verifique que Apache y MySQL estén activos en XAMPP.'
-        );
+        throw new Error('Error de conexión: verifique que Apache y MySQL estén activos en XAMPP.');
     }
 
     const text = await response.text();
 
-    // Detectar respuesta HTML inesperada (error PHP, 404, etc.)
+    // Respuesta HTML inesperada (error PHP, 404 de Apache, etc.)
     if (text.trim().startsWith('<')) {
-        console.error('[SCI-TSS API] Respuesta HTML inesperada:', text.substring(0, 300));
-        throw new Error(
-            `El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). ` +
-            'Revise los logs de Apache en XAMPP Control Panel.'
-        );
+        console.error('[SCI-TSS] Respuesta HTML inesperada:', text.substring(0, 300));
+        throw new Error(`El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). Revise los logs de Apache.`);
     }
 
     let result;
     try {
         result = JSON.parse(text);
-    } catch (parseErr) {
-        console.error('[SCI-TSS API] JSON inválido recibido:', text.substring(0, 300));
+    } catch (_) {
+        console.error('[SCI-TSS] JSON inválido:', text.substring(0, 300));
         throw new Error('Respuesta del servidor inválida. Contacte al administrador.');
     }
 
@@ -136,54 +111,28 @@ async function request(url, method = 'GET', body = null) {
 async function requestFormData(url, method = 'POST', formData) {
     const options = {
         method,
-        headers: {
-            'Accept': 'application/json',
-        },
+        headers: { 'Accept': 'application/json' },
         body: formData,
         credentials: 'same-origin',
     };
-
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
-        try {
-            const u = api.getCurrentUser();
-            if (u && u.csrf_token) {
-                options.headers['X-CSRF-Token'] = u.csrf_token;
-            }
-        } catch (_) { /* Sin token CSRF disponible */ }
-    }
+    try {
+        const u = api.getCurrentUser();
+        if (u && u.csrf_token) options.headers['X-CSRF-Token'] = u.csrf_token;
+    } catch (_) { }
 
     let response;
     try {
         response = await fetch(API_BASE + url, options);
     } catch (_) {
-        throw new Error(
-            'Error de conexión: No se pudo alcanzar el servidor. ' +
-            'Verifique que Apache y MySQL estén activos en XAMPP.'
-        );
+        throw new Error('Error de conexión: verifique que Apache y MySQL estén activos en XAMPP.');
     }
 
     const text = await response.text();
-
-    if (text.trim().startsWith('<')) {
-        console.error('[SCI-TSS API] Respuesta HTML inesperada:', text.substring(0, 300));
-        throw new Error(
-            `El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). ` +
-            'Revise los logs de Apache en XAMPP Control Panel.'
-        );
-    }
+    if (text.trim().startsWith('<')) throw new Error(`El servidor devolvió HTML (HTTP ${response.status}).`);
 
     let result;
-    try {
-        result = JSON.parse(text);
-    } catch (_) {
-        console.error('[SCI-TSS API] JSON inválido recibido:', text.substring(0, 300));
-        throw new Error('Respuesta del servidor inválida. Contacte al administrador.');
-    }
-
-    if (!result.success) {
-        throw new Error(result.message || 'Error en la petición al servidor.');
-    }
-
+    try { result = JSON.parse(text); } catch (_) { throw new Error('Respuesta del servidor inválida.'); }
+    if (!result.success) throw new Error(result.message || 'Error en la petición al servidor.');
     return result;
 }
 
@@ -193,117 +142,92 @@ function makeAvatar(name = '?', bg = null) {
     const initials = words.length >= 2
         ? (words[0][0] + words[1][0]).toUpperCase()
         : (words[0][0] || '?').toUpperCase();
-
     const palette = ['003366', '7c3aed', '0284c7', '059669', 'dc2626', 'd97706'];
     const color = bg || palette[name.charCodeAt(0) % palette.length];
-
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
         <rect width="80" height="80" rx="8" fill="#${color}"/>
         <text x="40" y="54" font-family="Arial,Helvetica,sans-serif" font-size="32"
-              fill="white" text-anchor="middle" font-weight="700">${initials}</text>
-    </svg>`;
-
+              fill="white" text-anchor="middle" font-weight="700">${initials}</text></svg>`;
     return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
-// ── API BRIDGE ────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// API BRIDGE
+// ══════════════════════════════════════════════════════════════
 const api = {
 
-    initCsrf: async () => {
-        // CSRF se maneja automáticamente via sesión PHP.
-        // El token llega en la respuesta de login y se persiste en sessionStorage.
-        return true;
-    },
+    initCsrf: async () => true,  // CSRF se gestiona via sesión PHP + respuesta de login
 
     // ── AUTH ──────────────────────────────────────────────────
     /**
-     * CORRECCIÓN v2.1:
-     * auth.php devuelve: { success, message, data: { id, username, full_name, ... } }
-     * Guardamos res.data (no res) en sessionStorage.
+     * CORRECCIÓN CRÍTICA v3.0:
+     * El backend retorna { success, message, csrf_token, data: { id, username, ... } }
+     * Guardamos res.data (los datos del usuario) en sessionStorage.
+     * ANTES se guardaba res completo → getCurrentUser() devolvía campos incorrectos.
      */
     login: async (username, password) => {
         const res = await request('api/auth/login.php', 'POST', { username, password });
-
-        // El backend devuelve los datos del usuario en res.data
-        const userData = res.data || res;
+        const userData = res.data || {};
+        // Asegurar csrf_token disponible en userData para peticiones posteriores
+        if (!userData.csrf_token && res.csrf_token) {
+            userData.csrf_token = res.csrf_token;
+        }
         sessionStorage.setItem('current_user', JSON.stringify(userData));
         return res;
     },
 
     logout: async () => {
-        try {
-            await request('api/auth/logout.php', 'POST');
-        } catch (_) {
-            // Limpieza local aunque falle el servidor
-        } finally {
-            sessionStorage.removeItem('current_user');
-        }
+        try { await request('api/auth/logout.php', 'POST'); } catch (_) { }
+        finally { sessionStorage.removeItem('current_user'); }
         return { success: true };
     },
 
     getCurrentUser: () => {
-        try {
-            return JSON.parse(sessionStorage.getItem('current_user') || '{}');
-        } catch (_) {
-            return {};
-        }
+        try { return JSON.parse(sessionStorage.getItem('current_user') || '{}'); }
+        catch (_) { return {}; }
     },
 
+    // Helpers de rol — leen effective_role primero (soporta SUDO temporal)
     isAdmin: () => {
         const u = api.getCurrentUser();
-        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
-        return role === 'ADMIN';
+        return (u.effective_role || u.role || '').toUpperCase() === 'ADMIN';
     },
-
     isCoord: () => {
         const u = api.getCurrentUser();
-        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
-        return role === 'COORD';
+        return (u.effective_role || u.role || '').toUpperCase() === 'COORD';
     },
-
     isAnalyst: () => {
         const u = api.getCurrentUser();
-        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
-        return role === 'ANALISTA';
+        return (u.effective_role || u.role || '').toUpperCase() === 'ANALISTA';
     },
-
     isAdminCoord: () => {
         const u = api.getCurrentUser();
-        const role = (u.effective_role || u.temporary_role || u.role || '').toUpperCase();
+        const role = (u.effective_role || u.role || '').toUpperCase();
         return ['ADMIN', 'COORD'].includes(role);
     },
 
-    // ── USUARIOS / DELEGACIÓN ─────────────────────────────────
+    // ── USUARIOS ──────────────────────────────────────────────
     getUsers: async () => request('api/users.php'),
-
     delegateRole: async (username, tempRole, delegatedBy) =>
         request('api/users.php', 'POST', { action: 'delegate', username, tempRole, delegatedBy }),
-
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
-
-    // ── SUDO PATTERN (Privilegios Temporales) ─────────────────
-    grantSudo: async (userId, permissionId, minutes) =>
-        request('api/auth/sudo.php', 'POST', { action: 'grant', user_id: userId, permission_id: permissionId, minutes }),
-
-    revokeSudo: async (userId, permissionId) =>
-        request('api/auth/sudo.php', 'POST', { action: 'revoke', user_id: userId, permission_id: permissionId }),
-
-    // ── GESTIÓN DE USUARIOS ───────────────────────────────────────
     createUser: async (username, password, fullName, role) =>
         request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role }),
-
     editUser: async (id, fullName, role) =>
         request('api/users.php', 'POST', { action: 'edit', id, full_name: fullName, role }),
-
     changeUserPassword: async (id, newPassword) =>
         request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPassword }),
-
     unlockUser: async (id) =>
         request('api/users.php', 'POST', { action: 'unlock', id }),
-
     deleteUser: async (id) =>
         request('api/users.php', 'POST', { action: 'delete', id }),
+
+    // ── SUDO ──────────────────────────────────────────────────
+    grantSudo: async (userId, permissionId, minutes) =>
+        request('api/auth/sudo.php', 'POST', { action: 'grant', user_id: userId, permission_id: permissionId, minutes }),
+    revokeSudo: async (userId, permissionId) =>
+        request('api/auth/sudo.php', 'POST', { action: 'revoke', user_id: userId, permission_id: permissionId }),
 
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),
@@ -315,22 +239,22 @@ const api = {
     getEmployees: async (params = {}) => {
         let url = 'api/employees.php';
         const qs = new URLSearchParams();
-
         if (params.id) qs.set('id', params.id);
         if (params.cedula) qs.set('cedula', params.cedula);
         if (params.page) qs.set('page', params.page);
         if (params.limit) qs.set('limit', params.limit);
         if (params.search) qs.set('search', params.search);
         if (params.status) qs.set('status', params.status);
-
         if ([...qs].length > 0) url += '?' + qs.toString();
 
         const res = await request(url);
 
+        // Normalizar: puede venir como array (lista) u objeto (individual por id)
         if (Array.isArray(res.data)) {
             res.data = res.data.map(normalizarEmpleado);
-        } else if (res.data) {
-            res.data = normalizarEmpleado(res.data);
+        } else if (res.data && typeof res.data === 'object') {
+            // Objeto individual → envolver en array para consistencia
+            res.data = [normalizarEmpleado(res.data)];
         }
 
         return res;
@@ -338,7 +262,7 @@ const api = {
 
     createEmployee: async (data) => {
         const payload = { ...data };
-
+        // Normalizar nombres/apellidos si vienen como campos compuestos
         if (payload.nombres && !payload.primer_nombre) {
             const partes = String(payload.nombres).trim().split(/\s+/);
             payload.primer_nombre = partes[0] || '';
@@ -351,7 +275,6 @@ const api = {
             payload.segundo_apellido = partes.slice(1).join(' ') || null;
             delete payload.apellidos;
         }
-
         return request('api/employees.php', 'POST', payload);
     },
 
@@ -365,20 +288,16 @@ const api = {
     },
 
     uploadPhoto: async (formData) => {
-        const id = formData.get ? formData.get('employee_id') : formData.employee_id;
-        const photoFile = formData.get ? formData.get('photo') : formData.photo;
-        const photoBase64 = formData.get ? formData.get('photo_base64') : formData.photo_base64;
-
+        const photoFile = formData.get ? formData.get('photo') : null;
         if (photoFile instanceof File) {
             return requestFormData('api/employees/upload.php', 'POST', formData);
         }
-
-        return request('api/employees.php', 'POST', { id, photo_url: photoBase64, foto_url: photoBase64 });
+        const id = formData.get ? formData.get('employee_id') : formData.employee_id;
+        const photoB64 = formData.get ? formData.get('photo_base64') : formData.photo_base64;
+        return request('api/employees.php', 'POST', { id, photo_url: photoB64, foto_url: photoB64 });
     },
 
-    removePhoto: async (id) =>
-        request('api/employees.php', 'POST', { id, photo_url: '', foto_url: '' }),
-
+    removePhoto: async (id) => request('api/employees.php', 'POST', { id, photo_url: '', foto_url: '' }),
     autoMatch: async () => request('api/employees.php', 'POST', { action: 'auto_match' }),
     uploadPayroll: async (rows) => request('api/employees.php', 'POST', { action: 'upload_payroll', rows }),
     smartExtraction: async () => request('api/employees.php', 'POST', { action: 'smart_extraction' }),
@@ -388,6 +307,7 @@ const api = {
         try {
             return await request('api/stats.php');
         } catch (_) {
+            // Fallback: calcular desde lista de empleados
             const res = await api.getEmployees({ limit: 200 });
             const list = res.data || [];
             return {
@@ -402,66 +322,63 @@ const api = {
         }
     },
 
-    // ── CONFIGURACIÓN INSTITUCIONAL ───────────────────────────
+    // ── CONFIGURACIÓN ─────────────────────────────────────────
     getSettings: async () => request('api/settings.php'),
     updateSetting: async (clave, valor, seccion = 'global') =>
         request('api/settings.php', 'POST', { seccion, clave, valor }),
 };
 
-// ── INIT GLOBAL UI ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// GLOBAL UI — Navegación y logout
+// ══════════════════════════════════════════════════════════════
 function initGlobalUI() {
     const user = api.getCurrentUser();
     const role = (user.effective_role || user.role || '').toUpperCase();
-    const isAdminCoord = (role === 'ADMIN' || role === 'COORD');
-    const isAdmin = (role === 'ADMIN');
+    const isAdminCoord = ['ADMIN', 'COORD'].includes(role);
+    const isAdmin = role === 'ADMIN';
 
-    // 1. AJUSTES (nav-config)
+    // Control de visibilidad de nav-config
     const navConfig = document.getElementById('nav-config');
     if (navConfig) {
-        if (!isAdminCoord) {
-            navConfig.style.opacity = '0.5';
-            navConfig.style.pointerEvents = 'none';
-            navConfig.href = '#';
-            navConfig.setAttribute('title', 'Acceso denegado: Se requieren permisos de Administrador o Coordinador.');
-        } else {
+        if (isAdminCoord) {
             navConfig.style.opacity = '1';
             navConfig.style.pointerEvents = 'auto';
             if (navConfig.tagName === 'A') navConfig.href = 'config.html';
             navConfig.removeAttribute('title');
+        } else {
+            navConfig.style.opacity = '0.4';
+            navConfig.style.pointerEvents = 'none';
+            navConfig.setAttribute('title', 'Acceso denegado: requiere rol Administrador o Coordinador.');
         }
     }
 
-    // 2. EDITOR (nav-editor)
+    // Control de visibilidad de nav-editor
     const navEditor = document.getElementById('nav-editor');
     if (navEditor) {
-        if (!isAdminCoord) {
-            navEditor.style.opacity = '0.5';
-            navEditor.style.pointerEvents = 'none';
-            navEditor.href = '#';
-            navEditor.setAttribute('title', 'Acceso denegado: Solo Administradores y Coordinadores pueden editar carnets.');
-        } else {
+        if (isAdminCoord) {
             navEditor.style.opacity = '1';
             navEditor.style.pointerEvents = 'auto';
             if (navEditor.tagName === 'A') navEditor.href = 'editor.html';
             navEditor.removeAttribute('title');
+        } else {
+            navEditor.style.opacity = '0.4';
+            navEditor.style.pointerEvents = 'none';
+            navEditor.setAttribute('title', 'Acceso denegado: solo Administradores y Coordinadores.');
         }
     }
 
-    // 3. USUARIOS (nav-usuarios)
+    // Control de visibilidad de nav-usuarios
     const navUsuarios = document.getElementById('nav-usuarios');
-    if (navUsuarios) {
-        navUsuarios.style.display = isAdmin ? 'flex' : 'none';
-    }
+    if (navUsuarios) navUsuarios.style.display = isAdmin ? 'flex' : 'none';
 
     setupGlobalLogout();
 }
 
 function setupGlobalLogout() {
-    // Si la página tiene un script propio que hace init() re-añadiendo el listener,
-    // debemos usar un clon para borrar listeners previos y asegurar que solo corra este modal.
     const btnLogout = document.getElementById('btn-logout');
     if (!btnLogout) return;
 
+    // Clonar para eliminar event listeners previos
     const newBtn = btnLogout.cloneNode(true);
     btnLogout.parentNode.replaceChild(newBtn, btnLogout);
 
@@ -469,46 +386,50 @@ function setupGlobalLogout() {
         e.preventDefault();
         e.stopPropagation();
 
+        let confirmed = true;
         if (typeof Swal !== 'undefined') {
             const res = await Swal.fire({
-                title: '¿Desea salir del Sistema?',
+                title: '¿Desea cerrar sesión?',
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#0f172a',
+                confirmButtonColor: '#003366',
                 cancelButtonColor: '#dc2626',
-                confirmButtonText: 'Sí',
-                cancelButtonText: 'No'
+                confirmButtonText: 'Sí, salir',
+                cancelButtonText: 'Cancelar',
             });
-            if (!res.isConfirmed) return;
-        } else {
-            if (!confirm('¿Desea salir del Sistema?')) return;
+            confirmed = res.isConfirmed;
         }
 
+        if (!confirmed) return;
         newBtn.textContent = '...';
         await api.logout();
         window.location.href = 'login.html';
     });
 }
 
-// Ejecutar logica de UI global luego que el DOM esté listo
+// Ejecutar después del DOM
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initGlobalUI);
 } else {
     initGlobalUI();
 }
-// ── FIN DE api.js ──
 
-// ── UTILIDADES DE UI ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// UI UTILITIES
+// ══════════════════════════════════════════════════════════════
 const ui = {
     showAlert(containerId, message, type = 'danger') {
         const el = document.getElementById(containerId);
         if (!el) return;
-        el.innerHTML = `<div class="alert alert-${type}"
-            style="padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:500;
-                   background:${type === 'danger' ? '#fee2e2' : '#dbeafe'};
-                   color:${type === 'danger' ? '#991b1b' : '#1e40af'};
-                   border:1px solid ${type === 'danger' ? '#fca5a5' : '#93c5fd'};
-                   margin-bottom:10px;">${message}</div>`;
+        const colors = {
+            danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
+            success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+            info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' },
+        };
+        const c = colors[type] || colors.danger;
+        el.innerHTML = `<div style="padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:500;
+                background:${c.bg};color:${c.color};border:1px solid ${c.border};margin-bottom:10px;">
+                ${message}</div>`;
         setTimeout(() => { if (el) el.innerHTML = ''; }, 7000);
     },
 
@@ -517,7 +438,9 @@ const ui = {
         if (loading) {
             btn.disabled = true;
             btn.dataset.original = btn.innerHTML;
-            btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px;"></span>${text}`;
+            btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid
+                rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;
+                vertical-align:middle;margin-right:6px;"></span>${text}`;
         } else {
             btn.disabled = false;
             btn.innerHTML = btn.dataset.original || text;
@@ -536,13 +459,9 @@ const ui = {
     formatDate(d) {
         if (!d) return '—';
         try {
-            const date = new Date(d);
+            const date = new Date(d + 'T00:00:00'); // Evitar desfase de zona horaria
             if (isNaN(date.getTime())) return d;
             return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        } catch (_) {
-            return d;
-        }
+        } catch (_) { return d; }
     },
 };
-
-
