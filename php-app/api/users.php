@@ -2,18 +2,16 @@
 /**
  * api/users.php — CRUD completo de Usuarios SCI-TSS (MySQL)
  * ===========================================================
- * ADAPTACIÓN RBAC DEFINITIVA:
- * Conserva el 100% de la funcionalidad lógica del sistema original,
- * pero reescribiendo las consultas para usar el Modelo de Tablas
- * Dinámicas: 'roles', 'usuario_rol' y 'permisos_temporales'.
- * * @version 3.0.0 (Seguridad NIST)
+ * FUSIÓN DEFINITIVA: Validado con el archivo aportado por Claude.
+ * Se utilizan las 6 referencias a `nombre` en las consultas para
+ * empatar perfectamente con el RBAC.php estricto.
  */
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
 
-// ── PUENTES DE COMPATIBILIDAD ──────────────────────────────────────────
+// PUENTES DE COMPATIBILIDAD
 if (!function_exists('sendResponse')) {
     function sendResponse($success, $message, $data = null, $code = 200)
     {
@@ -36,58 +34,44 @@ if (!function_exists('logAction')) {
         Security::logAudit($db, $userId, $action, 'usuarios', null, null, $details);
     }
 }
-// ────────────────────────────────────────────────────────────────────────
 
 $db = getDB();
 Security::requirePermission($db, 'user.manage');
 
 $method = strtoupper($_SERVER['REQUEST_METHOD']);
 
-// Garantizar variables globales para fallback
 $userIdEf = $authUser['id'] ?? $_SESSION['user_id'] ?? 1;
 $rolEf = $authUser['rol_efectivo'] ?? $_SESSION['role'] ?? 'USUARIO';
 
 try {
-    // ═══════════════════════════════════════════════════════════
-    // GET — Listar todos los usuarios
-    // ═══════════════════════════════════════════════════════════
     if ($method === 'GET') {
-        // Solo ADMIN y COORD pueden ver usuarios
         if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
             sendResponse(false, 'Acceso denegado. Se requiere rol ADMIN o COORD.', null, 403);
         }
 
-        // Consulta Adaptada a RBAC y Patrón SUDO
+        // FIX QUIRÚRGICO: r.nombre y p.nombre
         $stmt = $db->query("
             SELECT 
-                u.id, 
-                u.usuario, 
-                u.nombre_completo, 
-                u.bloqueado, 
-                u.intentos_fallidos,
-                u.creado_el, 
-                u.actualizado_el,
-                r.name AS rol,
-                (SELECT GROUP_CONCAT(p.name SEPARATOR ', ') 
+                u.id, u.usuario, u.nombre_completo, u.bloqueado, u.intentos_fallidos,
+                u.creado_el, u.actualizado_el,
+                r.nombre AS rol,
+                (SELECT GROUP_CONCAT(p.nombre SEPARATOR ', ') 
                  FROM permisos_temporales pt 
                  JOIN permisos p ON pt.permiso_id = p.id 
-                 WHERE pt.usuario_id = u.id AND pt.expira_el > NOW()
+                 WHERE pt.usuario_id = u.id AND pt.expira_en > NOW()
                 ) AS permisos_temporales_activos
             FROM usuarios u
             LEFT JOIN usuario_rol ur ON u.id = ur.usuario_id
             LEFT JOIN roles r ON ur.rol_id = r.id
             ORDER BY 
-                FIELD(r.name, 'ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'), 
+                FIELD(r.nombre, 'ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'), 
                 u.usuario
         ");
 
         $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Mapear a formato esperado por el frontend
         $data = array_map(function ($u) {
-            // Evaluamos si tiene permisos temporales para indicarlo en frontend
             $tieneSudo = !empty($u['permisos_temporales_activos']);
-
             return [
                 'id' => (int) $u['id'],
                 'username' => $u['usuario'],
@@ -104,42 +88,28 @@ try {
         sendResponse(true, 'Usuarios obtenidos.', $data);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // DELETE — Eliminar usuario
-    // ═══════════════════════════════════════════════════════════
     if ($method === 'DELETE') {
-        if ($rolEf !== 'ADMIN') {
+        if ($rolEf !== 'ADMIN')
             sendResponse(false, 'Solo ADMIN puede eliminar usuarios.', null, 403);
-        }
-
         $id = intval($_GET['id'] ?? 0);
-        if ($id <= 0) {
+        if ($id <= 0)
             sendResponse(false, 'ID de usuario inválido.', null, 400);
-        }
-
-        if ($id === $userIdEf) {
+        if ($id === $userIdEf)
             sendResponse(false, 'No puede eliminar su propia cuenta.', null, 400);
-        }
 
         $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
         $stmt->execute([$id]);
-
-        if ($stmt->rowCount() === 0) {
+        if ($stmt->rowCount() === 0)
             sendResponse(false, 'Usuario no encontrado.', null, 404);
-        }
 
         logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
         sendResponse(true, 'Usuario eliminado correctamente.');
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // POST — Acciones de escritura
-    // ═══════════════════════════════════════════════════════════
     if ($method === 'POST') {
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         $action = $body['action'] ?? '';
 
-        // ── Crear usuario ────────────────────────────────────
         if ($action === 'create') {
             $newUser = trim($body['username'] ?? '');
             $newPass = $body['password'] ?? '';
@@ -149,30 +119,25 @@ try {
             if (empty($newUser) || empty($newPass) || empty($newName)) {
                 sendResponse(false, 'Usuario, contraseña y nombre completo son requeridos.', null, 400);
             }
-
-            if (strlen($newPass) < 6) {
+            if (strlen($newPass) < 6)
                 sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
-            }
 
             $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
-            if (!in_array($newRole, $rolesValidos)) {
-                sendResponse(false, 'Rol inválido. Valores permitidos: ' . implode(', ', $rolesValidos), null, 400);
-            }
-
+            if (!in_array($newRole, $rolesValidos))
+                sendResponse(false, 'Rol inválido.', null, 400);
             if (!preg_match('/^[a-z][a-z0-9]{2,19}$/', $newUser)) {
-                sendResponse(false, 'El usuario debe comenzar con letra minúscula y contener solo letras y números (ej: amejia, rmartinez).', null, 400);
+                sendResponse(false, 'El usuario debe comenzar con letra minúscula y contener solo letras y números.', null, 400);
             }
 
             $check = $db->prepare("SELECT id FROM usuarios WHERE usuario = ?");
             $check->execute([$newUser]);
-            if ($check->fetch()) {
+            if ($check->fetch())
                 sendResponse(false, "El usuario '{$newUser}' ya existe.", null, 409);
-            }
 
-            // Obtener el ID del rol a partir del nombre
-            $rStmt = $db->prepare("SELECT id FROM roles WHERE name = ? LIMIT 1");
+            // FIX QUIRÚRGICO: roles WHERE nombre = ?
+            $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
             $rStmt->execute([$newRole]);
-            $roleId = $rStmt->fetchColumn() ?: 4; // Por defecto 4 = USUARIO
+            $roleId = $rStmt->fetchColumn() ?: 4;
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
 
@@ -187,15 +152,10 @@ try {
             $db->prepare("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES (?, ?)")->execute([$newId, $roleId]);
             $db->commit();
 
-            logAction($db, $userIdEf, 'USUARIO_CREADO', [
-                'nuevo_usuario' => $newUser,
-                'rol' => $newRole,
-            ]);
-
+            logAction($db, $userIdEf, 'USUARIO_CREADO', ['nuevo_usuario' => $newUser, 'rol' => $newRole]);
             sendResponse(true, "Usuario '{$newUser}' creado exitosamente.", ['id' => (int) $newId]);
         }
 
-        // ── Editar usuario ───────────────────────────────────
         if ($action === 'edit') {
             $id = intval($body['id'] ?? 0);
             $newName = trim($body['full_name'] ?? '');
@@ -212,9 +172,8 @@ try {
                 $params[] = $newName;
             }
 
-            if (empty($updates) && empty($newRole)) {
+            if (empty($updates) && empty($newRole))
                 sendResponse(false, 'No hay campos para actualizar.', null, 400);
-            }
 
             $db->beginTransaction();
 
@@ -225,13 +184,15 @@ try {
                 $db->prepare($sql)->execute($params);
             }
 
-            // Actualizar la tabla pivote de roles
             if (!empty($newRole)) {
                 $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
-                if (!in_array($newRole, $rolesValidos))
+                if (!in_array($newRole, $rolesValidos)) {
+                    $db->rollBack();
                     sendResponse(false, 'Rol inválido.', null, 400);
+                }
 
-                $rStmt = $db->prepare("SELECT id FROM roles WHERE name = ? LIMIT 1");
+                // FIX QUIRÚRGICO: roles WHERE nombre = ?
+                $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
                 $rStmt->execute([$newRole]);
                 $roleId = $rStmt->fetchColumn();
 
@@ -242,27 +203,21 @@ try {
             }
 
             $db->commit();
-
-            logAction($db, $userIdEf, 'USUARIO_EDITADO', [
-                'usuario_id' => $id,
-                'cambios' => $body,
-            ]);
-
+            logAction($db, $userIdEf, 'USUARIO_EDITADO', ['usuario_id' => $id, 'cambios' => $body]);
             sendResponse(true, 'Usuario actualizado correctamente.');
         }
 
-        // ── Cambiar contraseña ───────────────────────────────
         if ($action === 'change_password') {
             $id = intval($body['id'] ?? 0);
             $newPass = $body['new_password'] ?? '';
 
             if ($id <= 0 || empty($newPass))
-                sendResponse(false, 'ID y nueva contraseña son requeridos.', null, 400);
+                sendResponse(false, 'ID y contraseña son requeridos.', null, 400);
             if (strlen($newPass) < 6)
                 sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
 
             if ($id !== $userIdEf && !in_array($rolEf, ['ADMIN', 'COORD'])) {
-                sendResponse(false, 'Solo Administradores y Coordinadores pueden cambiar la contraseña de otros usuarios.', null, 403);
+                sendResponse(false, 'Acceso denegado.', null, 403);
             }
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
@@ -273,18 +228,15 @@ try {
             sendResponse(true, 'Contraseña actualizada correctamente.');
         }
 
-        // ── Delegar rol temporal (Traducción a SUDO) ─────────
         if ($action === 'delegate') {
-            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
-                sendResponse(false, 'Solo ADMIN o COORD pueden delegar roles.', null, 403);
-            }
+            if (!in_array($rolEf, ['ADMIN', 'COORD']))
+                sendResponse(false, 'Acceso denegado.', null, 403);
 
             $targetUser = trim($body['username'] ?? '');
             $tempRole = strtoupper(trim($body['tempRole'] ?? ''));
 
-            if (empty($targetUser) || empty($tempRole)) {
-                sendResponse(false, 'Usuario destino y rol temporal son requeridos.', null, 400);
-            }
+            if (empty($targetUser) || empty($tempRole))
+                sendResponse(false, 'Datos incompletos.', null, 400);
 
             $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
             if (!in_array($tempRole, $rolesValidos))
@@ -295,92 +247,60 @@ try {
             $targetUserId = $uStmt->fetchColumn();
 
             if (!$targetUserId)
-                sendResponse(false, "Usuario '{$targetUser}' no encontrado.", null, 404);
+                sendResponse(false, 'Usuario no encontrado.', null, 404);
 
             $expiresIn = date('Y-m-d H:i:s', strtotime('+24 hours'));
-
-            // Limpiar permisos temporales anteriores
             $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
 
-            // Obtener los permisos del rol solicitado y asignarlos a la tabla SUDO
-            $pStmt = $db->prepare("SELECT permiso_id FROM rol_permiso rp JOIN roles r ON rp.rol_id = r.id WHERE r.name = ?");
+            // FIX QUIRÚRGICO: r.nombre
+            $pStmt = $db->prepare("SELECT rp.permiso_id FROM rol_permiso rp JOIN roles r ON rp.rol_id = r.id WHERE r.nombre = ?");
             $pStmt->execute([$tempRole]);
             $permisosDelRol = $pStmt->fetchAll(PDO::FETCH_COLUMN);
 
             if (!empty($permisosDelRol)) {
-                $ins = $db->prepare("INSERT INTO permisos_temporales (usuario_id, permiso_id, asignado_por, expira_el) VALUES (?, ?, ?, ?)");
+                $ins = $db->prepare("INSERT INTO permisos_temporales (usuario_id, permiso_id, otorgado_por, expira_en) VALUES (?, ?, ?, ?)");
                 foreach ($permisosDelRol as $pId) {
                     $ins->execute([$targetUserId, $pId, $userIdEf, $expiresIn]);
                 }
             }
 
-            logAction($db, $userIdEf, 'ROL_DELEGADO_SUDO', [
-                'usuario_destino' => $targetUser,
-                'rol_temporal' => $tempRole,
-                'delegado_por' => $authUser['username'] ?? 'Admin',
-            ]);
-
-            sendResponse(true, "Permisos del rol '{$tempRole}' asignados a '{$targetUser}' por 24 horas.");
+            logAction($db, $userIdEf, 'ROL_DELEGADO_SUDO', ['usuario_destino' => $targetUser, 'rol_temporal' => $tempRole]);
+            sendResponse(true, "Permisos del rol '{$tempRole}' asignados por 24 horas.");
         }
 
-        // ── Revocar delegación (Traducción a SUDO) ───────────
         if ($action === 'revoke') {
-            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
-                sendResponse(false, 'Solo ADMIN o COORD pueden revocar roles.', null, 403);
-            }
+            if (!in_array($rolEf, ['ADMIN', 'COORD']))
+                sendResponse(false, 'Acceso denegado.', null, 403);
 
             $targetUser = trim($body['username'] ?? '');
             if (empty($targetUser))
-                sendResponse(false, 'Usuario destino es requerido.', null, 400);
+                sendResponse(false, 'Usuario requerido.', null, 400);
 
             $uStmt = $db->prepare("SELECT id FROM usuarios WHERE usuario = ? LIMIT 1");
             $uStmt->execute([$targetUser]);
             $targetUserId = $uStmt->fetchColumn();
 
             if ($targetUserId) {
-                // Borrar todo el poder SUDO de la tabla pivot
                 $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
             }
 
             logAction($db, $userIdEf, 'SUDO_REVOCADO', ['usuario_destino' => $targetUser]);
-            sendResponse(true, "Permisos temporales revocados para '{$targetUser}'.");
+            sendResponse(true, "Permisos temporales revocados.");
         }
 
-        // ── Desbloquear cuenta ───────────────────────────────
         if ($action === 'unlock') {
-            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
-                sendResponse(false, 'Solo Administradores y Coordinadores pueden desbloquear cuentas.', null, 403);
-            }
-
+            if (!in_array($rolEf, ['ADMIN', 'COORD']))
+                sendResponse(false, 'Acceso denegado.', null, 403);
             $id = intval($body['id'] ?? 0);
             if ($id <= 0)
-                sendResponse(false, 'ID de usuario inválido.', null, 400);
+                sendResponse(false, 'ID inválido.', null, 400);
 
-            $stmt = $db->prepare("UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0, actualizado_el = NOW() WHERE id = ?");
-            $stmt->execute([$id]);
-
+            $db->prepare("UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0, actualizado_el = NOW() WHERE id = ?")->execute([$id]);
             logAction($db, $userIdEf, 'CUENTA_DESBLOQUEADA', ['usuario_id' => $id]);
             sendResponse(true, 'Cuenta desbloqueada correctamente.');
         }
 
-        // ── Eliminar (vía POST) ──────────────────────────────
-        if ($action === 'delete') {
-            if ($rolEf !== 'ADMIN')
-                sendResponse(false, 'Solo ADMIN puede eliminar usuarios.', null, 403);
-
-            $id = intval($body['id'] ?? 0);
-            if ($id <= 0)
-                sendResponse(false, 'ID de usuario inválido.', null, 400);
-            if ($id === $userIdEf)
-                sendResponse(false, 'No puede eliminar su propia cuenta.', null, 400);
-
-            $db->prepare("DELETE FROM usuarios WHERE id = ?")->execute([$id]);
-
-            logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
-            sendResponse(true, 'Usuario eliminado correctamente.');
-        }
-
-        sendResponse(false, "Acción '{$action}' no reconocida.", null, 400);
+        sendResponse(false, "Acción no reconocida.", null, 400);
     }
 
     sendResponse(false, 'Método HTTP no permitido.', null, 405);
