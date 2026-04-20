@@ -5,32 +5,40 @@
  * Sistema de Carnetización Inteligente (SCI-TSS)
  * Esquema: carnetizacion_tss
  *
- * REFACTORIZACIÓN v2.0:
- *  - Migrado de PostgreSQL a MySQL (InnoDB).
- *  - Campos ajustados al nuevo esquema:
- *      cedula (solo numérico), primer_nombre, segundo_nombre,
- *      primer_apellido, segundo_apellido, estado_carnet, foto_url, foto_ruta.
- *  - Búsqueda en campos disgregados (primer_nombre, primer_apellido, cedula).
- *  - Validación de cédula: solo dígitos, regex '^[0-9]+$'.
- *  - Registro en auditoria_logs para operaciones CRUD sensibles.
- *  - Respuestas JSON uniformes vía sendResponse().
- *
- * SEGURIDAD:
- *  - Prepared statements PDO nativos (sin emulación) → previene SQL Injection.
- *  - Validación de tipos y longitudes antes de INSERT/UPDATE.
- *  - Whitelist de estados para filtros → previene filtros maliciosos.
- *  - ON DELETE SET NULL en gerencia_id → integridad referencial preservada.
- *
- * ENDPOINTS:
- *  GET  api/employees.php                  → Lista paginada con filtros
- *  GET  api/employees.php?id={n}           → Empleado individual
- *  POST api/employees.php                  → Crear / Actualizar empleado
- *  DELETE api/employees.php?id={n}         → Eliminar empleado
+ * REFACTORIZACIÓN v2.1 (ADAPTADA AL SCHEMA MAESTRO DEFINITIVO):
+ * - Mantiene TODA la lógica original (upload_payroll, auto_match, patch).
+ * - Se eliminó la dependencia de 'nivel_permiso' (Deprecado en el nuevo DB Schema).
+ * - Alias de columnas (nombres, apellidos) añadidos para compatibilidad con JS antiguo.
  */
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
+
+// ── PUENTES DE COMPATIBILIDAD (Evitan Errores 500 por funciones legacy) ──
+if (!function_exists('sendResponse')) {
+    function sendResponse($success, $message, $data = null, $code = 200)
+    {
+        http_response_code($code);
+        $res = ['success' => $success, 'message' => $message];
+        if ($data !== null) {
+            if (is_array($data) && isset($data['data'])) {
+                $res = array_merge($res, $data);
+            } else {
+                $res['data'] = $data;
+            }
+        }
+        echo json_encode($res);
+        exit;
+    }
+}
+if (!function_exists('logAction')) {
+    function logAction($db, $userId, $action, $details = [])
+    {
+        Security::logAudit($db, $userId, $action, 'empleados', null, null, $details);
+    }
+}
+// ────────────────────────────────────────────────────────────────────────
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -47,6 +55,8 @@ if ($method === 'DELETE')
 // ── Whitelist de estados válidos ──────────────────────────────
 const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
 const FORMAS_ENTREGA = ['', 'Manual', 'Digital'];
+
+// FIX: 'nivel_permiso' retirado porque ya no existe en la BD unificada
 const CAMPOS_EDITABLES = [
     'primer_nombre',
     'segundo_nombre',
@@ -54,8 +64,7 @@ const CAMPOS_EDITABLES = [
     'segundo_apellido',
     'cargo',
     'estado_laboral',
-    'forma_entrega',
-    'nivel_permiso',
+    'forma_entrega'
 ];
 
 try {
@@ -66,12 +75,14 @@ try {
         // GET — Lista paginada o empleado individual
         // ════════════════════════════════════════════════════════
         case 'GET':
-            $id = isset($_GET['id']) ? intval($_GET['id']) : null;
+            $id = isset($_GET['id']) && is_numeric($_GET['id']) ? intval($_GET['id']) : null;
 
             if ($id) {
                 // ── Empleado individual (Para el Editor) ──────────────
                 $sql = "SELECT
                             e.*,
+                            e.primer_nombre AS nombres,
+                            e.primer_apellido AS apellidos,
                             g.nombre AS gerencia,
                             e.foto_url AS photo_url
                         FROM empleados e
@@ -114,8 +125,6 @@ try {
             }
 
             if ($search !== '') {
-                // Búsqueda en campos disgregados (primer_nombre, primer_apellido, cedula)
-                // MySQL usa LIKE en lugar de ILIKE (PostgreSQL)
                 $like = '%' . addcslashes($search, '%_\\') . '%';
                 $conditions[] = "(e.primer_nombre LIKE ? OR e.primer_apellido LIKE ? OR e.cedula LIKE ? OR e.segundo_nombre LIKE ? OR e.segundo_apellido LIKE ?)";
                 $params[] = $like;
@@ -142,6 +151,8 @@ try {
             $dStmt = $db->prepare("
                 SELECT
                     e.*,
+                    e.primer_nombre AS nombres,
+                    e.primer_apellido AS apellidos,
                     g.nombre  AS gerencia,
                     e.foto_url AS photo_url
                 FROM empleados e
@@ -236,7 +247,6 @@ try {
             }
 
             if ($action === 'auto_match') {
-                // Placeholder: lógica de Auto-Match (a implementar en fase siguiente)
                 logAction($db, $userId, 'AUTO_MATCH_EJECUTADO', ['modo' => 'placeholder']);
                 sendResponse(true, 'Auto-Match ejecutado. Sin cambios aplicados en esta versión.');
                 break;
@@ -255,14 +265,12 @@ try {
                     }
                 }
 
-                // estado_carnet (acepta tanto 'estado_carnet' como 'status' para compatibilidad)
                 $nuevoEstado = $input['estado_carnet'] ?? $input['status'] ?? null;
                 if ($nuevoEstado !== null && in_array($nuevoEstado, ESTADOS_VALIDOS, true)) {
                     $setClauses[] = "estado_carnet = ?";
                     $values[] = $nuevoEstado;
                 }
 
-                // forma_entrega
                 if (array_key_exists('forma_entrega', $input)) {
                     $forma = $input['forma_entrega'];
                     if ($forma === '' || in_array($forma, FORMAS_ENTREGA, true)) {
@@ -282,7 +290,7 @@ try {
                     }
                 }
 
-                // Foto (base64 data URL o URL HTTP)
+                // Foto 
                 if (array_key_exists('photo_url', $input) || array_key_exists('foto_url', $input)) {
                     $foto = $input['foto_url'] ?? $input['photo_url'] ?? '';
                     $setClauses[] = "foto_url = ?";
@@ -306,7 +314,6 @@ try {
             }
 
             // ── Creación de nuevo empleado ───────────────────────────
-            // Extraer y validar campos obligatorios
             $cedula = preg_replace('/[^0-9]/', '', trim($input['cedula'] ?? ''));
             $primerNombre = trim($input['primer_nombre'] ?? $input['nombres'] ?? '');
             $primerApellido = trim($input['primer_apellido'] ?? $input['apellidos'] ?? '');
@@ -315,13 +322,11 @@ try {
             $nac = strtoupper(trim($input['nacionalidad'] ?? 'V'));
             $nac = in_array($nac, ['V', 'E'], true) ? $nac : 'V';
 
-            // Campos opcionales
             $segundoNombre = trim($input['segundo_nombre'] ?? '') ?: null;
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
             $fechaIngreso = trim($input['fecha_ingreso'] ?? '');
-            $nivelPermiso = trim($input['nivel_permiso'] ?? 'Nivel 1');
 
-            // ── Validaciones ─────────────────────────────────────────
+            // Validaciones
             if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10) {
                 sendResponse(false, 'La cédula debe contener entre 5 y 10 dígitos numéricos.', null, 400);
                 break;
@@ -343,7 +348,7 @@ try {
                 break;
             }
 
-            // Resolver gerencia por nombre (auto-crear si no existe)
+            // Resolver gerencia por nombre
             $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
             $gStmt->execute([$gerenciaNom]);
             $gerenciaId = $gStmt->fetchColumn();
@@ -353,19 +358,19 @@ try {
                 $gerenciaId = $db->lastInsertId();
             }
 
-            // Fecha de ingreso
             $fechaFinal = $fechaIngreso && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaIngreso)
                 ? $fechaIngreso
                 : date('Y-m-d');
 
-            // INSERT
+            // INSERT FIX: Removido nivel_permiso
             $stmt = $db->prepare("
                 INSERT INTO empleados
                     (nacionalidad, cedula, primer_nombre, segundo_nombre,
                      primer_apellido, segundo_apellido, cargo, gerencia_id,
-                     fecha_ingreso, estado_laboral, estado_carnet, nivel_permiso)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir', ?)
+                     fecha_ingreso, estado_laboral, estado_carnet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')
             ");
+
             $stmt->execute([
                 $nac,
                 $cedula,
@@ -375,8 +380,7 @@ try {
                 $segundoApellido,
                 $cargo,
                 $gerenciaId,
-                $fechaFinal,
-                $nivelPermiso,
+                $fechaFinal
             ]);
             $newId = $db->lastInsertId();
 
@@ -402,7 +406,6 @@ try {
                 break;
             }
 
-            // Obtener datos del empleado antes de eliminar (para log)
             $empStmt = $db->prepare("SELECT cedula, primer_nombre, primer_apellido FROM empleados WHERE id = ? LIMIT 1");
             $empStmt->execute([$id]);
             $empData = $empStmt->fetch();
