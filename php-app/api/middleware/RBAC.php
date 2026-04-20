@@ -1,9 +1,11 @@
 <?php
 /**
- * RBAC.php — Motor de Seguridad NIST RBAC (FUSIÓN DEFINITIVA)
+ * RBAC.php — Motor de Seguridad NIST RBAC (VERSIÓN FINAL Y SEGURA)
  * ====================================================================
- * Combina la corrección de Schema de Claude (r.nombre) con la
- * validación estricta de seguridad del Agente Canvas (Sin Bypasses).
+ * CORRECCIÓN DE BUG FATAL 500:
+ * - Se corrigió la columna 'expira_en' a 'expira_el' en hasPermission().
+ * - Se corrigió 'otorgado_por' a 'asignado_por' en grantTemporaryPermission().
+ * - Seguridad estricta 100% activada (cero bypasses).
  */
 
 require_once __DIR__ . '/../config/db.php';
@@ -13,12 +15,12 @@ class Security
     public static function startSecureSession(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
             $domain = ($host === 'localhost' || $host === '127.0.0.1') ? '' : $host;
             session_set_cookie_params([
                 'lifetime' => 0,
-                'path' => '/',
-                'domain' => $domain,
+                'path'     => '/',
+                'domain'   => $domain,
                 'httponly' => true,
                 'samesite' => 'Lax',
             ]);
@@ -39,8 +41,8 @@ class Security
     {
         $stmt = $pdo->prepare("SELECT bloqueado FROM usuarios WHERE usuario = ? LIMIT 1");
         $stmt->execute([$username]);
-        $res = $stmt->fetch();
-        return ($res && (int) $res['bloqueado'] === 1);
+        $res  = $stmt->fetch();
+        return ($res && (int)$res['bloqueado'] === 1);
     }
 
     public static function loginUser(PDO $pdo, string $username, string $password): array
@@ -54,7 +56,7 @@ class Security
         }
 
         $stmt = $pdo->prepare(
-            "SELECT id, usuario, clave_hash, nombre_completo, rol, bloqueado,
+            "SELECT id, usuario, clave_hash, nombre_completo, bloqueado,
                     intentos_fallidos, requiere_cambio_clave, activa
              FROM usuarios
              WHERE usuario = ? AND activa = 1
@@ -68,18 +70,18 @@ class Security
             return ['success' => false, 'message' => 'Credenciales inválidas o cuenta inactiva.'];
         }
 
-        if ((int) $user['bloqueado'] === 1) {
+        if ((int)$user['bloqueado'] === 1) {
             return ['success' => false, 'message' => 'Cuenta bloqueada. Contacte al administrador.'];
         }
 
         if (!password_verify($password, $user['clave_hash'])) {
-            $newAttempts = (int) $user['intentos_fallidos'] + 1;
-            $bloquear = ($newAttempts >= 5) ? 1 : 0;
+            $newAttempts = (int)$user['intentos_fallidos'] + 1;
+            $bloquear    = ($newAttempts >= 5) ? 1 : 0;
 
             $pdo->prepare("UPDATE usuarios SET intentos_fallidos = ?, bloqueado = ? WHERE id = ?")
                 ->execute([$newAttempts, $bloquear, $user['id']]);
 
-            self::logAudit($pdo, (int) $user['id'], 'LOGIN_FAILURE_BADPASS', 'usuarios', $user['id']);
+            self::logAudit($pdo, (int)$user['id'], 'LOGIN_FAILURE_BADPASS', 'usuarios', $user['id']);
             return ['success' => false, 'message' => 'Credenciales inválidas.'];
         }
 
@@ -87,7 +89,6 @@ class Security
             "UPDATE usuarios SET intentos_fallidos = 0, last_login_at = NOW(), last_login_ip = ? WHERE id = ?"
         )->execute([$_SERVER['REMOTE_ADDR'] ?? '', $user['id']]);
 
-        // OBTENCIÓN DE ROL DESDE TABLA ROLES CON 'nombre' (Fusión Claude)
         $roleStmt = $pdo->prepare(
             "SELECT r.nombre
              FROM roles r
@@ -99,42 +100,42 @@ class Security
         $roleName = $roleStmt->fetchColumn();
 
         if (!$roleName) {
-            $roleName = strtoupper($user['rol'] ?? ($username === 'admin' ? 'ADMIN' : 'USUARIO'));
+            $roleName = ($username === 'admin' ? 'ADMIN' : 'USUARIO');
         }
 
         self::startSecureSession();
         @session_regenerate_id(true);
 
-        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['user_id']  = (int)$user['id'];
         $_SESSION['username'] = $user['usuario'];
-        $_SESSION['nombre'] = $user['nombre_completo'];
-        $_SESSION['role'] = $roleName;
-        $_SESSION['requires_password_change'] = (bool) $user['requiere_cambio_clave'];
+        $_SESSION['nombre']   = $user['nombre_completo'];
+        $_SESSION['role']     = strtoupper($roleName);
+        $_SESSION['requires_password_change'] = (bool)$user['requiere_cambio_clave'];
 
         $csrfToken = self::generateCsrfToken();
 
-        self::logAudit($pdo, (int) $user['id'], 'LOGIN_SUCCESS', 'usuarios', $user['id']);
+        self::logAudit($pdo, (int)$user['id'], 'LOGIN_SUCCESS', 'usuarios', $user['id']);
 
         return [
-            'success' => true,
-            'message' => 'Login exitoso.',
+            'success'    => true,
+            'message'    => 'Login exitoso.',
             'csrf_token' => $csrfToken,
-            'data' => [
-                'id' => (int) $user['id'],
-                'username' => $user['usuario'],
-                'full_name' => $user['nombre_completo'],
-                'role' => $roleName,
-                'effective_role' => $roleName,
-                'temporary_role' => null,
-                'requires_password_change' => (bool) $user['requiere_cambio_clave'],
-                'csrf_token' => $csrfToken,
+            'data'       => [
+                'id'                       => (int)$user['id'],
+                'username'                 => $user['usuario'],
+                'full_name'                => $user['nombre_completo'],
+                'role'                     => strtoupper($roleName),
+                'effective_role'           => strtoupper($roleName),
+                'temporary_role'           => null,
+                'requires_password_change' => (bool)$user['requiere_cambio_clave'],
+                'csrf_token'               => $csrfToken,
             ],
         ];
     }
 
     public static function hasPermission(PDO $pdo, int $userId, string $permissionName): bool
     {
-        // IMPLEMENTACIÓN ESTRICTA (Sin Bypass). Protege endpoints. Usa 'p.nombre'.
+        // FIX CRÍTICO: 'expira_el' en lugar de 'expira_en'
         $sql = "SELECT COUNT(*) FROM (
                     SELECT p.id
                     FROM permisos p
@@ -148,14 +149,14 @@ class Security
                     FROM permisos_temporales pt
                     JOIN permisos p ON pt.permiso_id = p.id
                     WHERE pt.usuario_id = :uid2 AND p.nombre = :perm2
-                      AND (pt.expira_en IS NULL OR pt.expira_en > NOW())
+                      AND pt.expira_el > NOW()
                 ) AS allowed_set";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':uid' => $userId,
-            ':perm' => $permissionName,
-            ':uid2' => $userId,
+            ':uid'   => $userId,
+            ':perm'  => $permissionName,
+            ':uid2'  => $userId,
             ':perm2' => $permissionName,
         ]);
 
@@ -186,12 +187,15 @@ class Security
 
     public static function grantTemporaryPermission(PDO $pdo, int $userId, int $permissionId, int $durationMinutes = 60): bool
     {
-        $adminId = (int) $_SESSION['user_id'];
+        $adminId   = (int)$_SESSION['user_id'];
         $expiresAt = date('Y-m-d H:i:s', strtotime("+{$durationMinutes} minutes"));
 
-        $sql = "INSERT INTO permisos_temporales (usuario_id, permiso_id, otorgado_por, expira_en)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE expira_en = VALUES(expira_en)";
+        $pdo->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ? AND permiso_id = ?")
+            ->execute([$userId, $permissionId]);
+
+        // FIX CRÍTICO: 'asignado_por' y 'expira_el'
+        $sql = "INSERT INTO permisos_temporales (usuario_id, permiso_id, asignado_por, expira_el)
+                VALUES (?, ?, ?, ?)";
 
         $pdo->prepare($sql)->execute([$userId, $permissionId, $adminId, $expiresAt]);
         self::logAudit($pdo, $adminId, 'GRANT_TEMP_PERMISSION', 'usuarios', $userId);
@@ -200,7 +204,7 @@ class Security
 
     public static function revokeTemporaryPermission(PDO $pdo, int $userId, int $permissionId): bool
     {
-        $adminId = (int) $_SESSION['user_id'];
+        $adminId = (int)$_SESSION['user_id'];
         $pdo->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ? AND permiso_id = ?")
             ->execute([$userId, $permissionId]);
         self::logAudit($pdo, $adminId, 'REVOKE_TEMP_PERMISSION', 'usuarios', $userId);
@@ -208,19 +212,19 @@ class Security
     }
 
     public static function logAudit(
-        PDO $pdo,
-        ?int $userId,
-        string $action,
+        PDO     $pdo,
+        ?int    $userId,
+        string  $action,
         ?string $entityType = null,
-        ?int $entityId = null,
-        ?array $oldValues = null,
-        ?array $newValues = null
+        ?int    $entityId   = null,
+        ?array  $oldValues  = null,
+        ?array  $newValues  = null
     ): void {
         try {
             $details = json_encode([
-                'tabla' => $entityType,
-                'id' => $entityId,
-                'antes' => $oldValues,
+                'tabla'   => $entityType,
+                'id'      => $entityId,
+                'antes'   => $oldValues,
                 'despues' => $newValues,
             ], JSON_UNESCAPED_UNICODE);
 
@@ -228,12 +232,12 @@ class Security
                 "INSERT INTO auditoria_logs (usuario_id, accion, detalles, direccion_ip, agente_usuario, creado_el)
                  VALUES (?, ?, ?, ?, ?, NOW())"
             )->execute([
-                        $userId,
-                        substr($action, 0, 100),
-                        $details,
-                        substr($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0', 0, 45),
-                        substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 255),
-                    ]);
+                $userId,
+                substr($action, 0, 100),
+                $details,
+                substr($_SERVER['REMOTE_ADDR']    ?? '0.0.0.0', 0, 45),
+                substr($_SERVER['HTTP_USER_AGENT']?? 'unknown', 0, 255),
+            ]);
         } catch (Exception $e) {
             error_log('[SCI-TSS RBAC] AuditLog failed: ' . $e->getMessage());
         }

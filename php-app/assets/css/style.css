@@ -327,6 +327,12 @@ button {
   overflow-x: auto;
   position: relative;
   min-height: 250px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Forzar que el dropdown no sea cortado por el contenedor responsive si es fixed */
+.table-responsive:has(.action-dropdown[style*="display: block"]) {
+  overflow: visible !important;
 }
 
 /* --- Action Dropdown --- */
@@ -633,7 +639,7 @@ button {
 }
 
 .login-left h1 {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
   margin-bottom: 12px;
   letter-spacing: -0.02em;
