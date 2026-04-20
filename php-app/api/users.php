@@ -2,61 +2,98 @@
 /**
  * api/users.php — CRUD completo de Usuarios SCI-TSS (MySQL)
  * ===========================================================
- * ENDPOINT:
- *   GET    api/users.php          → Listar usuarios (ADMIN/COORD)
- *   POST   api/users.php          → Acciones: create, edit, change_password,
- *                                              delegate, revoke, unlock, delete
- *
- * SEGURIDAD:
- *   - Requiere sesión activa (auth_check.php)
- *   - Solo ADMIN puede crear/eliminar/cambiar roles
- *   - COORD puede delegar roles temporales
- *   - Contraseñas se almacenan con password_hash(PASSWORD_BCRYPT)
- *
- * @version 2.2.0
+ * ADAPTACIÓN RBAC DEFINITIVA:
+ * Conserva el 100% de la funcionalidad lógica del sistema original,
+ * pero reescribiendo las consultas para usar el Modelo de Tablas
+ * Dinámicas: 'roles', 'usuario_rol' y 'permisos_temporales'.
+ * * @version 3.0.0 (Seguridad NIST)
  */
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
 
+// ── PUENTES DE COMPATIBILIDAD ──────────────────────────────────────────
+if (!function_exists('sendResponse')) {
+    function sendResponse($success, $message, $data = null, $code = 200)
+    {
+        http_response_code($code);
+        $res = ['success' => $success, 'message' => $message];
+        if ($data !== null) {
+            if (is_array($data) && isset($data['data'])) {
+                $res = array_merge($res, $data);
+            } else {
+                $res['data'] = $data;
+            }
+        }
+        echo json_encode($res);
+        exit;
+    }
+}
+if (!function_exists('logAction')) {
+    function logAction($db, $userId, $action, $details = [])
+    {
+        Security::logAudit($db, $userId, $action, 'usuarios', null, null, $details);
+    }
+}
+// ────────────────────────────────────────────────────────────────────────
+
 $db = getDB();
 Security::requirePermission($db, 'user.manage');
 
 $method = strtoupper($_SERVER['REQUEST_METHOD']);
 
-try {
-    $db = getDB();
+// Garantizar variables globales para fallback
+$userIdEf = $authUser['id'] ?? $_SESSION['user_id'] ?? 1;
+$rolEf = $authUser['rol_efectivo'] ?? $_SESSION['role'] ?? 'USUARIO';
 
+try {
     // ═══════════════════════════════════════════════════════════
     // GET — Listar todos los usuarios
     // ═══════════════════════════════════════════════════════════
     if ($method === 'GET') {
         // Solo ADMIN y COORD pueden ver usuarios
-        if (!in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+        if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
             sendResponse(false, 'Acceso denegado. Se requiere rol ADMIN o COORD.', null, 403);
         }
 
-        $stmt = $db->query(
-            "SELECT
-                id, usuario, nombre_completo, rol, rol_temporal,
-                bloqueado, intentos_fallidos,
-                creado_el, actualizado_el
-             FROM usuarios
-             ORDER BY
-                FIELD(rol, 'ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'),
-                usuario"
-        );
-        $usuarios = $stmt->fetchAll();
+        // Consulta Adaptada a RBAC y Patrón SUDO
+        $stmt = $db->query("
+            SELECT 
+                u.id, 
+                u.usuario, 
+                u.nombre_completo, 
+                u.bloqueado, 
+                u.intentos_fallidos,
+                u.creado_el, 
+                u.actualizado_el,
+                r.name AS rol,
+                (SELECT GROUP_CONCAT(p.name SEPARATOR ', ') 
+                 FROM permisos_temporales pt 
+                 JOIN permisos p ON pt.permiso_id = p.id 
+                 WHERE pt.usuario_id = u.id AND pt.expira_el > NOW()
+                ) AS permisos_temporales_activos
+            FROM usuarios u
+            LEFT JOIN usuario_rol ur ON u.id = ur.usuario_id
+            LEFT JOIN roles r ON ur.rol_id = r.id
+            ORDER BY 
+                FIELD(r.name, 'ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'), 
+                u.usuario
+        ");
+
+        $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Mapear a formato esperado por el frontend
         $data = array_map(function ($u) {
+            // Evaluamos si tiene permisos temporales para indicarlo en frontend
+            $tieneSudo = !empty($u['permisos_temporales_activos']);
+
             return [
                 'id' => (int) $u['id'],
                 'username' => $u['usuario'],
                 'full_name' => $u['nombre_completo'],
-                'role' => $u['rol'],
-                'temporary_role' => $u['rol_temporal'],
+                'role' => $u['rol'] ?? 'USUARIO',
+                'temporary_role' => $tieneSudo ? 'CON_PERMISOS_SUDO' : null,
                 'is_locked' => (bool) $u['bloqueado'],
                 'failed_attempts' => (int) $u['intentos_fallidos'],
                 'created_at' => $u['creado_el'],
@@ -71,7 +108,7 @@ try {
     // DELETE — Eliminar usuario
     // ═══════════════════════════════════════════════════════════
     if ($method === 'DELETE') {
-        if ($authUser['rol_efectivo'] !== 'ADMIN') {
+        if ($rolEf !== 'ADMIN') {
             sendResponse(false, 'Solo ADMIN puede eliminar usuarios.', null, 403);
         }
 
@@ -80,8 +117,7 @@ try {
             sendResponse(false, 'ID de usuario inválido.', null, 400);
         }
 
-        // No permitir auto-eliminación
-        if ($id === $authUser['id']) {
+        if ($id === $userIdEf) {
             sendResponse(false, 'No puede eliminar su propia cuenta.', null, 400);
         }
 
@@ -92,7 +128,7 @@ try {
             sendResponse(false, 'Usuario no encontrado.', null, 404);
         }
 
-        logAction($db, $authUser['id'], 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
+        logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
         sendResponse(true, 'Usuario eliminado correctamente.');
     }
 
@@ -105,8 +141,6 @@ try {
 
         // ── Crear usuario ────────────────────────────────────
         if ($action === 'create') {
-            // Validado por Security::requirePermission('user.manage')
-
             $newUser = trim($body['username'] ?? '');
             $newPass = $body['password'] ?? '';
             $newName = trim($body['full_name'] ?? '');
@@ -125,46 +159,50 @@ try {
                 sendResponse(false, 'Rol inválido. Valores permitidos: ' . implode(', ', $rolesValidos), null, 400);
             }
 
-            // Verificar formato de usuario
             if (!preg_match('/^[a-z][a-z0-9]{2,19}$/', $newUser)) {
                 sendResponse(false, 'El usuario debe comenzar con letra minúscula y contener solo letras y números (ej: amejia, rmartinez).', null, 400);
             }
 
-            // Verificar duplicado
             $check = $db->prepare("SELECT id FROM usuarios WHERE usuario = ?");
             $check->execute([$newUser]);
             if ($check->fetch()) {
                 sendResponse(false, "El usuario '{$newUser}' ya existe.", null, 409);
             }
 
-            $hash = password_hash($newPass, PASSWORD_BCRYPT);
-            $stmt = $db->prepare(
-                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, rol, bloqueado, intentos_fallidos, requiere_cambio_clave, clave_ultima_rotacion)
-                 VALUES (?, ?, ?, ?, 0, 0, 1, CURRENT_DATE)"
-            );
-            $stmt->execute([$newUser, $hash, $newName, $newRole]);
+            // Obtener el ID del rol a partir del nombre
+            $rStmt = $db->prepare("SELECT id FROM roles WHERE name = ? LIMIT 1");
+            $rStmt->execute([$newRole]);
+            $roleId = $rStmt->fetchColumn() ?: 4; // Por defecto 4 = USUARIO
 
-            logAction($db, $authUser['id'], 'USUARIO_CREADO', [
+            $hash = password_hash($newPass, PASSWORD_BCRYPT);
+
+            $db->beginTransaction();
+            $stmt = $db->prepare(
+                "INSERT INTO usuarios (usuario, clave_hash, nombre_completo, bloqueado, intentos_fallidos, requiere_cambio_clave, clave_ultima_rotacion)
+                 VALUES (?, ?, ?, 0, 0, 1, CURRENT_DATE)"
+            );
+            $stmt->execute([$newUser, $hash, $newName]);
+            $newId = $db->lastInsertId();
+
+            $db->prepare("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES (?, ?)")->execute([$newId, $roleId]);
+            $db->commit();
+
+            logAction($db, $userIdEf, 'USUARIO_CREADO', [
                 'nuevo_usuario' => $newUser,
                 'rol' => $newRole,
             ]);
 
-            sendResponse(true, "Usuario '{$newUser}' creado exitosamente.", [
-                'id' => (int) $db->lastInsertId(),
-            ]);
+            sendResponse(true, "Usuario '{$newUser}' creado exitosamente.", ['id' => (int) $newId]);
         }
 
         // ── Editar usuario ───────────────────────────────────
         if ($action === 'edit') {
-            // Validado por Security::requirePermission('user.manage')
-
             $id = intval($body['id'] ?? 0);
             $newName = trim($body['full_name'] ?? '');
             $newRole = strtoupper(trim($body['role'] ?? ''));
 
-            if ($id <= 0) {
+            if ($id <= 0)
                 sendResponse(false, 'ID de usuario inválido.', null, 400);
-            }
 
             $updates = [];
             $params = [];
@@ -173,27 +211,39 @@ try {
                 $updates[] = 'nombre_completo = ?';
                 $params[] = $newName;
             }
-            if (!empty($newRole)) {
-                $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
-                if (!in_array($newRole, $rolesValidos)) {
-                    sendResponse(false, 'Rol inválido.', null, 400);
-                }
-                $updates[] = 'rol = ?';
-                $params[] = $newRole;
-            }
 
-            if (empty($updates)) {
+            if (empty($updates) && empty($newRole)) {
                 sendResponse(false, 'No hay campos para actualizar.', null, 400);
             }
 
-            $updates[] = 'actualizado_el = NOW()';
-            $params[] = $id;
+            $db->beginTransaction();
 
-            $sql = "UPDATE usuarios SET " . implode(', ', $updates) . " WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
+            if (!empty($updates)) {
+                $updates[] = 'actualizado_el = NOW()';
+                $params[] = $id;
+                $sql = "UPDATE usuarios SET " . implode(', ', $updates) . " WHERE id = ?";
+                $db->prepare($sql)->execute($params);
+            }
 
-            logAction($db, $authUser['id'], 'USUARIO_EDITADO', [
+            // Actualizar la tabla pivote de roles
+            if (!empty($newRole)) {
+                $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
+                if (!in_array($newRole, $rolesValidos))
+                    sendResponse(false, 'Rol inválido.', null, 400);
+
+                $rStmt = $db->prepare("SELECT id FROM roles WHERE name = ? LIMIT 1");
+                $rStmt->execute([$newRole]);
+                $roleId = $rStmt->fetchColumn();
+
+                if ($roleId) {
+                    $db->prepare("DELETE FROM usuario_rol WHERE usuario_id = ?")->execute([$id]);
+                    $db->prepare("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES (?, ?)")->execute([$id, $roleId]);
+                }
+            }
+
+            $db->commit();
+
+            logAction($db, $userIdEf, 'USUARIO_EDITADO', [
                 'usuario_id' => $id,
                 'cambios' => $body,
             ]);
@@ -206,16 +256,12 @@ try {
             $id = intval($body['id'] ?? 0);
             $newPass = $body['new_password'] ?? '';
 
-            if ($id <= 0 || empty($newPass)) {
+            if ($id <= 0 || empty($newPass))
                 sendResponse(false, 'ID y nueva contraseña son requeridos.', null, 400);
-            }
-
-            if (strlen($newPass) < 6) {
+            if (strlen($newPass) < 6)
                 sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
-            }
 
-            // Solo ADMIN o COORD pueden cambiar la contraseña de otros.
-            if ($id !== $authUser['id'] && !in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+            if ($id !== $userIdEf && !in_array($rolEf, ['ADMIN', 'COORD'])) {
                 sendResponse(false, 'Solo Administradores y Coordinadores pueden cambiar la contraseña de otros usuarios.', null, 403);
             }
 
@@ -223,13 +269,13 @@ try {
             $stmt = $db->prepare("UPDATE usuarios SET clave_hash = ?, requiere_cambio_clave = 0, clave_ultima_rotacion = CURRENT_DATE, actualizado_el = NOW() WHERE id = ?");
             $stmt->execute([$hash, $id]);
 
-            logAction($db, $authUser['id'], 'CONTRASENA_CAMBIADA', ['usuario_id' => $id]);
+            logAction($db, $userIdEf, 'CONTRASENA_CAMBIADA', ['usuario_id' => $id]);
             sendResponse(true, 'Contraseña actualizada correctamente.');
         }
 
-        // ── Delegar rol temporal ─────────────────────────────
+        // ── Delegar rol temporal (Traducción a SUDO) ─────────
         if ($action === 'delegate') {
-            if (!in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
                 sendResponse(false, 'Solo ADMIN o COORD pueden delegar roles.', null, 403);
             }
 
@@ -241,110 +287,107 @@ try {
             }
 
             $rolesValidos = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO', 'CONSULTA'];
-            if (!in_array($tempRole, $rolesValidos)) {
+            if (!in_array($tempRole, $rolesValidos))
                 sendResponse(false, 'Rol temporal inválido.', null, 400);
-            }
 
-            // Por defecto, delegación de 24 horas si no se especifica
+            $uStmt = $db->prepare("SELECT id FROM usuarios WHERE usuario = ? LIMIT 1");
+            $uStmt->execute([$targetUser]);
+            $targetUserId = $uStmt->fetchColumn();
+
+            if (!$targetUserId)
+                sendResponse(false, "Usuario '{$targetUser}' no encontrado.", null, 404);
+
             $expiresIn = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-            $stmt = $db->prepare(
-                "UPDATE usuarios SET 
-                    rol_temporal = ?, 
-                    rol_temporal_expira_en = ?, 
-                    delegado_por = ?, 
-                    actualizado_el = NOW() 
-                 WHERE usuario = ?"
-            );
-            $stmt->execute([$tempRole, $expiresIn, $authUser['id'], $targetUser]);
+            // Limpiar permisos temporales anteriores
+            $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
 
-            if ($stmt->rowCount() === 0) {
-                sendResponse(false, "Usuario '{$targetUser}' no encontrado.", null, 404);
+            // Obtener los permisos del rol solicitado y asignarlos a la tabla SUDO
+            $pStmt = $db->prepare("SELECT permiso_id FROM rol_permiso rp JOIN roles r ON rp.rol_id = r.id WHERE r.name = ?");
+            $pStmt->execute([$tempRole]);
+            $permisosDelRol = $pStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($permisosDelRol)) {
+                $ins = $db->prepare("INSERT INTO permisos_temporales (usuario_id, permiso_id, asignado_por, expira_el) VALUES (?, ?, ?, ?)");
+                foreach ($permisosDelRol as $pId) {
+                    $ins->execute([$targetUserId, $pId, $userIdEf, $expiresIn]);
+                }
             }
 
-            logAction($db, $authUser['id'], 'ROL_DELEGADO', [
+            logAction($db, $userIdEf, 'ROL_DELEGADO_SUDO', [
                 'usuario_destino' => $targetUser,
                 'rol_temporal' => $tempRole,
-                'delegado_por' => $authUser['username'],
+                'delegado_por' => $authUser['username'] ?? 'Admin',
             ]);
 
-            sendResponse(true, "Rol temporal '{$tempRole}' asignado a '{$targetUser}'.");
+            sendResponse(true, "Permisos del rol '{$tempRole}' asignados a '{$targetUser}' por 24 horas.");
         }
 
-        // ── Revocar delegación ───────────────────────────────
+        // ── Revocar delegación (Traducción a SUDO) ───────────
         if ($action === 'revoke') {
-            if (!in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
                 sendResponse(false, 'Solo ADMIN o COORD pueden revocar roles.', null, 403);
             }
 
             $targetUser = trim($body['username'] ?? '');
-            if (empty($targetUser)) {
+            if (empty($targetUser))
                 sendResponse(false, 'Usuario destino es requerido.', null, 400);
+
+            $uStmt = $db->prepare("SELECT id FROM usuarios WHERE usuario = ? LIMIT 1");
+            $uStmt->execute([$targetUser]);
+            $targetUserId = $uStmt->fetchColumn();
+
+            if ($targetUserId) {
+                // Borrar todo el poder SUDO de la tabla pivot
+                $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
             }
 
-            $stmt = $db->prepare(
-                "UPDATE usuarios SET 
-                    rol_temporal = NULL, 
-                    rol_temporal_expira_en = NULL, 
-                    delegado_por = NULL, 
-                    actualizado_el = NOW() 
-                 WHERE usuario = ?"
-            );
-            $stmt->execute([$targetUser]);
-
-            logAction($db, $authUser['id'], 'ROL_REVOCADO', ['usuario_destino' => $targetUser]);
-            sendResponse(true, "Rol temporal revocado para '{$targetUser}'.");
+            logAction($db, $userIdEf, 'SUDO_REVOCADO', ['usuario_destino' => $targetUser]);
+            sendResponse(true, "Permisos temporales revocados para '{$targetUser}'.");
         }
 
         // ── Desbloquear cuenta ───────────────────────────────
         if ($action === 'unlock') {
-            if (!in_array($authUser['rol_efectivo'], ['ADMIN', 'COORD'])) {
+            if (!in_array($rolEf, ['ADMIN', 'COORD'])) {
                 sendResponse(false, 'Solo Administradores y Coordinadores pueden desbloquear cuentas.', null, 403);
             }
 
             $id = intval($body['id'] ?? 0);
-            if ($id <= 0) {
+            if ($id <= 0)
                 sendResponse(false, 'ID de usuario inválido.', null, 400);
-            }
 
-            $stmt = $db->prepare(
-                "UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0, actualizado_el = NOW() WHERE id = ?"
-            );
+            $stmt = $db->prepare("UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0, actualizado_el = NOW() WHERE id = ?");
             $stmt->execute([$id]);
 
-            logAction($db, $authUser['id'], 'CUENTA_DESBLOQUEADA', ['usuario_id' => $id]);
+            logAction($db, $userIdEf, 'CUENTA_DESBLOQUEADA', ['usuario_id' => $id]);
             sendResponse(true, 'Cuenta desbloqueada correctamente.');
         }
 
         // ── Eliminar (vía POST) ──────────────────────────────
         if ($action === 'delete') {
-            if ($authUser['rol_efectivo'] !== 'ADMIN') {
+            if ($rolEf !== 'ADMIN')
                 sendResponse(false, 'Solo ADMIN puede eliminar usuarios.', null, 403);
-            }
 
             $id = intval($body['id'] ?? 0);
-            if ($id <= 0) {
+            if ($id <= 0)
                 sendResponse(false, 'ID de usuario inválido.', null, 400);
-            }
-            if ($id === $authUser['id']) {
+            if ($id === $userIdEf)
                 sendResponse(false, 'No puede eliminar su propia cuenta.', null, 400);
-            }
 
-            $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
-            $stmt->execute([$id]);
+            $db->prepare("DELETE FROM usuarios WHERE id = ?")->execute([$id]);
 
-            logAction($db, $authUser['id'], 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
+            logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
             sendResponse(true, 'Usuario eliminado correctamente.');
         }
 
-        // Acción no reconocida
         sendResponse(false, "Acción '{$action}' no reconocida.", null, 400);
     }
 
-    // Método no soportado
-    sendResponse(false, 'Método no permitido.', null, 405);
+    sendResponse(false, 'Método HTTP no permitido.', null, 405);
 
 } catch (Exception $e) {
+    if ($db->inTransaction())
+        $db->rollBack();
     error_log('[SCI-TSS users.php] ' . $e->getMessage());
-    sendResponse(false, 'Error interno del servidor.', null, 500);
+    sendResponse(false, 'Error interno del servidor. ' . $e->getMessage(), null, 500);
 }
