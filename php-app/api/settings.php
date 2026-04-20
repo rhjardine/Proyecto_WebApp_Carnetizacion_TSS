@@ -1,11 +1,8 @@
 <?php
 /**
- * api/settings.php — Persistencia de configuración institucional (REMEDIADO v2.1)
- * ==================================================================================
- * CORRECCIÓN CRÍTICA:
- *  - Faltaban: require_once RBAC.php y require_once auth_check.php
- *  - $authUser nunca se declaraba → Fatal error en PHP al referenciar ['rol_efectivo']
- *  - Ahora auth_check.php provee $authUser con todos los campos necesarios
+ * api/settings.php — Configuración institucional
+ * ADAPTACIÓN: Ignora columnas legacy ('seccion', 'tipo') para compatibilidad
+ * con la Base de Datos Unificada de Producción.
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -13,96 +10,69 @@ require_once __DIR__ . '/middleware/RBAC.php';
 require_once __DIR__ . '/middleware/auth_check.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
+$pdo = getDB();
+$userId = $_SESSION['user_id'] ?? null;
 
-// ── Helpers de serialización ──────────────────────────────────
-function normalizeSettingValue(array $row): mixed
-{
-    $tipo = $row['tipo'] ?? 'string';
-    $valor = $row['valor'] ?? null;
-    return match ($tipo) {
-        'boolean' => filter_var($valor, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? ($valor === '1'),
-        'number' => is_numeric($valor) ? ($valor + 0) : $valor,
-        'json' => json_decode($valor, true) ?? $valor,
-        default => $valor,
-    };
-}
-
-function inferSettingType(mixed $valor): string
-{
-    if (is_bool($valor))
-        return 'boolean';
-    if (is_int($valor) || is_float($valor))
-        return 'number';
-    if (is_array($valor) || is_object($valor))
-        return 'json';
-    return 'string';
-}
-
-function serializeSettingValue(mixed $valor, string $tipo): string
-{
-    return match ($tipo) {
-        'boolean' => $valor ? '1' : '0',
-        'json' => json_encode($valor, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        default => (string) $valor,
-    };
+// Helpers de respuesta
+if (!function_exists('sendResponse')) {
+    function sendResponse($success, $message, $data = null, $code = 200)
+    {
+        http_response_code($code);
+        $res = ['success' => $success, 'message' => $message];
+        if ($data !== null) {
+            $res['data'] = $data;
+        }
+        echo json_encode($res);
+        exit;
+    }
 }
 
 try {
-    $db = getDB();
-
-    // ── GET: Obtener toda la configuración ──────────────────────
+    // ── LEER CONFIGURACIÓN (GET) ──
     if ($method === 'GET') {
-        $stmt = $db->query("SELECT seccion, clave, valor, tipo FROM configuracion_sistema ORDER BY seccion, clave");
-        $results = $stmt->fetchAll();
-        $config = [];
-        foreach ($results as $row) {
-            $config[$row['seccion']] ??= [];
-            $config[$row['seccion']][$row['clave']] = normalizeSettingValue($row);
+        Security::requirePermission($pdo, 'carnet.view_all');
+
+        $stmt = $pdo->query("SELECT clave, valor, descripcion FROM configuracion_sistema");
+        $configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Convertir a formato clave => valor para el frontend
+        $formatted = [];
+        foreach ($configs as $c) {
+            $val = json_decode($c['valor'], true);
+            $formatted[$c['clave']] = (json_last_error() === JSON_ERROR_NONE) ? $val : $c['valor'];
         }
-        sendResponse(true, 'Configuración obtenida.', $config);
+
+        sendResponse(true, 'Configuraciones obtenidas.', $formatted);
     }
 
-    // ── POST: Modificar configuración (solo ADMIN) ──────────────
-    if ($method === 'POST') {
-        // $authUser provisto por auth_check.php
-        if ($authUser['rol_efectivo'] !== 'ADMIN') {
-            sendResponse(false, 'Solo el Administrador puede modificar la configuración global.', null, 403);
-        }
+    // ── GUARDAR CONFIGURACIÓN (POST / PUT) ──
+    if ($method === 'POST' || $method === 'PUT') {
+        Security::requirePermission($pdo, 'settings.manage');
 
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
-        $seccion = $input['seccion'] ?? 'global';
-        $clave = trim($input['clave'] ?? '');
+
+        $clave = $input['clave'] ?? null;
         $valor = $input['valor'] ?? null;
-        $tipo = $input['tipo'] ?? inferSettingType($valor);
-        $descripcion = $input['descripcion'] ?? null;
+        $desc = $input['descripcion'] ?? null;
 
         if (empty($clave)) {
             sendResponse(false, 'La clave de configuración es requerida.', null, 400);
         }
 
-        $allowedTypes = ['string', 'number', 'boolean', 'json'];
-        if (!in_array($tipo, $allowedTypes, true)) {
-            sendResponse(false, 'Tipo de configuración inválido.', null, 400);
-        }
+        $valStr = is_array($valor) ? json_encode($valor) : (string) $valor;
 
-        $valorStr = serializeSettingValue($valor, $tipo);
+        // Guardado seguro evitando columnas 'seccion' y 'tipo'
+        $stmt = $pdo->prepare("
+            INSERT INTO configuracion_sistema (clave, valor, descripcion) 
+            VALUES (?, ?, ?) 
+            ON DUPLICATE KEY UPDATE 
+                valor = VALUES(valor), 
+                descripcion = COALESCE(VALUES(descripcion), descripcion),
+                updated_at = CURRENT_TIMESTAMP
+        ");
+        $stmt->execute([$clave, $valStr, $desc]);
 
-        $stmt = $db->prepare(
-            "INSERT INTO configuracion_sistema (seccion, clave, valor, tipo, descripcion)
-             VALUES (?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                valor       = VALUES(valor),
-                tipo        = VALUES(tipo),
-                descripcion = VALUES(descripcion),
-                updated_at  = CURRENT_TIMESTAMP"
-        );
-        $stmt->execute([$seccion, $clave, $valorStr, $tipo, $descripcion]);
-
-        // Registrar en auditoría
-        logAction($db, $authUser['id'], 'CONFIGURACION_ACTUALIZADA', [
-            'seccion' => $seccion,
-            'clave' => $clave,
-        ]);
+        Security::logAudit($pdo, $userId, 'CONFIGURACION_ACTUALIZADA', 'configuracion_sistema', null, null, ['clave' => $clave]);
 
         sendResponse(true, 'Configuración actualizada correctamente.');
     }
@@ -111,5 +81,5 @@ try {
 
 } catch (Exception $e) {
     error_log('[SCI-TSS settings.php] ' . $e->getMessage());
-    sendResponse(false, 'Error interno del servidor.', null, 500);
+    sendResponse(false, 'Error interno al procesar configuraciones.', null, 500);
 }
