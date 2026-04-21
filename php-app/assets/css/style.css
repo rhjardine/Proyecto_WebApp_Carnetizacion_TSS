@@ -220,16 +220,24 @@ button {
 
 .sidebar-logout {
   margin-left: auto;
-  color: rgba(255, 255, 255, .5);
-  font-size: 18px;
-  background: none;
-  border: none;
-  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .6);
+  font-size: 16px;
   transition: var(--transition);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sidebar-logout:hover {
+  background: var(--color-danger);
   color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 /* --- Main Content --- */
