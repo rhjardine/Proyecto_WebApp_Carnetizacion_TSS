@@ -1,7 +1,8 @@
 /**
  * editor.js — Editor de Carnet SCI-TSS
  * =====================================================
- * REFACTORIZACIÓN v3.2 (Producción Segura + UX Mejorada)
+ * REFACTORIZACIÓN v3.3 (Producción Segura + Resiliencia)
+ * - Manejo de fallos al cargar IDs "fantasmas" eliminados desde localStorage.
  * - Modal elegante (SweetAlert2) para confirmación de borrado de foto.
  * - Fallback de Avatar (getSafeAvatar) para prevenir colapsos.
  * - Binding explícito de eventos en controles de diseño.
@@ -93,6 +94,8 @@ async function init() {
 
         try {
           await api.deleteEmployee(employee.id);
+          // FIX: Limpiamos el ID del localStorage para evitar el error "Fantasma"
+          localStorage.removeItem('selected_employee_id');
           showEditorToast('Funcionario eliminado.', 'success');
           setTimeout(() => window.location.href = 'dashboard.html', 1800);
         } catch (err) { showEditorToast(err.message, 'danger'); }
@@ -111,7 +114,7 @@ async function init() {
   setupManualPhoto();
   setupSmartExtraction();
   setupInlineEdit();
-  setupRemovePhoto(); // ¡NUEVO UX!
+  setupRemovePhoto(); // UX Mejorada
   setupCustomBackground();
   setupCardImages();
 
@@ -139,28 +142,47 @@ async function init() {
     applyConsultaRestrictions(true);
   }
 
-  const urlId = urlParams.get('id');
+  // ── MANEJO RESILIENTE DE CARGA DE EMPLEADOS ────────────────────────────────
+  const rawUrlId = urlParams.get('id');
+  const urlId = (rawUrlId && rawUrlId !== 'undefined' && rawUrlId !== 'null') ? rawUrlId : null;
   const urlCedula = (urlParams.get('cedula') || '').replace(/[^0-9]/g, '');
-  const storedId = urlId || localStorage.getItem('selected_employee_id');
+
+  let storedId = urlId || localStorage.getItem('selected_employee_id');
+  if (storedId === 'undefined' || storedId === 'null') storedId = null;
+
   if (urlId) localStorage.setItem('selected_employee_id', urlId);
 
   try {
     let list = [];
+
+    // 1er Intento: Cargar el ID almacenado en memoria o URL
     if (storedId) {
-      const res = await api.getEmployees({ id: storedId });
-      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
-    } else if (urlCedula) {
-      const res = await api.getEmployees({ cedula: urlCedula, limit: 1 });
-      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
-    } else {
-      const res = await api.getEmployees({ limit: 1 });
-      list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
+      try {
+        const res = await api.getEmployees({ id: storedId });
+        list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
+        if (!list || !list.length) throw new Error("Empleado no encontrado");
+      } catch (e) {
+        console.warn("El empleado guardado fue eliminado o no existe. Limpiando selección...");
+        localStorage.removeItem('selected_employee_id');
+        storedId = null; // Forzamos el fallback
+      }
     }
 
-    if (!list.length) {
-      const lookupLabel = storedId ? `ID ${storedId}` : (urlCedula ? `cédula ${urlCedula}` : 'la selección solicitada');
-      showEditorToast(`No se encontró un funcionario para ${lookupLabel}.`, 'warning');
-      return;
+    // 2do Intento: Fallback si no había ID o el ID era un "fantasma" eliminado
+    if (!storedId) {
+      if (urlCedula) {
+        const res = await api.getEmployees({ cedula: urlCedula, limit: 1 });
+        list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
+      } else {
+        const res = await api.getEmployees({ limit: 1 }); // Trae al último registrado
+        list = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
+      }
+    }
+
+    // Validación Final
+    if (!list || !list.length) {
+      showEditorToast(`No hay empleados registrados en la base de datos para mostrar.`, 'info');
+      return; // Detenemos la carga gráfica sin lanzar errores rojos
     }
 
     employee = list[0];
@@ -170,7 +192,7 @@ async function init() {
     setupZoom();
   } catch (err) {
     console.error(err);
-    showEditorToast('Error al cargar datos: ' + err.message, 'danger');
+    showEditorToast('Error de red al cargar los datos.', 'danger');
   }
 }
 
