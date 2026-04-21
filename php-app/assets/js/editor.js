@@ -1,13 +1,10 @@
 /**
  * editor.js — Editor de Carnet SCI-TSS
  * =====================================================
- * REFACTORIZACIÓN v3.0 (Producción Segura)
- * * Correcciones Quirúrgicas Aplicadas:
- * - Fallback local getSafeAvatar() inyectado para prevenir crash de ReferenceError.
- * - Binding explícito de eventos en init() para garantizar que los botones 
- * (Plantilla, Orientación, Cara) funcionen incluso si el HTML pierde el "onclick".
- * - setOrientation() ajustado para usar inline styles y no destruir clases de Tailwind.
- * - El diseño visual (coordenadas, colores, fuentes) se mantiene 100% inalterado.
+ * REFACTORIZACIÓN v3.2 (Producción Segura + UX Mejorada)
+ * - Modal elegante (SweetAlert2) para confirmación de borrado de foto.
+ * - Fallback de Avatar (getSafeAvatar) para prevenir colapsos.
+ * - Binding explícito de eventos en controles de diseño.
  */
 'use strict';
 
@@ -114,11 +111,11 @@ async function init() {
   setupManualPhoto();
   setupSmartExtraction();
   setupInlineEdit();
-  setupRemovePhoto();
+  setupRemovePhoto(); // ¡NUEVO UX!
   setupCustomBackground();
   setupCardImages();
 
-  // FIX QUIRÚRGICO: Blindaje de Event Listeners para botones de Plantilla, Orientación y Cara
+  // Blindaje de Event Listeners para botones de Plantilla, Orientación y Cara
   const templateSelector = document.getElementById('template-selector');
   if (templateSelector) {
     currentTemplate = templateSelector.value || 'blanco';
@@ -306,7 +303,7 @@ function renderDetails() {
   if (btnR) btnR.style.display = hasPhoto ? 'inline-flex' : 'none';
 }
 
-// ── CONTROLES SEGUROS (FIX QUIRÚRGICO) ─────────────────────────────────────────
+// ── CONTROLES SEGUROS ─────────────────────────────────────────────────────────
 function setTemplate(t) {
   if (!employee) return;
   currentTemplate = t;
@@ -319,7 +316,6 @@ function setOrientation(o) {
   const h = document.getElementById('ori-h');
   const v = document.getElementById('ori-v');
 
-  // FIX: Usamos inline styles en lugar de className destructivo para no romper Tailwind
   if (h && v) {
     if (o === 'horizontal') {
       h.style.backgroundColor = 'var(--color-primary, #0f172a)'; h.style.color = '#fff';
@@ -344,12 +340,11 @@ function setFace(face) {
   renderCard();
 }
 
-// ── GENERADOR DE AVATAR ROBUSTO (FIX CRÍTICO) ─────────────────────────────────
+// ── GENERADOR DE AVATAR ROBUSTO ───────────────────────────────────────────────
 function getSafeAvatar(name) {
   if (typeof window.makeAvatar === 'function') return window.makeAvatar(name);
   if (typeof ui !== 'undefined' && typeof ui.makeAvatar === 'function') return ui.makeAvatar(name);
 
-  // Si no existe, lo crea localmente previniendo ReferenceError
   const canvas = document.createElement('canvas');
   canvas.width = 120; canvas.height = 160;
   const ctx = canvas.getContext('2d');
@@ -368,7 +363,6 @@ function renderCard() {
   const is2025 = currentTemplate === '2025';
   const isVert = currentOrientation === 'vertical';
 
-  // FIX: Se usa getSafeAvatar para evitar colapso de JavaScript
   const nameForAvatar = `${employee.primer_nombre || employee.nombres || ''} ${employee.primer_apellido || employee.apellidos || ''}`.trim();
   const photo = employee.photo_url || employee.foto_url || getSafeAvatar(nameForAvatar);
   const qrSrc = qrDataUrl || '';
@@ -879,18 +873,39 @@ function setupManualPhoto() {
   }
 }
 
+// ── REFACTORIZACIÓN UX: SweetAlert2 para eliminar foto ────────────────────────
 function setupRemovePhoto() {
   const btn = document.getElementById('btn-remove-photo');
   if (!btn) return;
   btn.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar la fotografía actual?')) return;
+    // Usar SweetAlert2 si está disponible (Diseño coherente)
+    if (typeof Swal !== 'undefined') {
+      const result = await Swal.fire({
+        title: '¿Eliminar fotografía?',
+        text: '¿Está seguro de que desea eliminar la fotografía actual de este empleado?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!result.isConfirmed) return;
+    } else {
+      // Fallback nativo
+      if (!confirm('¿Eliminar la fotografía actual?')) return;
+    }
+
     try {
       await api.updateEmployee(employee.id, { photo_url: '' });
       employee.photo_url = '';
-      employee.foto_url = '';
-      renderCard(); btn.style.display = 'none';
-      showEditorToast('Fotografía eliminada.', 'success');
-    } catch (err) { showEditorToast(err.message, 'danger'); }
+      if (employee.foto_url !== undefined) employee.foto_url = '';
+      renderCard();
+      btn.style.display = 'none';
+      showEditorToast('Fotografía eliminada correctamente.', 'success');
+    } catch (err) {
+      showEditorToast(err.message || 'Error al eliminar fotografía', 'danger');
+    }
   });
 }
 

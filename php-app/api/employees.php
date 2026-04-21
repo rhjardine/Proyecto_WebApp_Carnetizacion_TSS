@@ -43,14 +43,21 @@ if (!function_exists('logAction')) {
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 $userId = $_SESSION['user_id'] ?? null;
+$rolEf = $_SESSION['role'] ?? ''; // <-- Agregamos la captura del Rol Efectivo
 
 // HARDENING: NIST RBAC Enforcement
 if ($method === 'GET')
     Security::requirePermission($db, 'carnet.view_all');
 if ($method === 'POST')
     Security::requirePermission($db, 'carnet.create');
-if ($method === 'DELETE')
-    Security::requirePermission($db, 'carnet.delete');
+if ($method === 'DELETE') {
+    // FIX: Se reemplaza el requerimiento del permiso 'carnet.delete' por
+    // una validación estricta de rol ADMIN para evitar el error 403 
+    // en esquemas donde el permiso individual no está definido.
+    if ($rolEf !== 'ADMIN') {
+        sendResponse(false, 'Acceso denegado. Solo un Administrador puede eliminar registros físicos.', null, 403);
+    }
+}
 
 // ── Whitelist de estados válidos ──────────────────────────────
 const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
