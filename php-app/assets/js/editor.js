@@ -104,20 +104,19 @@ async function init() {
     }
   }
 
-  // Tarea 4: Listener para añadir campos dinámicos
+  // Tarea 4: Campos Adaptativos (Plantilla Illustrator)
   const btnAddField = document.getElementById('btn-add-dynamic-field');
   if (btnAddField) {
     btnAddField.addEventListener('click', () => {
       const container = document.getElementById('dynamic-fields-container');
-      if (!container) return;
       const row = document.createElement('div');
-      row.className = 'dynamic-field-row';
-      row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+      row.className = 'flex gap-2 dynamic-field-row';
       row.innerHTML = `
-        <input type="text" placeholder="Etiqueta (Ej. Sangre)" class="form-input dyn-name" style="flex:1;padding:5px 8px;font-size:.72rem;border-color:#cbd5e1;">
-        <input type="text" placeholder="Valor (Ej. O+)" class="form-input dyn-val" style="flex:2;padding:5px 8px;font-size:.72rem;border-color:#cbd5e1;">
-        <button type="button" style="padding:4px 8px;background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;cursor:pointer;font-size:.75rem;" onclick="this.parentElement.remove();renderCard();">✕</button>
-      `;
+              <input type="text" placeholder="Etiqueta (Ej. Sangre)" class="w-1/3 border rounded p-1 text-xs">
+              <input type="text" placeholder="Valor (Ej. O+)" class="w-2/3 border rounded p-1 text-xs">
+              <button type="button" class="text-red-500 px-1" onclick="this.parentElement.remove(); renderCard();">✕</button>
+          `;
+      // Actualizar carnet en vivo al escribir
       row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', renderCard));
       container.appendChild(row);
     });
@@ -348,6 +347,7 @@ function renderDetails() {
   set('edit-gerencia', employee.gerencia);
   set('edit-nacionalidad', employee.nacionalidad || 'V');
   set('edit-nivel-permiso', employee.nivel_permiso || 'Nivel 1');
+  set('edit-vencimiento', employee.vencimiento || '');
 
   const dynContainer = document.getElementById('dynamic-fields-container');
   if (dynContainer) {
@@ -559,7 +559,6 @@ function card2025Horizontal(photo, qrSrc) {
     </div>
   </div>
   ${_footerInstitucional(9)}
-  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -592,7 +591,6 @@ function card2025Vertical(photo, qrSrc) {
   </div>
   <div style="display:flex;justify-content:center;padding:8px 0 10px;">${_qr(qrSrc, 54)}</div>
   ${_footerInstitucional(9)}
-  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -685,6 +683,7 @@ function cardReversoVertical(qrSrc) {
     </div>
   </div>
   ${_footerInstitucional(9)}
+  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -839,6 +838,7 @@ function setupInlineEdit() {
     const gerencia = (document.getElementById('edit-gerencia')?.value || '').trim();
     const nacionalidad = (document.getElementById('edit-nacionalidad')?.value || 'V').trim();
     const nivelPermiso = (document.getElementById('edit-nivel-permiso')?.value || '').trim();
+    const vencimiento = (document.getElementById('edit-vencimiento')?.value || '').trim();
 
     // Capturar campos dinámicos
     const dynFields = {};
@@ -864,6 +864,7 @@ function setupInlineEdit() {
       gerencia,
       nacionalidad,
       nivel_permiso: nivelPermiso,
+      vencimiento: vencimiento || null,
       datos_adicionales: JSON.stringify(dynFields)
     };
 

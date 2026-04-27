@@ -152,63 +152,76 @@
                             <span>📝</span> Datos del Funcionario
                         </h3>
                         <form id="form-edit-employee" style="display:flex;flex-direction:column;gap:10px;">
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label" style="font-size:.72rem;">Nombres</label>
-                                <input id="edit-nombres" name="nombres" type="text" class="form-input"
-                                    style="padding:7px 10px;" required />
+                            <!-- Bloque Anverso -->
+                            <div style="margin-bottom: 12px;">
+                                <h4
+                                    style="font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">
+                                    Anverso</h4>
+                                <div class="form-group" style="margin:0 0 6px 0;">
+                                    <label class="form-label" style="font-size:.72rem;">Nombres</label>
+                                    <input id="edit-nombres" name="nombres" type="text" class="form-input"
+                                        style="padding:7px 10px;" required />
+                                </div>
+                                <div class="form-group" style="margin:0 0 6px 0;">
+                                    <label class="form-label" style="font-size:.72rem;">Apellidos</label>
+                                    <input id="edit-apellidos" name="apellidos" type="text" class="form-input"
+                                        style="padding:7px 10px;" required />
+                                </div>
+                                <div class="form-group" style="margin:0 0 6px 0;">
+                                    <label class="form-label" style="font-size:.72rem;">Cédula (Identificador)</label>
+                                    <input id="edit-cedula" name="cedula" type="text" class="form-input"
+                                        style="padding:7px 10px;background:#f8fafc;" readonly />
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label class="form-label" style="font-size:.72rem;">Cargo Oficial</label>
+                                    <input id="edit-cargo" name="cargo" type="text" class="form-input"
+                                        style="padding:7px 10px;" required />
+                                </div>
                             </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label" style="font-size:.72rem;">Apellidos</label>
-                                <input id="edit-apellidos" name="apellidos" type="text" class="form-input"
-                                    style="padding:7px 10px;" required />
+
+                            <!-- Bloque Reverso -->
+                            <div style="margin-bottom: 12px;">
+                                <h4
+                                    style="font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">
+                                    Reverso</h4>
+                                <div class="form-group" style="margin:0 0 6px 0;">
+                                    <label class="form-label" style="font-size:.72rem;">Gerencia / Área
+                                        Administrativa</label>
+                                    <select id="edit-gerencia" name="gerencia"
+                                        class="form-input form-select gerencia-select" style="padding:7px 10px;">
+                                        <option value="" disabled selected>Seleccione una gerencia...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0 0 6px 0;">
+                                    <label class="form-label" style="font-size:.72rem;">Nivel de Permiso
+                                        (Acceso)</label>
+                                    <select id="edit-nivel-permiso" name="nivel_permiso" class="form-input form-select"
+                                        style="padding:7px 10px;">
+                                        <option value="Nivel 1">Nivel 1 — Operativo</option>
+                                        <option value="Nivel 2">Nivel 2 — Técnico</option>
+                                        <option value="Nivel 3">Nivel 3 — Supervisión</option>
+                                        <option value="Nivel 4">Nivel 4 — Coordinación</option>
+                                        <option value="Nivel 5">Nivel 5 — Dirección</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label class="form-label" style="font-size:.72rem;">Vencimiento</label>
+                                    <input id="edit-vencimiento" name="vencimiento" type="date" class="form-input"
+                                        style="padding:7px 10px;" />
+                                </div>
                             </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label" style="font-size:.72rem;">Cédula (Identificador)</label>
-                                <input id="edit-cedula" name="cedula" type="text" class="form-input"
-                                    style="padding:7px 10px;background:#f8fafc;" readonly />
-                            </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label" style="font-size:.72rem;">Cargo Oficial</label>
-                                <input id="edit-cargo" name="cargo" type="text" class="form-input"
-                                    style="padding:7px 10px;" required />
-                            </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label" style="font-size:.72rem;">Gerencia / Área
-                                    Administrativa</label>
-                                <select id="edit-gerencia" name="gerencia"
-                                    class="form-input form-select gerencia-select" style="padding:7px 10px;">
-                                    <option value="" disabled selected>Seleccione una gerencia...</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin:0; display:none;">
-                                <label class="form-label" style="font-size:.72rem;">Nacionalidad</label>
-                                <select id="edit-nacionalidad" name="nacionalidad" class="form-input form-select"
-                                    style="padding:7px 10px;">
-                                    <option value="V">V — Venezolano/a</option>
-                                    <option value="E">E — Extranjero/a</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin:0; display:none;">
-                                <label class="form-label" style="font-size:.72rem;">Nivel de Permiso</label>
-                                <select id="edit-nivel-permiso" name="nivel_permiso" class="form-input form-select"
-                                    style="padding:7px 10px;">
-                                    <option value="Nivel 1">Nivel 1 — Operativo</option>
-                                    <option value="Nivel 2">Nivel 2 — Técnico</option>
-                                    <option value="Nivel 3">Nivel 3 — Supervisión</option>
-                                    <option value="Nivel 4">Nivel 4 — Coordinación</option>
-                                    <option value="Nivel 5">Nivel 5 — Dirección</option>
-                                </select>
-                            </div>
-                            <!-- ── Campos Dinámicos / Adaptativos ── -->
-                            <div id="dynamic-fields-wrapper"
-                                style="margin-top:8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-                                <div
-                                    style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:6px;">
-                                    ⚙ Campos Adaptativos (Plantilla Illustrator)</div>
-                                <div id="dynamic-fields-container"></div>
+
+                            <div id="dynamic-fields-wrapper" class="bg-gray-50 border rounded"
+                                style="margin-top:4px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                                <h4 class="text-xs font-bold text-gray-600 uppercase mb-2"
+                                    style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;">
+                                    Campos Adaptativos (Plantilla)</h4>
+                                <div id="dynamic-fields-container" class="space-y-2"
+                                    style="display:flex;flex-direction:column;gap:8px;"></div>
                                 <button type="button" id="btn-add-dynamic-field"
-                                    style="margin-top:6px;font-size:.72rem;font-weight:600;color:#2563eb;background:none;border:none;cursor:pointer;padding:2px 0;">
-                                    ＋ Añadir nuevo campo
+                                    class="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                                    style="margin-top:8px;font-size:.72rem;font-weight:600;color:#2563eb;background:none;border:none;cursor:pointer;padding:0;">
+                                    + Agregar Información Personalizada
                                 </button>
                             </div>
                             <div style="display:flex;gap:8px;margin-top:6px;" id="form-action-buttons">
