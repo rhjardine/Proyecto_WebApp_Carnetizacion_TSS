@@ -223,17 +223,26 @@ function applyConsultaRestrictions(force = false) {
     if (photoModule) photoModule.style.display = 'none';
 
     showEditorToast('Modo solo consulta — edición e impresión física deshabilitadas.', 'info');
-  } else if (isAdmin) {
+  } else if (isAdminCoord) {
     document.querySelectorAll('#form-edit-employee input').forEach(el => {
       if (el.id !== 'edit-cedula') el.removeAttribute('readonly');
     });
     document.querySelectorAll('#form-edit-employee select').forEach(el => { el.disabled = false; });
 
-    ['btn-save-fields', 'btn-delete-employee', 'btn-upload-photo', 'btn-remove-photo', 'btn-smart-extract',
+    ['btn-save-fields', 'btn-upload-photo', 'btn-remove-photo', 'btn-smart-extract',
       'btn-upload-bg', 'btn-reset-bg', 'btn-upload-front', 'btn-reset-front', 'btn-upload-back', 'btn-reset-back'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
       });
+
+    const btnDelete = document.getElementById('btn-delete-employee');
+    if (btnDelete) {
+      if (role !== 'ADMIN') {
+        btnDelete.style.display = 'none';
+      } else {
+        btnDelete.style.display = '';
+      }
+    }
 
     const photoModule = document.getElementById('card-photo-module');
     if (photoModule) photoModule.style.display = 'block';
@@ -319,6 +328,24 @@ function renderDetails() {
   set('edit-gerencia', employee.gerencia);
   set('edit-nacionalidad', employee.nacionalidad || 'V');
   set('edit-nivel-permiso', employee.nivel_permiso || 'Nivel 1');
+
+  const dynContainer = document.getElementById('dynamic-fields-container');
+  if (dynContainer) {
+    dynContainer.innerHTML = '';
+    if (employee.datos_adicionales) {
+      let dt = employee.datos_adicionales;
+      if (typeof dt === 'string') {
+        try { dt = JSON.parse(dt); } catch (e) { }
+      }
+      if (dt && typeof dt === 'object') {
+        for (const [k, v] of Object.entries(dt)) {
+          if (typeof window.addDynamicField === 'function') {
+            window.addDynamicField(k, v);
+          }
+        }
+      }
+    }
+  }
 
   const btnR = document.getElementById('btn-remove-photo');
   const hasPhoto = !!(employee.photo_url || employee.foto_url);
@@ -512,6 +539,7 @@ function card2025Horizontal(photo, qrSrc) {
     </div>
   </div>
   ${_footerInstitucional(9)}
+  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -544,6 +572,7 @@ function card2025Vertical(photo, qrSrc) {
   </div>
   <div style="display:flex;justify-content:center;padding:8px 0 10px;">${_qr(qrSrc, 54)}</div>
   ${_footerInstitucional(9)}
+  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -589,6 +618,7 @@ function cardReversoHorizontal(qrSrc) {
     </div>
   </div>
   ${_footerInstitucional(9)}
+  ${_renderDatosAdicionales(employee.datos_adicionales)}
 </div>`;
 }
 
@@ -790,6 +820,14 @@ function setupInlineEdit() {
     const nacionalidad = (document.getElementById('edit-nacionalidad')?.value || 'V').trim();
     const nivelPermiso = (document.getElementById('edit-nivel-permiso')?.value || '').trim();
 
+    // Capturar campos dinámicos
+    const dynFields = {};
+    document.querySelectorAll('.dynamic-field-row').forEach(row => {
+      const n = row.querySelector('.dyn-name').value.trim();
+      const v = row.querySelector('.dyn-val').value.trim();
+      if (n) dynFields[n] = v;
+    });
+
     if (!primerNombre || !primerApellido || !cargo || !gerencia) {
       showEditorToast('Primer Nombre, Primer Apellido, Cargo y Gerencia son obligatorios.', 'danger');
       return;
@@ -806,6 +844,7 @@ function setupInlineEdit() {
       gerencia,
       nacionalidad,
       nivel_permiso: nivelPermiso,
+      datos_adicionales: JSON.stringify(dynFields)
     };
 
     if (typeof ui !== 'undefined') ui.setLoading(btn, true, 'Guardando...');
@@ -1077,5 +1116,42 @@ window.setTemplate = setTemplate;
 window.setOrientation = setOrientation;
 window.setFace = setFace;
 window.printCurrentCard = printCurrentCard;
+
+function _renderDatosAdicionales(datos) {
+  if (!datos) return '';
+  let dt;
+  try {
+    dt = typeof datos === 'string' ? JSON.parse(datos) : datos;
+  } catch (e) { return ''; }
+
+  if (!dt || Object.keys(dt).length === 0) return '';
+
+  let html = '';
+  let y = 30;
+  const esc = (s) => String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\'': '&#39;', '"': '&quot;' }[c] || c));
+  for (const [k, v] of Object.entries(dt)) {
+    html += `<div style="position:absolute; top:${y}px; left:10px; background:rgba(255,255,255,0.85); border:1px dashed #94a3b8; padding:3px 6px; font-size:9px; color:#1e293b; border-radius:4px; z-index:100; cursor:move; user-select:none; pointer-events:auto;" title="Arrastra para posicionar">
+      <strong>${esc(k)}: </strong>${esc(v)}
+    </div>`;
+    y += 24;
+  }
+  return html;
+}
+
+window.addDynamicField = function (name = '', value = '') {
+  const container = document.getElementById('dynamic-fields-container');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'form-group dynamic-field-row';
+  div.style.margin = '0';
+  div.style.display = 'flex';
+  div.style.gap = '5px';
+  div.innerHTML = `
+        <input type="text" placeholder="Nombre (ej. Tipo Sangre)" value="${name}" class="form-input dyn-name" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
+        <input type="text" placeholder="Valor (ej. O+)" value="${value}" class="form-input dyn-val" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
+        <button type="button" class="btn btn-secondary btn-remove-dyn" style="padding:5px 8px; color: #ef4444; border-color: #fca5a5" onclick="this.parentElement.remove()">X</button>
+    `;
+  container.appendChild(div);
+};
 
 init();

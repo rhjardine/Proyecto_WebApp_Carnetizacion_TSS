@@ -214,6 +214,16 @@ function renderTable(list) {
             `<option value="${o.value}" ${(emp.forma_entrega || '') === o.value ? 'selected' : ''}>${o.label}</option>`
         ).join('');
 
+        const activeUser = typeof api !== 'undefined' ? api.getCurrentUser() : null;
+        const role = (activeUser?.effective_role || activeUser?.role || '').toUpperCase();
+
+        const deleteAction = (role === 'ADMIN') ? `
+            <button onclick="event.stopPropagation();deleteEmployee(${emp.id})"
+                style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;
+                background:none;border:none;cursor:pointer;color:#dc2626;font-size:.8rem;">
+                🗑️ Eliminar
+            </button>` : '';
+
         const adminActions = isAdmin ? `
             <hr style="margin:4px 0;border:none;border-top:1px solid #f1f5f9;"/>
             <button onclick="event.stopPropagation();openEditor(${emp.id})"
@@ -221,11 +231,7 @@ function renderTable(list) {
                 background:none;border:none;cursor:pointer;color:#0284c7;font-size:.8rem;">
                 ✏️ Editar
             </button>
-            <button onclick="event.stopPropagation();deleteEmployee(${emp.id})"
-                style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;
-                background:none;border:none;cursor:pointer;color:#dc2626;font-size:.8rem;">
-                🗑️ Eliminar
-            </button>` : '';
+            ${deleteAction}` : '';
 
         return `
         <tr data-id="${emp.id}" onclick="viewEmployee(${emp.id})" style="cursor:pointer;">
