@@ -86,7 +86,7 @@
 </head>
 
 <body>
-    <div class="app-layout" id="main-restricted-content" style="display: none; opacity: 0; transition: opacity 0.3s;">
+    <div class="app-layout" id="protected-viewport" style="display: none; opacity: 0; transition: opacity 0.4s;">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-brand">
@@ -277,10 +277,10 @@
                 return;
             }
 
-            const mainContent = document.getElementById('main-restricted-content');
-            if (mainContent) {
-                mainContent.style.display = 'block';
-                setTimeout(() => mainContent.style.opacity = '1', 50);
+            const vp = document.getElementById('protected-viewport');
+            if (vp) {
+                vp.style.display = 'block';
+                setTimeout(() => vp.style.opacity = '1', 20);
             }
 
             // UI Init
