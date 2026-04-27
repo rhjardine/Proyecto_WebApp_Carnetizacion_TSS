@@ -86,7 +86,7 @@
 </head>
 
 <body>
-    <div class="app-layout">
+    <div class="app-layout" id="main-content" style="display: none; opacity: 0; transition: opacity 0.3s;">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-brand">
@@ -275,6 +275,12 @@
                     window.location.href = 'dashboard.html';
                 });
                 return;
+            }
+
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                mainContent.style.display = 'block';
+                setTimeout(() => mainContent.style.opacity = '1', 50);
             }
 
             // UI Init

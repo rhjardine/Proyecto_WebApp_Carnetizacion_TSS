@@ -720,39 +720,54 @@ function cardClassicVertical(photo, qrSrc) {
 // ── PDF EXPORT ────────────────────────────────────────────────────────────────
 async function downloadPDF() {
   if (!employee) return;
-  if (typeof html2pdf === 'undefined') {
-    alert('Librería PDF no disponible.\nUsa "🖨️ Imprimir Físico" como alternativa.');
+  if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+    alert('Librerías PDF (html2canvas/jspdf) no disponibles.\nUsa "🖨️ Imprimir Físico" como alternativa.');
     return;
   }
   const btn = document.getElementById('btn-download');
   if (typeof ui !== 'undefined') ui.setLoading(btn, true, 'Generando PDF...');
 
   const isVert = currentOrientation === 'vertical';
-  const nameForAvatar = `${employee.primer_nombre || employee.nombres || ''} ${employee.primer_apellido || employee.apellidos || ''}`.trim();
-  const photo = employee.photo_url || employee.foto_url || getSafeAvatar(nameForAvatar);
-  const qrSrc = qrDataUrl || '';
   const filename = `carnet_${(employee.cedula || '').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
-  container.innerHTML = `<div>${isVert ? card2025Vertical(photo, qrSrc) : card2025Horizontal(photo, qrSrc)}</div>
-        <div style="page-break-before:always;" class="html2pdf__page-break"></div>
-        <div>${isVert ? cardReversoVertical(qrSrc) : cardReversoHorizontal(qrSrc)}</div>`;
-  document.body.appendChild(container);
+  const container = document.getElementById('id-card-wrapper');
 
   try {
-    await html2pdf().set({
-      margin: 0, filename,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { scale: 3, useCORS: true },
-      jsPDF: { unit: 'mm', format: isVert ? [54, 86] : [86, 54], orientation: isVert ? 'portrait' : 'landscape' },
-    }).from(container).save();
+    // 1) Renderizar Anverso
+    setFace('anverso');
+    await new Promise(r => setTimeout(r, 200)); // Render safety delay
+
+    const canvasFront = await html2canvas(container, { scale: 3, useCORS: true, logging: false });
+    const imgFront = canvasFront.toDataURL('image/jpeg', 1.0);
+
+    // 2) Renderizar Reverso
+    setFace('reverso');
+    await new Promise(r => setTimeout(r, 200));
+
+    const canvasBack = await html2canvas(container, { scale: 3, useCORS: true, logging: false });
+    const imgBack = canvasBack.toDataURL('image/jpeg', 1.0);
+
+    // 3) Instanciar jsPDF
+    const pdf = new jspdf.jsPDF({
+      orientation: isVert ? 'portrait' : 'landscape',
+      unit: 'mm',
+      format: isVert ? [54, 86] : [86, 54]
+    });
+
+    const w = isVert ? 54 : 86;
+    const h = isVert ? 86 : 54;
+
+    // 4) Guardar PDF
+    pdf.addImage(imgFront, 'JPEG', 0, 0, w, h);
+    pdf.addPage();
+    pdf.addImage(imgBack, 'JPEG', 0, 0, w, h);
+    pdf.save(filename);
+
     showEditorToast('PDF generado correctamente.', 'success');
   } catch (err) {
     console.error(err);
     showEditorToast('Error al generar el PDF.', 'danger');
   } finally {
-    document.body.removeChild(container);
+    setFace('anverso'); // Estado original
     if (typeof ui !== 'undefined') ui.setLoading(btn, false);
   }
 }
