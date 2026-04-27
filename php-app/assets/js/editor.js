@@ -70,9 +70,11 @@ async function init() {
 
   const btnDelete = document.getElementById('btn-delete-employee');
   if (btnDelete) {
-    if (!api.isAdmin()) {
+    const effRole = (api.getCurrentUser()?.effective_role || api.getCurrentUser()?.role || '').toUpperCase();
+    if (effRole !== 'ADMIN') {
       btnDelete.style.display = 'none';
     } else {
+      btnDelete.style.display = 'inline-flex';
       btnDelete.addEventListener('click', async () => {
         if (!employee) return;
         const nombreCompleto = `${employee.apellidos || employee.primer_apellido}, ${employee.nombres || employee.primer_nombre}`;
@@ -94,13 +96,31 @@ async function init() {
 
         try {
           await api.deleteEmployee(employee.id);
-          // FIX: Limpiamos el ID del localStorage para evitar el error "Fantasma"
           localStorage.removeItem('selected_employee_id');
           showEditorToast('Funcionario eliminado.', 'success');
           setTimeout(() => window.location.href = 'dashboard.html', 1800);
         } catch (err) { showEditorToast(err.message, 'danger'); }
       });
     }
+  }
+
+  // Tarea 4: Listener para añadir campos dinámicos
+  const btnAddField = document.getElementById('btn-add-dynamic-field');
+  if (btnAddField) {
+    btnAddField.addEventListener('click', () => {
+      const container = document.getElementById('dynamic-fields-container');
+      if (!container) return;
+      const row = document.createElement('div');
+      row.className = 'dynamic-field-row';
+      row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+      row.innerHTML = `
+        <input type="text" placeholder="Etiqueta (Ej. Sangre)" class="form-input dyn-name" style="flex:1;padding:5px 8px;font-size:.72rem;border-color:#cbd5e1;">
+        <input type="text" placeholder="Valor (Ej. O+)" class="form-input dyn-val" style="flex:2;padding:5px 8px;font-size:.72rem;border-color:#cbd5e1;">
+        <button type="button" style="padding:4px 8px;background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;cursor:pointer;font-size:.75rem;" onclick="this.parentElement.remove();renderCard();">✕</button>
+      `;
+      row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', renderCard));
+      container.appendChild(row);
+    });
   }
 
   applyConsultaRestrictions();
