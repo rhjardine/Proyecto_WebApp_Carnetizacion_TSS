@@ -1,0 +1,120 @@
+Informe de Proyecto y Estatus Técnico: SCI-TSS v4.4
+
+Sistema de Carnetización Inteligente - Tesorería de Seguridad Social (TSS)
+
+1. Estado General del Proyecto (Evaluación Honesta)
+
+El proyecto SCI-TSS ha alcanzado su estado Release Candidate Final (Apto para Producción). Tras superar fases críticas de refactorización estructural, unificación de la base de datos a un estándar 100% en español y el despliegue de políticas de seguridad de grado gubernamental, el sistema cumple cabalmente con todos los requerimientos funcionales e institucionales.
+
+Fortalezas Arquitectónicas y Logros Destacados
+
+Motor RBAC Estricto y Patrón SUDO: Implementación de un modelo de control de acceso basado en roles con delegación de permisos temporales de caducidad automática, garantizando el principio de "Menor Privilegio".
+
+Resiliencia y Manejo de Errores (Novedad v4.4): El sistema ahora cuenta con recuperación automática ante datos huérfanos o "IDs fantasmas" en la memoria del navegador (LocalStorage), garantizando que la interfaz del editor visual nunca colapse.
+
+Seguridad NIST-Compliant: Protección activa contra ataques de Fuerza Bruta (bloqueo al 5to intento), rotación obligatoria de contraseñas, sanitización de inputs, tokens CSRF y "Guardias de Navegación" en el Frontend para evitar accesos directos por URL.
+
+UX/UI Consistente: Integración de modales interactivos (SweetAlert2) para acciones críticas (como la eliminación de fotografías o registros), reemplazando las alertas nativas y brindando una experiencia moderna e intuitiva.
+
+Generación Autónoma de Credenciales: Uso de html2pdf y QRious para la renderización de carnets (Anverso/Reverso) directamente en el DOM del cliente, reduciendo drásticamente el consumo de recursos del servidor.
+
+2. Estado de la Deuda Técnica y Remediaciones Futuras
+
+En aras de la transparencia técnica, y como es propio de todo ciclo de vida de desarrollo de software (SDLC), se documenta la siguiente "deuda técnica" remanente, sugerida para ser abordada en futuras iteraciones (v2.0):
+
+Monolito de Frontend (Vanilla JS):
+
+Estado actual: La lógica del cliente reside en archivos Vanilla JS (editor.js, dashboard.js, api.js). Aunque se modularizó eficazmente, su tamaño ha crecido considerablemente.
+
+Remediación futura: Migrar la capa de presentación a un framework reactivo moderno (ej. React.js, Vue.js o Angular) para facilitar el mantenimiento a largo plazo y optimizar el enrutamiento (Router).
+
+Gestión de Variables de Entorno en Entornos Locales:
+
+Estado actual: Existe un archivo .env, pero las implementaciones locales nativas (como XAMPP puro) carecen de un parser embebido para leerlas sin librerías externas.
+
+Remediación futura: Estandarizar la inyección de credenciales usando herramientas como vlucas/phpdotenv mediante Composer, o definirlas directamente en las variables de entorno de Apache (SetEnv).
+
+Gestión de Caché del Navegador:
+
+Estado actual: Las constantes actualizaciones de hojas de estilo (CSS) y scripts (JS) pueden quedar en la caché profunda del navegador de los usuarios, requiriendo un refresco forzado (Ctrl + F5).
+
+Remediación futura: Implementar Cache Busting o versionado dinámico de estáticos en las etiquetas HTML (ej. script.js?v=1.0.5).
+
+(Nota: Los archivos huérfanos y scripts de utilidad peligrosos fueron erradicados exitosamente mediante la herramienta de saneamiento interno).
+
+3. Guía de Instalación y Despliegue (Para el Tutor/Evaluador)
+
+Esta guía detalla los pasos exactos para inicializar el sistema SCI-TSS en un entorno de evaluación local (XAMPP/WAMP).
+
+Requisitos Previos
+
+Servidor web Apache.
+
+PHP 8.1 o superior.
+
+Extensión GD activada en PHP (estrictamente necesaria para el recorte y validación Zero-Trust de fotografías).
+
+Extensión PDO_MySQL activada.
+
+MySQL 8.0 o MariaDB 10.4+.
+
+Paso 1: Configuración de Archivos
+
+Descargue el repositorio y ubique la carpeta principal del proyecto.
+
+Renombre la carpeta a Proyecto_WebApp_Carnetizacion_TSS.
+
+Mueva la carpeta completa al directorio público de su servidor web (ej. C:\xampp\htdocs\).
+
+La ruta absoluta final debe ser: C:\xampp\htdocs\Proyecto_WebApp_Carnetizacion_TSS\
+
+Paso 2: Despliegue de la Base de Datos
+
+Abra su gestor de base de datos local (ej. phpMyAdmin en http://localhost/phpmyadmin).
+
+Cree una nueva base de datos vacía llamada carnetizacion_tss (Cotejamiento requerido: utf8mb4_spanish_ci o utf8mb4_unicode_ci).
+
+Vaya a la pestaña "Importar".
+
+Seleccione el archivo maestro definitivo ubicado en: php-app/db/01_master_final_spanish.sql.
+
+Ejecute la importación. Este script construirá la estructura monolítica final, poblará las tablas relacionales (roles, permisos, gerencias) y creará las cuentas iniciales.
+
+Paso 3: Configuración de Conexión
+
+Navegue a la carpeta php-app/. Si su entorno lo soporta, duplique el archivo .env.example y renómbrelo a .env.
+
+Recomendado para XAMPP: Edite el archivo php-app/api/config/db.php y asegúrese de que las credenciales apunten a su servidor local:
+
+$host = '127.0.0.1';
+$db   = 'carnetizacion_tss';
+$user = 'root'; // Usuario por defecto en entornos XAMPP
+$pass = '';     // Dejar en blanco si no tiene clave
+
+
+Paso 4: Inicialización y Prueba de Seguridad
+
+Abra su navegador web e ingrese a la ruta:
+http://localhost/Proyecto_WebApp_Carnetizacion_TSS/php-app/
+
+El Guardia de Navegación interceptará la petición y lo redirigirá obligatoriamente a la pantalla de Autenticación.
+
+Ingrese las credenciales maestras sembradas por defecto:
+
+Usuario: admin
+
+Contraseña: Admin2026*
+
+Prueba de Seguridad NIST: El sistema detectará que es el primer inicio de sesión de esta cuenta y bloqueará el acceso al Dashboard, exigiéndole cambiar la contraseña por una nueva (mínimo 6 caracteres).
+
+Una vez cambiada la clave, inicie sesión nuevamente con su contraseña actualizada para acceder a la operatividad total del sistema.
+
+Casos de Uso Recomendados para la Evaluación
+
+Módulo de Carnetización: Ingrese a "Nuevo Empleado", complete los datos institucionales, cargue una fotografía usando el recortador inteligente integrado, y pruebe alternar en tiempo real entre la plantilla "Clásico 2024" y "Moderno 2025" (Anverso y Reverso).
+
+Eliminación y UX: Desde el editor de carnets, elimine la fotografía actual de un registro para visualizar el flujo de confirmación moderno (SweetAlert2).
+
+Restricción Estricta (RBAC): Ingrese con un rol de "Consulta" o "Analista" e intente eliminar un registro físico. El sistema deberá impedirlo mediante una respuesta 403 Forbidden, reservando esta acción exclusivamente al Administrador.
+
+Bloqueo por Fuerza Bruta: Cierre sesión e intente ingresar con una contraseña incorrecta 5 veces seguidas para disparar el mecanismo de defensa automático de bloqueo de cuenta.

@@ -4,7 +4,7 @@
  * ===========================================================
  * VERSIÓN DEFINITIVA Y SINCRONIZADA:
  * - Se corrigen las referencias a 'nombre' en tablas roles/permisos.
- * - Se corrige 'expira_el' y 'asignado_por' para el Patrón SUDO.
+ * - FIX 400: Tolerancia de payload para cambio de contraseña (password vs new_password).
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -46,7 +46,6 @@ try {
         if (!in_array($rolEf, ['ADMIN', 'COORD']))
             sendResponse(false, 'Acceso denegado.', null, 403);
 
-        // FIX CRÍTICO: r.nombre, p.nombre y pt.expira_el
         $stmt = $db->query("
             SELECT u.id, u.usuario, u.nombre_completo, u.bloqueado, u.intentos_fallidos, u.creado_el, u.actualizado_el,
                    r.nombre AS rol,
@@ -114,7 +113,6 @@ try {
             if ($check->fetch())
                 sendResponse(false, "El usuario ya existe.", null, 409);
 
-            // FIX: r.nombre
             $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
             $rStmt->execute([$newRole]);
             $roleId = $rStmt->fetchColumn() ?: 4;
@@ -142,7 +140,6 @@ try {
                 $db->prepare("UPDATE usuarios SET nombre_completo = ?, actualizado_el = NOW() WHERE id = ?")->execute([$newName, $id]);
 
             if ($newRole) {
-                // FIX: r.nombre
                 $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
                 $rStmt->execute([$newRole]);
                 $roleId = $rStmt->fetchColumn();
@@ -156,20 +153,26 @@ try {
             sendResponse(true, 'Usuario actualizado.');
         }
 
+        // FIX CRÍTICO: Manejo tolerante del payload para contraseñas
         if ($action === 'change_password') {
             $id = intval($body['id'] ?? 0);
-            $newPass = $body['new_password'] ?? '';
-            if ($id <= 0 || !$newPass)
+            // Aceptamos 'new_password' o 'password' indistintamente
+            $newPass = $body['new_password'] ?? $body['password'] ?? '';
+
+            if ($id <= 0 || empty($newPass)) {
                 sendResponse(false, 'ID y contraseña requeridos.', null, 400);
-            if (strlen($newPass) < 6)
-                sendResponse(false, 'Contraseña muy corta.', null, 400);
-            if ($id !== $userIdEf && !in_array($rolEf, ['ADMIN', 'COORD']))
+            }
+            if (strlen($newPass) < 6) {
+                sendResponse(false, 'La contraseña debe tener al menos 6 caracteres.', null, 400);
+            }
+            if ($id !== $userIdEf && !in_array($rolEf, ['ADMIN', 'COORD'])) {
                 sendResponse(false, 'Acceso denegado.', null, 403);
+            }
 
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
             $db->prepare("UPDATE usuarios SET clave_hash = ?, requiere_cambio_clave = 0, clave_ultima_rotacion = CURRENT_DATE, actualizado_el = NOW() WHERE id = ?")->execute([$hash, $id]);
             logAction($db, $userIdEf, 'CONTRASENA_CAMBIADA', ['usuario_id' => $id]);
-            sendResponse(true, 'Contraseña actualizada.');
+            sendResponse(true, 'Contraseña actualizada con éxito.');
         }
 
         if ($action === 'delegate') {
@@ -187,7 +190,6 @@ try {
             $expiresIn = date('Y-m-d H:i:s', strtotime('+24 hours'));
             $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
 
-            // FIX CRÍTICO: r.nombre, asignado_por, expira_el
             $pStmt = $db->prepare("SELECT rp.permiso_id FROM rol_permiso rp JOIN roles r ON rp.rol_id = r.id WHERE r.nombre = ?");
             $pStmt->execute([$tempRole]);
             $permisosDelRol = $pStmt->fetchAll(PDO::FETCH_COLUMN);
