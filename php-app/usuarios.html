@@ -571,28 +571,41 @@
             });
 
             if (formValues) {
+                // Activamos el loading global si existe
                 if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(true);
 
                 try {
-                    const response = await api.request('api/users.php', 'POST', {
-                        action: 'delegate',
-                        username: username,
-                        permission: formValues.permission,
-                        days: formValues.days
+                    // Utilizamos fetch() nativo de Javascript para evitar la dependencia de api.request()
+                    const responseRaw = await fetch('api/users.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'delegate',
+                            username: username,
+                            permission: formValues.permission,
+                            days: formValues.days
+                        })
                     });
 
+                    const response = await responseRaw.json();
+
                     if (response.success) {
-                        // FIX: Concatenación clásica sin caracteres especiales que rompan el JS
+                        // Concatenación clásica y segura
                         Swal.fire('¡Éxito!', 'Permiso asignado por ' + formValues.days + ' día(s).', 'success');
 
+                        // Recargar tabla de usuarios
                         if (typeof cargarUsuarios === 'function') cargarUsuarios();
                     } else {
                         Swal.fire('Error', response.message || response.error || 'Operación denegada', 'error');
                     }
                 } catch (error) {
                     console.error('[SUDO Error]:', error);
-                    Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+                    Swal.fire('Error', 'No se pudo conectar con el servidor. Revisa tu conexión.', 'error');
                 } finally {
+                    // Desactivamos el loading
                     if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(false);
                 }
             }
