@@ -584,7 +584,7 @@
                     });
 
                     if (response.success) {
-                        Swal.fire('¡Éxito!', \`Permiso asignado por \${formValues.days} día(s).\`, 'success');
+                        Swal.fire('¡Éxito!', \`Permiso asignado por \${formValues.days} día(s).`, 'success');
                         // Invocar recarga de tabla (Asume existencia de cargarUsuarios)
                         if (typeof loadUsers === 'function') loadUsers();
                     } else {
