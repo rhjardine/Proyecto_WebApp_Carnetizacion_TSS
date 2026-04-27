@@ -5,7 +5,7 @@
  * VERSIÓN DEFINITIVA Y SINCRONIZADA:
  * - Se corrigen las referencias a 'nombre' en tablas roles/permisos.
  * - FIX 400 (Contraseñas): Tolerancia de payload (password vs new_password).
- * - FIX 400 (Borrado): Tolerancia de payload para capturar el ID desde el body JSON.
+ * - FIX 400 (Borrado): Soporte híbrido para DELETE HTTP y POST (action='delete').
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -78,16 +78,16 @@ try {
         sendResponse(true, 'Usuarios obtenidos.', $data);
     }
 
+    // Soporte REST Puro (Método HTTP DELETE)
     if ($method === 'DELETE') {
         if ($rolEf !== 'ADMIN')
             sendResponse(false, 'Solo ADMIN puede eliminar.', null, 403);
 
-        // FIX CRÍTICO: Buscar el ID tanto en la URL (GET) como en el Body (JSON)
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         $id = intval($_GET['id'] ?? $body['id'] ?? 0);
 
         if ($id <= 0 || $id === intval($userIdEf)) {
-            sendResponse(false, 'ID inválido o auto-eliminación no permitida.', null, 400);
+            sendResponse(false, 'ID inválido o no puedes eliminar tu propia cuenta (auto-eliminación).', null, 400);
         }
 
         $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
@@ -161,10 +161,29 @@ try {
             sendResponse(true, 'Usuario actualizado.');
         }
 
-        // FIX CRÍTICO: Manejo tolerante del payload para contraseñas
+        // FIX CRÍTICO: Soporte POST para Eliminar Usuario (Fallback si el frontend no usa HTTP DELETE)
+        if ($action === 'delete') {
+            if ($rolEf !== 'ADMIN')
+                sendResponse(false, 'Solo ADMIN puede eliminar.', null, 403);
+
+            $id = intval($body['id'] ?? 0);
+            if ($id <= 0 || $id === intval($userIdEf)) {
+                sendResponse(false, 'ID inválido o no puedes eliminar tu propia cuenta.', null, 400);
+            }
+
+            $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
+            $stmt->execute([$id]);
+
+            if ($stmt->rowCount() === 0) {
+                sendResponse(false, 'Usuario no encontrado.', null, 404);
+            }
+
+            logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
+            sendResponse(true, 'Usuario eliminado correctamente.');
+        }
+
         if ($action === 'change_password') {
             $id = intval($body['id'] ?? 0);
-            // Aceptamos 'new_password' o 'password' indistintamente
             $newPass = $body['new_password'] ?? $body['password'] ?? '';
 
             if ($id <= 0 || empty($newPass)) {
