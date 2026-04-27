@@ -282,7 +282,7 @@
             });
         }
     </script>
-    <div class="users-page" id="main-content" style="display: none; opacity: 0; transition: opacity 0.3s;">
+    <div class="users-page" id="protected-viewport" style="display: none; opacity: 0; transition: opacity 0.4s;">
         <nav class="nav-bar" id="top-nav-bar">
             <img src="assets/img/logo_tss.png" alt="Logo TSS" style="height: 28px; margin-right: 10px;">
             <a href="dashboard.html">← Dashboard</a>
@@ -376,10 +376,10 @@
                 Swal.fire('Acceso Denegado', 'Solo ADMIN y COORD pueden acceder a esta página.', 'error')
                     .then(() => window.location.href = 'dashboard.html');
             } else {
-                const mainContent = document.getElementById('main-content');
-                if (mainContent) {
-                    mainContent.style.display = 'block';
-                    setTimeout(() => mainContent.style.opacity = '1', 50);
+                const vp = document.getElementById('protected-viewport');
+                if (vp) {
+                    vp.style.display = 'block';
+                    setTimeout(() => vp.style.opacity = '1', 20);
                 }
             }
         })();
