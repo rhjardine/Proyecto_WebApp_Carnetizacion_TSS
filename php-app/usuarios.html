@@ -543,20 +543,20 @@
             const { value: formValues } = await Swal.fire({
                 title: 'Otorgar Permiso SUDO',
                 html: `
-                    <div style="margin-bottom: 1rem; font-size: 0.875rem; color: #4b5563;">Usuario destino: <b>${username}</b></div>
-                    
-                    <div style="text-align: left; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151;">Tipo de Permiso a Otorgar:</div>
-                    <select id="sudo-perm" class="swal2-select" style="display: flex; width: 100%; margin: 0 0 1rem 0;">
-                        <option value="carnet.create">Incluir y Modificar Empleado (carnet.create)</option>
-                        <option value="carnet.update_status">Actualizar Estados de Carnet (carnet.update_status)</option>
-                        <option value="carnet.approve">Aprobar Carnets (carnet.approve)</option>
-                        <option value="carnet.delete">Eliminar Registros Físicos (carnet.delete)</option>
-                        <option value="user.manage">Gestionar Usuarios (user.manage)</option>
-                    </select>
-                    
-                    <div style="text-align: left; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151;">Duración (Días):</div>
-                    <input type="number" id="sudo-days" class="swal2-input" value="1" min="1" max="30" style="display: flex; width: 100%; margin: 0;">
-                `,
+            <div class="mb-4 text-sm text-gray-600">Usuario destino: <b>${username}</b></div>
+            
+            <div class="text-left mb-2 text-sm font-semibold text-gray-700">Tipo de Permiso a Otorgar:</div>
+            <select id="sudo-perm" class="swal2-select w-full m-0 mb-4" style="display: flex;">
+                <option value="carnet.create">Incluir y Modificar Empleado (carnet.create)</option>
+                <option value="carnet.update_status">Actualizar Estados de Carnet (carnet.update_status)</option>
+                <option value="carnet.approve">Aprobar Carnets (carnet.approve)</option>
+                <option value="carnet.delete">Eliminar Registros Físicos (carnet.delete)</option>
+                <option value="user.manage">Gestionar Usuarios (user.manage)</option>
+            </select>
+            
+            <div class="text-left mb-2 text-sm font-semibold text-gray-700">Duración (Días):</div>
+            <input type="number" id="sudo-days" class="swal2-input w-full m-0" value="1" min="1" max="30" style="display: flex;">
+        `,
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonColor: '#2563eb',
@@ -571,11 +571,9 @@
             });
 
             if (formValues) {
-                // Validación de existencia de UI Loading (Fallback a null si no existe)
                 if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(true);
 
                 try {
-                    // Construcción del nuevo payload
                     const response = await api.request('api/users.php', 'POST', {
                         action: 'delegate',
                         username: username,
@@ -584,9 +582,10 @@
                     });
 
                     if (response.success) {
-                        Swal.fire('¡Éxito!', \`Permiso asignado por \${formValues.days} día(s).`, 'success');
-                        // Invocar recarga de tabla (Asume existencia de cargarUsuarios)
-                        if (typeof loadUsers === 'function') loadUsers();
+                        // FIX: Concatenación clásica sin caracteres especiales que rompan el JS
+                        Swal.fire('¡Éxito!', 'Permiso asignado por ' + formValues.days + ' día(s).', 'success');
+
+                        if (typeof cargarUsuarios === 'function') cargarUsuarios();
                     } else {
                         Swal.fire('Error', response.message || response.error || 'Operación denegada', 'error');
                     }
