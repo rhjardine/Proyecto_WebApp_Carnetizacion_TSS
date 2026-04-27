@@ -4,7 +4,8 @@
  * ===========================================================
  * VERSIÓN DEFINITIVA Y SINCRONIZADA:
  * - Se corrigen las referencias a 'nombre' en tablas roles/permisos.
- * - FIX 400: Tolerancia de payload para cambio de contraseña (password vs new_password).
+ * - FIX 400 (Contraseñas): Tolerancia de payload (password vs new_password).
+ * - FIX 400 (Borrado): Tolerancia de payload para capturar el ID desde el body JSON.
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -80,14 +81,21 @@ try {
     if ($method === 'DELETE') {
         if ($rolEf !== 'ADMIN')
             sendResponse(false, 'Solo ADMIN puede eliminar.', null, 403);
-        $id = intval($_GET['id'] ?? 0);
-        if ($id <= 0 || $id === $userIdEf)
+
+        // FIX CRÍTICO: Buscar el ID tanto en la URL (GET) como en el Body (JSON)
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = intval($_GET['id'] ?? $body['id'] ?? 0);
+
+        if ($id <= 0 || $id === intval($userIdEf)) {
             sendResponse(false, 'ID inválido o auto-eliminación no permitida.', null, 400);
+        }
 
         $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
         $stmt->execute([$id]);
-        if ($stmt->rowCount() === 0)
+
+        if ($stmt->rowCount() === 0) {
             sendResponse(false, 'Usuario no encontrado.', null, 404);
+        }
 
         logAction($db, $userIdEf, 'USUARIO_ELIMINADO', ['usuario_id' => $id]);
         sendResponse(true, 'Usuario eliminado correctamente.');
