@@ -293,9 +293,6 @@
         <div class="page-header">
             <h1>👥 Gestión de Usuarios</h1>
             <div style="display:flex;gap:10px;">
-                <button class="btn-create" onclick="openSudoModal()" style="background:#f59e0b;" id="btn-sudo-modal">
-                    ⚡ Asignar SUDO
-                </button>
                 <button class="btn-create" onclick="openCreateModal()">
                     ＋ Crear Usuario
                 </button>
@@ -363,48 +360,7 @@
         </div>
     </div>
 
-    <!-- MODAL: SUDO (Privilegios Temporales) -->
-    <div class="modal-overlay" id="sudo-modal">
-        <div class="modal">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                <span style="font-size:1.5rem;">⚡</span>
-                <h2 style="margin:0;">Asignar Privilegio SUDO</h2>
-            </div>
-            <p style="font-size:.8rem;color:#64748b;margin-bottom:20px;">Permite elevar privilegios a un Analista de
-                forma temporal.</p>
 
-            <form id="sudo-form">
-                <div class="form-group">
-                    <label for="sudo-user">Analista Destino</label>
-                    <select id="sudo-user" required>
-                        <!-- Se llena dinámicamente -->
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="sudo-permission">Permiso a Otorgar</label>
-                    <select id="sudo-permission" required>
-                        <option value="5">carnet.approve (Aprobar/Anular)</option>
-                        <option value="6">user.manage (Gestión de Usuarios)</option>
-                        <option value="11">gerencia.manage (Gestión Gerencias)</option>
-                        <option value="12">carnet.delete (Eliminar Registros)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="sudo-time">Duración del Acceso</label>
-                    <select id="sudo-time">
-                        <option value="60">1 Hora</option>
-                        <option value="240" selected>4 Horas</option>
-                        <option value="480">8 Horas</option>
-                        <option value="1440">24 Horas</option>
-                    </select>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-cancel" onclick="closeSudoModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-save" style="background:#f59e0b;">Activar Privilegio</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <script src="assets/js/api.js"></script>
     <script>
@@ -456,6 +412,7 @@
                                 <button class="action-btn" onclick="changePassword(${u.id})">🔑 Clave</button>
                                 ${u.is_locked ? `<button class="action-btn" onclick="unlockUser(${u.id})">🔓 Desbloquear</button>` : ''}
                                 <button class="action-btn danger" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>
+                                ${u.role === 'ANALISTA' ? `<button class="action-btn" style="color:#d97706;border-color:#fde68a" onclick="delegateSudo('${u.username}')">⚡ SUDO</button>` : ''}
                             </div>
                         </td>
                     </tr>`;
@@ -582,56 +539,65 @@
         }
 
         // ── SUDO Logic ──────────────────────────────────────────
-        let allUsers = [];
-
-        async function openSudoModal() {
-            const select = document.getElementById('sudo-user');
-            select.innerHTML = '<option>Cargando analistas...</option>';
-
-            try {
-                const res = await api.getUsers();
-                allUsers = res.data || [];
-                const analysts = allUsers.filter(u => u.role === 'ANALISTA');
-
-                if (analysts.length === 0) {
-                    select.innerHTML = '<option value="">No hay analistas disponibles</option>';
-                } else {
-                    select.innerHTML = analysts.map(u => `<option value="${u.id}">${u.full_name} (@${u.username})</option>`).join('');
+        window.delegateSudo = async function (username) {
+            const { value: formValues } = await Swal.fire({
+                title: 'Otorgar Permiso SUDO',
+                html: `
+                    <div style="margin-bottom: 1rem; font-size: 0.875rem; color: #4b5563;">Usuario destino: <b>${username}</b></div>
+                    
+                    <div style="text-align: left; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151;">Tipo de Permiso a Otorgar:</div>
+                    <select id="sudo-perm" class="swal2-select" style="display: flex; width: 100%; margin: 0 0 1rem 0;">
+                        <option value="carnet.create">Incluir y Modificar Empleado (carnet.create)</option>
+                        <option value="carnet.update_status">Actualizar Estados de Carnet (carnet.update_status)</option>
+                        <option value="carnet.approve">Aprobar Carnets (carnet.approve)</option>
+                        <option value="carnet.delete">Eliminar Registros Físicos (carnet.delete)</option>
+                        <option value="user.manage">Gestionar Usuarios (user.manage)</option>
+                    </select>
+                    
+                    <div style="text-align: left; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151;">Duración (Días):</div>
+                    <input type="number" id="sudo-days" class="swal2-input" value="1" min="1" max="30" style="display: flex; width: 100%; margin: 0;">
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                confirmButtonText: 'Otorgar Permiso',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    return {
+                        permission: document.getElementById('sudo-perm').value,
+                        days: document.getElementById('sudo-days').value
+                    }
                 }
-                document.getElementById('sudo-modal').classList.add('active');
-            } catch (err) {
-                Swal.fire('Error', 'No se pudieron cargar los usuarios.', 'error');
-            }
-        }
+            });
 
-        function closeSudoModal() {
-            document.getElementById('sudo-modal').classList.remove('active');
-        }
+            if (formValues) {
+                // Validación de existencia de UI Loading (Fallback a null si no existe)
+                if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(true);
 
-        document.getElementById('sudo-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const userId = document.getElementById('sudo-user').value;
-            const permId = document.getElementById('sudo-permission').value;
-            const minutes = document.getElementById('sudo-time').value;
-
-            if (!userId || !permId) return;
-
-            try {
-                const res = await api.grantSudo(userId, permId, minutes);
-                if (res.success) {
-                    Swal.fire({
-                        title: '¡SUDO Activado!',
-                        text: res.message,
-                        icon: 'success',
-                        confirmButtonColor: '#f59e0b'
+                try {
+                    // Construcción del nuevo payload
+                    const response = await api.request('api/users.php', 'POST', {
+                        action: 'delegate',
+                        username: username,
+                        permission: formValues.permission,
+                        days: formValues.days
                     });
-                    closeSudoModal();
-                    loadUsers();
+
+                    if (response.success) {
+                        Swal.fire('¡Éxito!', \`Permiso asignado por \${formValues.days} día(s).\`, 'success');
+                        // Invocar recarga de tabla (Asume existencia de cargarUsuarios)
+                        if (typeof loadUsers === 'function') loadUsers();
+                    } else {
+                        Swal.fire('Error', response.message || response.error || 'Operación denegada', 'error');
+                    }
+                } catch (error) {
+                    console.error('[SUDO Error]:', error);
+                    Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+                } finally {
+                    if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(false);
                 }
-            } catch (err) {
-                Swal.fire('Error SUDO', err.message, 'error');
             }
-        });
+        };
 
         // ── Init ────────────────────────────────────────────────
         loadUsers();
