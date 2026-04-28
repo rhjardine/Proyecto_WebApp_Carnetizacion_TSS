@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
     <!-- Dependencia SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Librerías PDF (html2canvas + jspdf) como variables globales -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         @media print {
             body {
@@ -92,7 +95,6 @@
                 <a href="editor.html" class="nav-link active" id="nav-editor"><span class="icon">🪪</span> Editor de
                     Carnet</a>
                 <a href="config.html" class="nav-link" id="nav-config"> <span class="icon">⚙️</span> Ajustes</a>
-
             </nav>
             <div class="sidebar-user">
                 <div class="sidebar-user-avatar" id="user-avatar">?</div>
@@ -211,11 +213,13 @@
                                 </div>
                             </div>
 
+                            <!-- Campos Adaptativos -->
                             <div id="dynamic-fields-wrapper" class="bg-gray-50 border rounded"
                                 style="margin-top:4px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
                                 <h4 class="text-xs font-bold text-gray-600 uppercase mb-2"
                                     style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;">
-                                    Campos Adaptativos (Plantilla)</h4>
+                                    Campos Adaptativos (Plantilla)
+                                </h4>
                                 <div id="dynamic-fields-container" class="space-y-2"
                                     style="display:flex;flex-direction:column;gap:8px;"></div>
                                 <button type="button" id="btn-add-dynamic-field"
@@ -224,6 +228,7 @@
                                     + Agregar Información Personalizada
                                 </button>
                             </div>
+
                             <div style="display:flex;gap:8px;margin-top:6px;" id="form-action-buttons">
                                 <button type="submit" id="btn-save-fields" class="btn btn-primary"
                                     style="flex:1;justify-content:center;background:#10b981;">
@@ -423,8 +428,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"
         onerror="console.warn('QRious no disponible.')"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-        onerror="console.warn('html2pdf no disponible.')"></script>
+    <!-- Cropper.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"
         onerror="console.warn('Cropper.js no disponible.')"></script>
     <script src="assets/js/api.js?v=2.6"></script>
