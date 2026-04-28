@@ -104,21 +104,11 @@ async function init() {
     }
   }
 
-  // Tarea 4: Campos Adaptativos (Plantilla Illustrator)
+  // Configurar el botón de agregar campo dinámico
   const btnAddField = document.getElementById('btn-add-dynamic-field');
   if (btnAddField) {
     btnAddField.addEventListener('click', () => {
-      const container = document.getElementById('dynamic-fields-container');
-      const row = document.createElement('div');
-      row.className = 'flex gap-2 dynamic-field-row';
-      row.innerHTML = `
-              <input type="text" placeholder="Etiqueta (Ej. Sangre)" class="w-1/3 border rounded p-1 text-xs">
-              <input type="text" placeholder="Valor (Ej. O+)" class="w-2/3 border rounded p-1 text-xs">
-              <button type="button" class="text-red-500 px-1" onclick="this.parentElement.remove(); renderCard();">✕</button>
-          `;
-      // Actualizar carnet en vivo al escribir
-      row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', renderCard));
-      container.appendChild(row);
+      window.addDynamicField('', '');
     });
   }
 
@@ -215,21 +205,22 @@ async function init() {
   }
 }
 
-// ── RESTRICCIONES PARA ROL CONSULTA ─────────────────────────────────────────
+// ── RESTRICCIONES DE PERMISOS CORREGIDA (COORD edita, solo ADMIN elimina) ─────
 function applyConsultaRestrictions(force = false) {
-  const isAdminCoord = api.isAdminCoord();
-  const isAdmin = api.isAdmin();
-  const user = api.getCurrentUser();
+  const user = typeof api !== 'undefined' ? api.getCurrentUser() : null;
+  if (!user) return;
+
   const role = (user.effective_role || user.role || '').toUpperCase();
-  const isConsulta = (role === 'CONSULTA' || role === 'USUARIO');
 
-  const shouldBlock = force || (!isAdminCoord && isConsulta);
+  // 1. EVALUAR PERMISO DE EDICIÓN
+  // USUARIO y CONSULTA son de solo lectura. COORD, ADMIN y ANALISTA pueden editar.
+  const isReadOnly = force || role === 'CONSULTA' || role === 'USUARIO';
 
-  if (shouldBlock) {
+  if (isReadOnly) {
     document.querySelectorAll('#form-edit-employee input').forEach(el => el.setAttribute('readonly', 'true'));
     document.querySelectorAll('#form-edit-employee select').forEach(el => { el.disabled = true; });
 
-    ['btn-save-fields', 'btn-delete-employee', 'btn-upload-photo', 'btn-remove-photo', 'btn-smart-extract',
+    ['btn-save-fields', 'btn-upload-photo', 'btn-remove-photo', 'btn-smart-extract',
       'btn-upload-bg', 'btn-reset-bg', 'btn-upload-front', 'btn-reset-front', 'btn-upload-back', 'btn-reset-back'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -241,8 +232,9 @@ function applyConsultaRestrictions(force = false) {
     const photoModule = document.getElementById('card-photo-module');
     if (photoModule) photoModule.style.display = 'none';
 
-    showEditorToast('Modo solo consulta — edición e impresión física deshabilitadas.', 'info');
-  } else if (isAdminCoord) {
+    if (typeof showEditorToast === 'function') showEditorToast('Modo solo consulta — edición deshabilitada.', 'info');
+  } else {
+    // Habilitar edición para ADMIN, COORD, ANALISTA
     document.querySelectorAll('#form-edit-employee input').forEach(el => {
       if (el.id !== 'edit-cedula') el.removeAttribute('readonly');
     });
@@ -254,21 +246,20 @@ function applyConsultaRestrictions(force = false) {
         if (el) el.style.display = '';
       });
 
-    // Refuerzo explícito para el botón Guardar
-    const btnSave = document.getElementById('btn-save-fields');
-    if (btnSave) btnSave.style.display = 'flex';
-
-    const btnDelete = document.getElementById('btn-delete-employee');
-    if (btnDelete) {
-      if (role !== 'ADMIN') {
-        btnDelete.style.display = 'none';
-      } else {
-        btnDelete.style.display = '';
-      }
-    }
-
     const photoModule = document.getElementById('card-photo-module');
     if (photoModule) photoModule.style.display = 'block';
+  }
+
+  // 2. REGLA ESTRICTA PARA EL BOTÓN ELIMINAR (Separado de la edición)
+  const btnDelete = document.getElementById('btn-delete-employee');
+  if (btnDelete) {
+    if (role !== 'ADMIN') {
+      // Coordinadores y Analistas no pueden eliminar registros
+      btnDelete.style.display = 'none';
+    } else {
+      // Solo el Administrador puede eliminar
+      btnDelete.style.display = 'inline-flex';
+    }
   }
 }
 
@@ -353,20 +344,29 @@ function renderDetails() {
   set('edit-nivel-permiso', employee.nivel_permiso || 'Nivel 1');
   set('edit-vencimiento', employee.vencimiento || '');
 
+  // Llenar campos dinámicos desde employee o crear 7 vacíos
   const dynContainer = document.getElementById('dynamic-fields-container');
   if (dynContainer) {
     dynContainer.innerHTML = '';
+    let hasExistingData = false;
+
     if (employee.datos_adicionales) {
       let dt = employee.datos_adicionales;
       if (typeof dt === 'string') {
-        try { dt = JSON.parse(dt); } catch (e) { }
+        try { dt = JSON.parse(dt); } catch (e) { dt = null; }
       }
-      if (dt && typeof dt === 'object') {
+      if (dt && typeof dt === 'object' && Object.keys(dt).length > 0) {
+        hasExistingData = true;
         for (const [k, v] of Object.entries(dt)) {
-          if (typeof window.addDynamicField === 'function') {
-            window.addDynamicField(k, v);
-          }
+          window.addDynamicField(k, v);
         }
+      }
+    }
+
+    // Si no hay datos previos, agregar exactamente 7 filas vacías
+    if (!hasExistingData) {
+      for (let i = 0; i < 7; i++) {
+        window.addDynamicField('', '');
       }
     }
   }
@@ -979,7 +979,6 @@ function setupRemovePhoto() {
   const btn = document.getElementById('btn-remove-photo');
   if (!btn) return;
   btn.addEventListener('click', async () => {
-    // Usar SweetAlert2 si está disponible (Diseño coherente)
     if (typeof Swal !== 'undefined') {
       const result = await Swal.fire({
         title: '¿Eliminar fotografía?',
@@ -993,7 +992,6 @@ function setupRemovePhoto() {
       });
       if (!result.isConfirmed) return;
     } else {
-      // Fallback nativo
       if (!confirm('¿Eliminar la fotografía actual?')) return;
     }
 
@@ -1175,7 +1173,6 @@ window.addDynamicField = function (name = '', value = '') {
         <input type="text" placeholder="Nombre (ej. Tipo Sangre)" value="${name}" class="form-input dyn-name" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
         <input type="text" placeholder="Valor (ej. O+)" value="${value}" class="form-input dyn-val" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
         <button type="button" class="btn btn-secondary btn-remove-dyn" style="padding:5px 8px; color: #ef4444; border-color: #fca5a5" onclick="this.parentElement.remove()">X</button>
-    `;
   container.appendChild(div);
 };
 
