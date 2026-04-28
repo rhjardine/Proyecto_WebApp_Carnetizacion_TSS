@@ -254,6 +254,10 @@ function applyConsultaRestrictions(force = false) {
         if (el) el.style.display = '';
       });
 
+    // Refuerzo explícito para el botón Guardar
+    const btnSave = document.getElementById('btn-save-fields');
+    if (btnSave) btnSave.style.display = 'flex';
+
     const btnDelete = document.getElementById('btn-delete-employee');
     if (btnDelete) {
       if (role !== 'ADMIN') {
@@ -843,8 +847,8 @@ function setupInlineEdit() {
     // Capturar campos dinámicos
     const dynFields = {};
     document.querySelectorAll('.dynamic-field-row').forEach(row => {
-      const n = row.querySelector('.dyn-name').value.trim();
-      const v = row.querySelector('.dyn-val').value.trim();
+      const n = row.querySelector('.dyn-name')?.value?.trim();
+      const v = row.querySelector('.dyn-val')?.value?.trim();
       if (n) dynFields[n] = v;
     });
 
