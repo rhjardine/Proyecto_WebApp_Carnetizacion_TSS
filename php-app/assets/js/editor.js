@@ -1173,6 +1173,7 @@ window.addDynamicField = function (name = '', value = '') {
         <input type="text" placeholder="Nombre (ej. Tipo Sangre)" value="${name}" class="form-input dyn-name" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
         <input type="text" placeholder="Valor (ej. O+)" value="${value}" class="form-input dyn-val" style="padding:7px; flex:1; font-size:.7rem; border-color:#cbd5e1" />
         <button type="button" class="btn btn-secondary btn-remove-dyn" style="padding:5px 8px; color: #ef4444; border-color: #fca5a5" onclick="this.parentElement.remove()">X</button>
+    `;
   container.appendChild(div);
 };
 
