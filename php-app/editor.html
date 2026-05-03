@@ -7,9 +7,7 @@
     <title>Editor de Carnet — Sistema de Carnetización TSS</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
-    <!-- Dependencia SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Librerías PDF (html2canvas + jspdf) como variables globales -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -92,7 +90,8 @@
                 <a href="dashboard.html" class="nav-link" id="nav-dashboard"><span class="icon">📊</span> Panel
                     General</a>
                 <a href="upload.html" class="nav-link" id="nav-upload"> <span class="icon">📤</span> Portal de Carga</a>
-                <a href="editor.html" class="nav-link active" id="nav-editor"><span class="icon">🪪</span> Editor de
+                <a href="editor_advanced.html" class="nav-link active" id="nav-editor"><span class="icon">🪪</span>
+                    Editor de
                     Carnet</a>
                 <a href="config.html" class="nav-link" id="nav-config"> <span class="icon">⚙️</span> Ajustes</a>
             </nav>
@@ -120,10 +119,8 @@
             </div>
 
             <div class="editor-layout">
-                <!-- ═══ SIDEBAR IZQUIERDO ═══ -->
                 <div class="editor-sidebar" style="width:340px;">
 
-                    <!-- 1. FOTOGRAFÍA -->
                     <div class="card" style="padding:20px;" id="card-photo-module">
                         <h3
                             style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
@@ -147,14 +144,12 @@
                         </div>
                     </div>
 
-                    <!-- 2. DATOS DEL FUNCIONARIO -->
                     <div class="card" style="padding:20px;">
                         <h3
                             style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
                             <span>📝</span> Datos del Funcionario
                         </h3>
                         <form id="form-edit-employee" style="display:flex;flex-direction:column;gap:10px;">
-                            <!-- Bloque Anverso -->
                             <div style="margin-bottom: 12px;">
                                 <h4
                                     style="font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">
@@ -181,7 +176,6 @@
                                 </div>
                             </div>
 
-                            <!-- Bloque Reverso -->
                             <div style="margin-bottom: 12px;">
                                 <h4
                                     style="font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">
@@ -213,7 +207,6 @@
                                 </div>
                             </div>
 
-                            <!-- Campos Adaptativos -->
                             <div id="dynamic-fields-wrapper" class="bg-gray-50 border rounded"
                                 style="margin-top:4px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
                                 <h4 class="text-xs font-bold text-gray-600 uppercase mb-2"
@@ -242,7 +235,6 @@
                         </form>
                     </div>
 
-                    <!-- 3. PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
                         <h3
                             style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
@@ -262,7 +254,6 @@
                             <button class="btn btn-secondary" id="ori-v" onclick="setOrientation('vertical')"
                                 style="flex:1;justify-content:center;font-size:.75rem;">Vertical</button>
                         </div>
-                        <!-- Fondo personalizado -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🖼️ Fondo Personalizado (PNG/JPG)
@@ -285,7 +276,6 @@
                             </p>
                         </div>
 
-                        <!-- Imagen Anverso del Carnet -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🪪 Imagen Anverso (Frente del Carnet)
@@ -309,7 +299,6 @@
                             </div>
                         </div>
 
-                        <!-- Imagen Reverso del Carnet -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🔄 Imagen Reverso (Parte Trasera del Carnet)
@@ -334,7 +323,6 @@
                         </div>
                     </div>
 
-                    <!-- 4. ASISTENTE IA -->
                     <div
                         style="background:linear-gradient(135deg,#ede9fe,#dbeafe);border:1px solid #c4b5fd;border-radius:12px;padding:18px;">
                         <input type="file" id="smart-extract-input" accept=".pdf,.jpg,.jpeg,.png"
@@ -351,7 +339,6 @@
                     </div>
                 </div>
 
-                <!-- ═══ ÁREA DE VISTA PREVIA ═══ -->
                 <div class="editor-preview" id="card-preview-area">
                     <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);
                                 display:flex;background:var(--color-surface);
@@ -367,9 +354,7 @@
                         </button>
                     </div>
                     <div id="id-card-wrapper" style="margin-top:44px;transition:transform .2s ease;">
-                        <!-- Card injected by JS -->
                     </div>
-                    <!-- Barra de Zoom -->
                     <div style="position:absolute;bottom:44px;left:50%;transform:translateX(-50%);
                                 display:flex;align-items:center;gap:8px;background:var(--color-surface);
                                 border:1px solid var(--color-border);border-radius:20px;padding:5px 14px;
@@ -397,7 +382,6 @@
         </main>
     </div>
 
-    <!-- Modal de Recorte (Cropper.js) -->
     <div id="crop-modal"
         style="display:none;position:fixed;inset:0;z-index:99000;background:rgba(0,0,0,.78);align-items:center;justify-content:center;backdrop-filter:blur(4px);">
         <div
@@ -428,7 +412,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"
         onerror="console.warn('QRious no disponible.')"></script>
-    <!-- Cropper.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"
         onerror="console.warn('Cropper.js no disponible.')"></script>
     <script src="assets/js/api.js?v=2.6"></script>

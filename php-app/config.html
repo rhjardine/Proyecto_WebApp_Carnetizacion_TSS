@@ -105,7 +105,7 @@
                 <a href="upload.html" class="nav-link" id="nav-upload">
                     <span class="icon">📤</span> Portal de Carga
                 </a>
-                <a href="editor_advanced.html"> id="nav-editor">
+                <a href="editor_advanced.html" class="nav-link" id="nav-editor">
                     <span class="icon">🪪</span> Editor de Carnet
                 </a>
                 <a href="config.html" class="nav-link active" id="nav-config" style="display:none;">
@@ -346,7 +346,7 @@
 
         async function cargarUsuarios() {
             try {
-                const res = await api.getUsers(); // We need to ensure api.getUsers() exists in api.js
+                const res = await api.getUsers();
                 const list = document.getElementById('lista-usuarios');
                 list.innerHTML = '';
                 res.data.forEach(u => {
@@ -401,14 +401,14 @@
                     pais: document.getElementById('inst-country').value.trim()
                 };
 
-                api.setLoading(btn, true, 'Guardando...');
+                ui.setLoading(btn, true, 'Guardando...');
                 try {
                     await api.updateSetting('global', settings, 'global');
                     Swal.fire('Éxito', 'Configuración institucional guardada correctamente en el servidor.', 'success');
                 } catch (err) {
                     Swal.fire('Error', err.message, 'error');
                 } finally {
-                    api.setLoading(btn, false);
+                    ui.setLoading(btn, false);
                 }
             });
         }

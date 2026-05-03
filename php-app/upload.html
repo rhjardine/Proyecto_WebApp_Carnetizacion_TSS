@@ -37,7 +37,6 @@
                 </a>
             </nav>
 
-            <!-- ═══════════ SECCIÓN DE USUARIO (AGREGADA) ═══════════ -->
             <div class="sidebar-user">
                 <div class="sidebar-user-avatar" id="user-avatar">?</div>
                 <div class="sidebar-user-info">
@@ -65,7 +64,6 @@
                     </div>
 
                     <div style="padding:30px;">
-                        <!-- Validación -->
                         <div style="margin-bottom:20px;">
                             <label style="display:block; font-weight:bold; margin-bottom:8px; font-size:0.9rem;">1.
                                 Validar Cédula de Identidad</label>
@@ -79,10 +77,8 @@
 
                         <div id="validation-alert"
                             style="display:none; padding:10px; border-radius:8px; margin-bottom:20px; font-size:0.85rem; font-weight:bold;">
-                            <!-- Result injected here -->
                         </div>
 
-                        <!-- Zona Dropzone Mejorada (Preview y Base64) -->
                         <div id="upload-section" style="opacity:0.4; pointer-events:none; transition: all 0.3s ease;">
                             <label style="display:block; font-weight:bold; margin-bottom:8px; font-size:0.9rem;">2.
                                 Fotografía Digital <span
@@ -256,7 +252,6 @@
         }
     </script>
 
-    <!-- ═══════════ SIDEBAR FIX ═══════════ -->
     <script>
         (function () {
             var user = api.getCurrentUser();
@@ -276,7 +271,6 @@
             document.getElementById('user-role').textContent = role;
             document.getElementById('user-avatar').textContent = initials;
 
-            // Cerrar sesión
             document.getElementById('btn-logout').addEventListener('click', async function () {
                 await api.logout();
                 window.location.href = 'login.html';
