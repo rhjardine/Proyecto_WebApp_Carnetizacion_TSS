@@ -35,8 +35,17 @@
                 <a href="config.html" class="nav-link" id="nav-config">
                     <span class="icon">⚙️</span> Ajustes
                 </a>
-
             </nav>
+
+            <!-- ═══════════ SECCIÓN DE USUARIO (AGREGADA) ═══════════ -->
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar" id="user-avatar">?</div>
+                <div class="sidebar-user-info">
+                    <p id="user-name">Cargando...</p>
+                    <span id="user-role">...</span>
+                </div>
+                <button class="sidebar-logout" id="btn-logout" title="Salir del sistema">⬡</button>
+            </div>
         </aside>
 
         <main class="main-content">
@@ -90,7 +99,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Se agregó el paso de 'event' a la función -->
                                 <input type="file" id="photo-input" accept="image/png, image/jpeg" style="display:none;"
                                     onchange="demoPhotoSelect(event)">
                             </div>
@@ -132,7 +140,6 @@
 
             if (found) {
                 currentEmpId = found.id;
-                // Soporte para nombres/apellidos en base al esquema original
                 const fullname = found.nombre || (found.nombres + " " + found.apellidos);
                 alertBox.innerHTML = `✅ Empleado Encontrado: ${fullname} - ${found.cargo}`;
                 alertBox.style.display = 'block';
@@ -141,7 +148,6 @@
                 document.getElementById('upload-section').style.opacity = '1';
                 document.getElementById('upload-section').style.pointerEvents = 'auto';
 
-                // Si el empleado YA tiene foto, la mostramos para confirmar que está en su registro
                 if (found.photo_url && found.photo_url.trim() !== '') {
                     previewContainer.innerHTML = `
                         <img src="${found.photo_url}" style="max-height: 180px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); object-fit: cover;" />
@@ -149,7 +155,6 @@
                         <div style="font-size:0.70rem; color:gray; margin-top:2px;">(Haz clic si deseas reemplazarla)</div>
                     `;
                 } else {
-                    // Estado por defecto si no tiene foto
                     previewContainer.innerHTML = `
                         <div style="font-size:30px; margin-bottom:10px;">🤳</div>
                         <div style="font-weight:bold; color:#334155;">Haz clic aquí para seleccionar archivo</div>
@@ -170,7 +175,6 @@
                     selectedPhotoPreviewUrl = null;
                 }
 
-                // Reiniciar el contenedor de preview
                 previewContainer.innerHTML = `
                     <div style="font-size:30px; margin-bottom:10px;">🤳</div>
                     <div style="font-weight:bold; color:#334155;">Haz clic aquí para seleccionar archivo</div>
@@ -239,7 +243,6 @@
             btn.textContent = originalText;
             btn.disabled = false;
 
-            // Notificación visual sin redirigir de inmediato
             const previewContainer = document.getElementById('preview-container');
             previewContainer.innerHTML += `<div style="margin-top:10px; padding:8px; background:#d1fae5; color:#065f46; border-radius:6px; font-weight:bold; font-size:0.8rem;">¡Fotografía vinculada exitosamente al registro!</div>`;
 
@@ -247,11 +250,38 @@
             btn.textContent = "Fotografía Guardada";
             btn.style.background = "#64748b";
 
-            // Opcional: Redirigir al dashboard después de unos segundos
             setTimeout(() => {
                 window.location.href = "dashboard.html";
             }, 2000);
         }
+    </script>
+
+    <!-- ═══════════ SIDEBAR FIX ═══════════ -->
+    <script>
+        (function () {
+            var user = api.getCurrentUser();
+            if (!user || !user.username) {
+                window.location.href = 'login.html';
+                return;
+            }
+            var role = (user.effective_role || user.role || '').toUpperCase();
+            var displayName = user.full_name
+                ? user.full_name + ' (' + user.username + ')'
+                : user.username.charAt(0).toUpperCase() + user.username.slice(1);
+            var initials = user.full_name
+                ? user.full_name.split(' ').filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase()
+                : user.username.charAt(0).toUpperCase();
+
+            document.getElementById('user-name').textContent = displayName;
+            document.getElementById('user-role').textContent = role;
+            document.getElementById('user-avatar').textContent = initials;
+
+            // Cerrar sesión
+            document.getElementById('btn-logout').addEventListener('click', async function () {
+                await api.logout();
+                window.location.href = 'login.html';
+            });
+        })();
     </script>
 </body>
 

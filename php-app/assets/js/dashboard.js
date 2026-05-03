@@ -1,22 +1,11 @@
 /**
  * dashboard.js — Gestión de Personal SCI-TSS
  * ============================================
- * REMEDIACIÓN INTEGRAL v3.0:
+ * REMEDIACIÓN v3.1:
+ *  - renderTable() ahora muestra el botón "Editar" para ADMIN, COORD y ANALISTA.
+ *  - Solo ADMIN puede ver "Eliminar".
  *
- * BUGS CRÍTICOS CORREGIDOS:
- *  1. renderTable() contenía código muerto con `data.forEach()` (variable no definida)
- *     y funciones anidadas ilegalmente (goToPage, setupControls, changeStatus, etc.)
- *     que eran inaccesibles desde el scope global → La tabla nunca renderizaba.
- *  2. setupGerenciasManager() nunca se llamaba en init() → Modal gerencias roto.
- *  3. setupDelegation() era un stub vacío → Delegación no funcional.
- *  4. Dropdown toggle usaba position:fixed sin cleanup en scroll correcto.
- *  5. Doble llamada a setupLogout() (en init() + setupGlobalLogout en api.js).
- *
- * ARQUITECTURA: Todas las funciones son de scope global (window-level),
- * declaradas correctamente con `function` o asignadas a `window.*`.
- * El patrón de init() solo orquesta — no define funciones.
- *
- * @version 3.0.0
+ * @version 3.1.0
  */
 'use strict';
 
@@ -98,13 +87,11 @@ function setupUserInfo() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// RBAC — Restricciones por rol
+// RBAC — Restricciones por rol (v3.1: incluye Analista)
 // ══════════════════════════════════════════════════════════════
 function applyConsultaRestrictions() {
     const isAdminCoord = api.isAdminCoord();
-    const canCreate = ['ADMIN', 'COORD', 'ANALISTA'].includes(
-        (api.getCurrentUser().effective_role || api.getCurrentUser().role || '').toUpperCase()
-    );
+    const canCreate = api.canEdit(); // ADMIN, COORD, ANALISTA
 
     const showIf = (id, show) => {
         const el = document.getElementById(id);
@@ -125,7 +112,6 @@ async function loadEmployees(params = {}) {
     const defaults = { page: currentMeta.currentPage, limit: currentMeta.limit };
     const merged = Object.assign({}, defaults, params);
 
-    // Limpiar parámetros vacíos
     Object.keys(merged).forEach(k => {
         if (merged[k] === '' || merged[k] === undefined || merged[k] === null) delete merged[k];
     });
@@ -167,13 +153,15 @@ function renderStats(list, meta) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// RENDERING — Tabla de empleados
-// CORRECCIÓN CRÍTICA: Esta función SOLO renderiza HTML.
-// No contiene ninguna otra función anidada (era el bug principal).
+// RENDERING — Tabla de empleados (v3.1: edición por roles)
 // ══════════════════════════════════════════════════════════════
 function renderTable(list) {
     const tbody = document.getElementById('employees-tbody');
-    const isAdmin = api.isAdmin();
+    const activeUser = typeof api !== 'undefined' ? api.getCurrentUser() : null;
+    const role = (activeUser?.effective_role || activeUser?.role || '').toUpperCase();
+    const canEdit = ['ADMIN', 'COORD', 'ANALISTA'].includes(role);
+    const canDelete = role === 'ADMIN';
+    const canChangeStatus = ['ADMIN', 'COORD', 'ANALISTA', 'USUARIO'].includes(role);
 
     if (!list || !list.length) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--color-muted);">
@@ -189,7 +177,6 @@ function renderTable(list) {
     ];
 
     const rows = list.map(emp => {
-        // Nombre completo desde campos disgregados (con fallback legacy)
         const primerNombre = (emp.primer_nombre || '').trim();
         const segundoNombre = (emp.segundo_nombre || '').trim();
         const primerApellido = (emp.primer_apellido || '').trim();
@@ -214,24 +201,25 @@ function renderTable(list) {
             `<option value="${o.value}" ${(emp.forma_entrega || '') === o.value ? 'selected' : ''}>${o.label}</option>`
         ).join('');
 
-        const activeUser = typeof api !== 'undefined' ? api.getCurrentUser() : null;
-        const role = (activeUser?.effective_role || activeUser?.role || '').toUpperCase();
+        // Acciones en el dropdown
+        const editAction = canEdit ? `
+            <button onclick="event.stopPropagation();openEditor(${emp.id})"
+                style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;
+                background:none;border:none;cursor:pointer;color:#0284c7;font-size:.8rem;">
+                ✏️ Editar
+            </button>` : '';
 
-        const deleteAction = (role === 'ADMIN') ? `
+        const deleteActionHtml = canDelete ? `
             <button onclick="event.stopPropagation();deleteEmployee(${emp.id})"
                 style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;
                 background:none;border:none;cursor:pointer;color:#dc2626;font-size:.8rem;">
                 🗑️ Eliminar
             </button>` : '';
 
-        const adminActions = isAdmin ? `
+        const adminActions = (editAction || deleteActionHtml) ? `
             <hr style="margin:4px 0;border:none;border-top:1px solid #f1f5f9;"/>
-            <button onclick="event.stopPropagation();openEditor(${emp.id})"
-                style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 16px;
-                background:none;border:none;cursor:pointer;color:#0284c7;font-size:.8rem;">
-                ✏️ Editar
-            </button>
-            ${deleteAction}` : '';
+            ${editAction}
+            ${deleteActionHtml}` : '';
 
         return `
         <tr data-id="${emp.id}" onclick="viewEmployee(${emp.id})" style="cursor:pointer;">
@@ -255,7 +243,7 @@ function renderTable(list) {
                     onchange="changeStatus(event, ${emp.id})"
                     onclick="event.stopPropagation()"
                     style="border:none;background:transparent;cursor:pointer;font-weight:600;font-size:.72rem;"
-                    ${!isAdmin ? 'disabled' : ''}>
+                    ${!canChangeStatus ? 'disabled' : ''}>
               ${statusOpts}
             </select>
           </td>
@@ -263,7 +251,7 @@ function renderTable(list) {
             <select onchange="changeEntrega(event, ${emp.id})"
                     style="padding:4px 6px;font-size:.75rem;border:1px solid var(--color-border);
                            border-radius:6px;width:110px;cursor:pointer;"
-                    ${!isAdmin ? 'disabled' : ''}>
+                    ${!canChangeStatus ? 'disabled' : ''}>
               ${entregaOpts}
             </select>
           </td>
@@ -355,7 +343,6 @@ window.toggleDropdown = function (id) {
     closeAllDropdowns();
 
     if (!isOpen) {
-        // Posición calculada con getBoundingClientRect para evitar overflow
         const btn = curr.previousElementSibling;
         const rect = btn.getBoundingClientRect();
 
@@ -548,13 +535,11 @@ function setupModal() {
         const btn = document.getElementById('btn-modal-save');
         const data = Object.fromEntries(new FormData(e.target).entries());
 
-        // Validación de campos obligatorios
         if (!data.cedula || !data.primer_nombre || !data.primer_apellido || !data.cargo || !data.gerencia) {
             ui.showAlert('modal-alert', 'Los campos marcados con * son obligatorios.');
             return;
         }
 
-        // Validación estricta de cédula: solo dígitos
         const cedulaLimpia = (data.cedula || '').trim().replace(/[^0-9]/g, '');
         if (!cedulaLimpia) {
             ui.showAlert('modal-alert', 'La cédula debe contener solo números (sin prefijos V- o E-).');
@@ -906,7 +891,6 @@ function showFloatingToast(message, type = 'success') {
     }, 4500);
 }
 
-// ── Estilos dinámicos necesarios ─────────────────────────────
 if (!document.getElementById('dashboard-dynamic-styles')) {
     const style = document.createElement('style');
     style.id = 'dashboard-dynamic-styles';
@@ -917,5 +901,4 @@ if (!document.getElementById('dashboard-dynamic-styles')) {
     document.head.appendChild(style);
 }
 
-// ── Arrancar ──────────────────────────────────────────────────
 init();

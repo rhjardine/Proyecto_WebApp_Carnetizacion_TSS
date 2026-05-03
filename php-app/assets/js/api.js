@@ -1,20 +1,12 @@
 /**
- * api.js — Cliente HTTP SCI-TSS v3.0
+ * api.js — Cliente HTTP SCI-TSS v3.1
  * =====================================
- * REMEDIACIÓN INTEGRAL:
+ * REMEDIACIÓN CRÍTICA v3.1:
+ *  - initCsrf() ahora obtiene el token del servidor (csrf.php) y lo guarda en memoria.
+ *  - Las peticiones mutantes usan _csrfToken en lugar de current_user.csrf_token.
+ *  - Se mantiene la normalización de empleados y la corrección del login (v3.0).
  *
- * BUGS CORREGIDOS:
- *  1. login(): guardaba res completo en sessionStorage en lugar de res.data
- *     → getCurrentUser() devolvía { success, message, ... } sin username/role
- *     → TODO el sistema de roles/navegación fallaba silenciosamente
- *
- *  2. isAdmin/isCoord/isAdminCoord() buscaban user.role pero tras el fix del
- *     login ahora res.data.role está correctamente disponible.
- *
- *  3. getEmployees() con params.id: el backend puede devolver un objeto o array.
- *     Normalización unificada en normalizarEmpleado().
- *
- * @version 3.0.0
+ * @version 3.1.0
  */
 'use strict';
 
@@ -23,6 +15,9 @@ const MOCK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5
 const VALIDATION_BASE_URL = 'https://carnetizacion.tss.gob.ve/validar';
 const API_BASE = '';
 const APP_BASE_PATH = window.location.pathname.replace(/\/[^/]*$/, '');
+
+// ── TOKEN CSRF EN MEMORIA (CORREGIDO v3.1) ────────────────────
+let _csrfToken = null;
 
 // ── HELPERS de URL de fotos ───────────────────────────────────
 function resolvePhotoUrl(rawUrl) {
@@ -68,12 +63,13 @@ async function request(url, method = 'GET', body = null) {
         credentials: 'same-origin',
     };
 
-    // Inyectar CSRF token en peticiones mutantes
+    // Inyectar CSRF token en peticiones mutantes (usa _csrfToken real)
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
-        try {
-            const u = api.getCurrentUser();
-            if (u && u.csrf_token) options.headers['X-CSRF-Token'] = u.csrf_token;
-        } catch (_) { }
+        if (_csrfToken) {
+            options.headers['X-CSRF-Token'] = _csrfToken;
+        } else {
+            console.warn('[SCI-TSS] CSRF token no disponible. La petición podría ser rechazada.');
+        }
     }
 
     if (body !== null) options.body = JSON.stringify(body);
@@ -115,10 +111,10 @@ async function requestFormData(url, method = 'POST', formData) {
         body: formData,
         credentials: 'same-origin',
     };
-    try {
-        const u = api.getCurrentUser();
-        if (u && u.csrf_token) options.headers['X-CSRF-Token'] = u.csrf_token;
-    } catch (_) { }
+
+    if (_csrfToken) {
+        options.headers['X-CSRF-Token'] = _csrfToken;
+    }
 
     let response;
     try {
@@ -156,29 +152,43 @@ function makeAvatar(name = '?', bg = null) {
 // ══════════════════════════════════════════════════════════════
 const api = {
 
-    initCsrf: async () => true,  // CSRF se gestiona via sesión PHP + respuesta de login
+    // ═══ CSRF REAL (REMEDIADO v3.1) ═══════════════════════════
+    async initCsrf() {
+        try {
+            const res = await fetch(API_BASE + 'api/auth/csrf.php', {
+                credentials: 'same-origin'
+            });
+            if (!res.ok) throw new Error('No autorizado');
+            const data = await res.json();
+            if (data.success && data.csrf_token) {
+                _csrfToken = data.csrf_token;
+                return true;
+            }
+        } catch (e) {
+            console.error('[SCI-TSS] Error al obtener CSRF token:', e);
+        }
+        return false;
+    },
 
     // ── AUTH ──────────────────────────────────────────────────
-    /**
-     * CORRECCIÓN CRÍTICA v3.0:
-     * El backend retorna { success, message, csrf_token, data: { id, username, ... } }
-     * Guardamos res.data (los datos del usuario) en sessionStorage.
-     * ANTES se guardaba res completo → getCurrentUser() devolvía campos incorrectos.
-     */
     login: async (username, password) => {
         const res = await request('api/auth/login.php', 'POST', { username, password });
         const userData = res.data || {};
-        // Asegurar csrf_token disponible en userData para peticiones posteriores
-        if (!userData.csrf_token && res.csrf_token) {
-            userData.csrf_token = res.csrf_token;
-        }
+        // Ya no guardamos csrf_token en sessionStorage; se maneja con _csrfToken
         sessionStorage.setItem('current_user', JSON.stringify(userData));
+        // Actualizar _csrfToken desde la respuesta del login
+        if (res.csrf_token) {
+            _csrfToken = res.csrf_token;
+        }
         return res;
     },
 
     logout: async () => {
         try { await request('api/auth/logout.php', 'POST'); } catch (_) { }
-        finally { sessionStorage.removeItem('current_user'); }
+        finally {
+            sessionStorage.removeItem('current_user');
+            _csrfToken = null;
+        }
         return { success: true };
     },
 
@@ -204,6 +214,11 @@ const api = {
         const u = api.getCurrentUser();
         const role = (u.effective_role || u.role || '').toUpperCase();
         return ['ADMIN', 'COORD'].includes(role);
+    },
+    canEdit: () => {
+        const u = api.getCurrentUser();
+        const role = (u.effective_role || u.role || '').toUpperCase();
+        return ['ADMIN', 'COORD', 'ANALISTA'].includes(role);
     },
 
     // ── USUARIOS ──────────────────────────────────────────────

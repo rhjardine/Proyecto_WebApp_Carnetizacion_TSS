@@ -5,10 +5,10 @@
  * Sistema de Carnetización Inteligente (SCI-TSS)
  * Esquema: carnetizacion_tss
  *
- * REFACTORIZACIÓN v2.1 (ADAPTADA AL SCHEMA MAESTRO DEFINITIVO):
- * - Mantiene TODA la lógica original (upload_payroll, auto_match, patch).
- * - Se eliminó la dependencia de 'nivel_permiso' (Deprecado en el nuevo DB Schema).
- * - Alias de columnas (nombres, apellidos) añadidos para compatibilidad con JS antiguo.
+ * REFACTORIZACIÓN v3.1 (REMEDIACIÓN CRÍTICA):
+ * - Permiso 'carnet.update' exigido para actualizaciones (POST con id).
+ * - Lista blanca ampliada: nivel_permiso, vencimiento, datos_adicionales.
+ * - Manejo correcto de datos_adicionales como JSON.
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -43,17 +43,15 @@ if (!function_exists('logAction')) {
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 $userId = $_SESSION['user_id'] ?? null;
-$rolEf = $_SESSION['role'] ?? ''; // <-- Agregamos la captura del Rol Efectivo
+$rolEf = $_SESSION['role'] ?? '';
 
 // HARDENING: NIST RBAC Enforcement
+// GET → todos los roles con carnet.view_all
 if ($method === 'GET')
     Security::requirePermission($db, 'carnet.view_all');
-if ($method === 'POST')
-    Security::requirePermission($db, 'carnet.create');
+// POST → se decide dentro del case entre carnet.create (nuevo) y carnet.update (edición)
+// DELETE → solo ADMIN
 if ($method === 'DELETE') {
-    // FIX: Se reemplaza el requerimiento del permiso 'carnet.delete' por
-    // una validación estricta de rol ADMIN para evitar el error 403 
-    // en esquemas donde el permiso individual no está definido.
     if ($rolEf !== 'ADMIN') {
         sendResponse(false, 'Acceso denegado. Solo un Administrador puede eliminar registros físicos.', null, 403);
     }
@@ -63,7 +61,7 @@ if ($method === 'DELETE') {
 const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
 const FORMAS_ENTREGA = ['', 'Manual', 'Digital'];
 
-// FIX: 'nivel_permiso' retirado porque ya no existe en la BD unificada
+// v3.1: Campos editables ampliados para incluir los campos del Editor
 const CAMPOS_EDITABLES = [
     'primer_nombre',
     'segundo_nombre',
@@ -71,7 +69,10 @@ const CAMPOS_EDITABLES = [
     'segundo_apellido',
     'cargo',
     'estado_laboral',
-    'forma_entrega'
+    'forma_entrega',
+    'nivel_permiso',
+    'vencimiento',
+    'datos_adicionales'
 ];
 
 try {
@@ -106,7 +107,7 @@ try {
                     http_response_code(404);
                     echo json_encode(['success' => false, 'error' => 'Registro de empleado no encontrado.']);
                 }
-                exit; // CRÍTICO: Prevenir doble respuesta JSON concatenada
+                exit;
             }
 
             // ── Lista paginada ───────────────────────────────────────
@@ -116,12 +117,10 @@ try {
             $status = trim($_GET['status'] ?? '');
             $offset = ($page - 1) * $limit;
 
-            // Validar status contra whitelist
             if ($status !== '' && !in_array($status, ESTADOS_VALIDOS, true)) {
-                $status = ''; // Ignorar valores no válidos
+                $status = '';
             }
 
-            // ── Construcción del WHERE dinámico ──────────────────────
             $conditions = [];
             $params = [];
 
@@ -148,13 +147,11 @@ try {
 
             $where = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
-            // ── Conteo total (para paginación) ───────────────────────
             $cStmt = $db->prepare("SELECT COUNT(*) FROM empleados e {$where}");
             $cStmt->execute($params);
             $total = (int) $cStmt->fetchColumn();
             $totalPages = (int) ceil($total / $limit);
 
-            // ── Consulta principal ───────────────────────────────────
             $dStmt = $db->prepare("
                 SELECT
                     e.*,
@@ -169,7 +166,6 @@ try {
                 LIMIT ? OFFSET ?
             ");
 
-            // Bind params de filtro + paginación
             $allParams = array_merge($params, [$limit, $offset]);
             $dStmt->execute($allParams);
             $lista = $dStmt->fetchAll();
@@ -197,6 +193,7 @@ try {
 
             // ── Acciones especiales ──────────────────────────────────
             if ($action === 'upload_payroll') {
+                Security::requirePermission($db, 'carnet.create');
                 $rows = $input['rows'] ?? [];
                 $added = 0;
                 $db->beginTransaction();
@@ -219,7 +216,6 @@ try {
                             $nac = strtoupper(trim($r['Nacionalidad'])) === 'E' ? 'E' : 'V';
                         }
 
-                        // Resolución de gerencia por nombre
                         $gerNom = trim($r['Gerencia'] ?? $r['gerencia'] ?? '');
                         $gerId = null;
                         if ($gerNom) {
@@ -254,6 +250,7 @@ try {
             }
 
             if ($action === 'auto_match') {
+                Security::requirePermission($db, 'carnet.approve');
                 logAction($db, $userId, 'AUTO_MATCH_EJECUTADO', ['modo' => 'placeholder']);
                 sendResponse(true, 'Auto-Match ejecutado. Sin cambios aplicados en esta versión.');
                 break;
@@ -261,14 +258,22 @@ try {
 
             // ── Actualización parcial (PATCH semántico sobre POST) ──
             if ($id) {
+                // v3.1: Se requiere permiso específico de actualización
+                Security::requirePermission($db, 'carnet.update');
+
                 $setClauses = [];
                 $values = [];
 
-                // Campos básicos editables (whitelist)
+                // Campos básicos editables (whitelist ampliada)
                 foreach (CAMPOS_EDITABLES as $campo) {
                     if (array_key_exists($campo, $input)) {
+                        $val = $input[$campo] ?? null;
+                        // Convertir arrays/objetos en datos_adicionales a JSON string
+                        if ($campo === 'datos_adicionales' && is_array($val)) {
+                            $val = json_encode($val, JSON_UNESCAPED_UNICODE);
+                        }
                         $setClauses[] = "{$campo} = ?";
-                        $values[] = $input[$campo] ?? null;
+                        $values[] = $val;
                     }
                 }
 
@@ -321,6 +326,8 @@ try {
             }
 
             // ── Creación de nuevo empleado ───────────────────────────
+            Security::requirePermission($db, 'carnet.create');
+
             $cedula = preg_replace('/[^0-9]/', '', trim($input['cedula'] ?? ''));
             $primerNombre = trim($input['primer_nombre'] ?? $input['nombres'] ?? '');
             $primerApellido = trim($input['primer_apellido'] ?? $input['apellidos'] ?? '');
@@ -333,7 +340,6 @@ try {
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
             $fechaIngreso = trim($input['fecha_ingreso'] ?? '');
 
-            // Validaciones
             if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10) {
                 sendResponse(false, 'La cédula debe contener entre 5 y 10 dígitos numéricos.', null, 400);
                 break;
@@ -347,7 +353,6 @@ try {
                 break;
             }
 
-            // Validar que la cédula no exista
             $check = $db->prepare("SELECT id FROM empleados WHERE cedula = ? LIMIT 1");
             $check->execute([$cedula]);
             if ($check->fetchColumn()) {
@@ -355,7 +360,6 @@ try {
                 break;
             }
 
-            // Resolver gerencia por nombre
             $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
             $gStmt->execute([$gerenciaNom]);
             $gerenciaId = $gStmt->fetchColumn();
@@ -369,7 +373,6 @@ try {
                 ? $fechaIngreso
                 : date('Y-m-d');
 
-            // INSERT FIX: Removido nivel_permiso
             $stmt = $db->prepare("
                 INSERT INTO empleados
                     (nacionalidad, cedula, primer_nombre, segundo_nombre,
