@@ -5,8 +5,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Editor de Carnet (Avanzado) — TSS</title>
-    <!-- Tailwind CSS (UI del editor) -->
-    <script src="https://cdn.tailwindcss.com"></script>
     <!-- Cropper.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
     <!-- SweetAlert2 -->
@@ -19,8 +17,207 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Estilos base del sistema (mantenemos el sidebar) -->
     <link rel="stylesheet" href="assets/css/style.css" />
-    <!-- Estilos adicionales propios del editor avanzado -->
+    <!-- Estilos adicionales propios del editor avanzado (sin Tailwind CDN) -->
     <style>
+        /* Utilidades mínimas para reemplazar Tailwind */
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .flex-1 {
+            flex: 1;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .w-72 {
+            width: 18rem;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .h-full {
+            height: 100%;
+        }
+
+        .h-8 {
+            height: 2rem;
+        }
+
+        .bg-white {
+            background-color: #fff;
+        }
+
+        .bg-gray-100 {
+            background-color: #f3f4f6;
+        }
+
+        .bg-gray-200 {
+            background-color: #e5e7eb;
+        }
+
+        .bg-gray-800 {
+            background-color: #1f2937;
+        }
+
+        .bg-black {
+            background-color: #000;
+        }
+
+        .bg-opacity-70 {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .text-white {
+            color: #fff;
+        }
+
+        .text-gray-500 {
+            color: #6b7280;
+        }
+
+        .text-gray-700 {
+            color: #374151;
+        }
+
+        .text-xs {
+            font-size: 0.75rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .p-2 {
+            padding: 0.5rem;
+        }
+
+        .p-4 {
+            padding: 1rem;
+        }
+
+        .p-6 {
+            padding: 1.5rem;
+        }
+
+        .px-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .py-1 {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+        }
+
+        .py-2 {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-3 {
+            gap: 0.75rem;
+        }
+
+        .gap-4 {
+            gap: 1rem;
+        }
+
+        .rounded {
+            border-radius: 0.375rem;
+        }
+
+        .rounded-lg {
+            border-radius: 0.5rem;
+        }
+
+        .shadow {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .shadow-md {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .overflow-y-auto {
+            overflow-y: auto;
+        }
+
+        .overflow-hidden {
+            overflow: hidden;
+        }
+
+        .border-b {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .pb-1 {
+            padding-bottom: 0.25rem;
+        }
+
+        .mb-2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .mt-2 {
+            margin-top: 0.5rem;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-end {
+            justify-content: flex-end;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .relative {
+            position: relative;
+        }
+
+        .fixed {
+            position: fixed;
+        }
+
+        .inset-0 {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+        }
+
+        .z-50 {
+            z-index: 50;
+        }
+
         .canvas-container {
             border: 2px solid #e2e8f0;
             border-radius: 8px;
@@ -33,6 +230,14 @@
 
         .toolbar-btn:hover {
             background: #f1f5f9;
+        }
+
+        #crop-modal {
+            display: none;
+        }
+
+        #crop-modal.flex {
+            display: flex;
         }
     </style>
 </head>
@@ -138,7 +343,7 @@
 
                 <!-- Área central: Vistas del carnet (anverso/reverso) -->
                 <div class="flex-1 p-4 flex flex-col items-center gap-4">
-                    <!-- Selector de cara y orientación (se mantiene la esencia) -->
+                    <!-- Selector de cara y orientación -->
                     <div class="flex gap-2 bg-white rounded-lg shadow p-2">
                         <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Anverso</button>
                         <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Reverso</button>
@@ -154,7 +359,7 @@
                         </div>
                     </div>
 
-                    <!-- Barra de zoom (simplificada, Fabric.js tiene su propio zoom) -->
+                    <!-- Barra de zoom -->
                     <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
                 </div>
             </div>
@@ -162,7 +367,7 @@
     </div>
 
     <!-- Modal de recorte (Cropper.js) -->
-    <div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+    <div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-11/12 max-w-2xl flex flex-col gap-4">
             <h3 class="text-lg font-bold">Recortar Fotografía (3:4)</h3>
             <div class="flex-1 min-h-0">
@@ -194,7 +399,7 @@
                 this.cancelBtn = document.getElementById('btn-crop-cancel');
                 this.applyBtn = document.getElementById('btn-crop-apply');
                 this.fileInput = document.getElementById('photo-file-input');
-                this.callback = null; // función que recibe dataURL
+                this.callback = null;
                 this._bindEvents();
             }
 
@@ -207,8 +412,8 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         this.image.src = ev.target.result;
-                        this.modal.classList.remove('hidden');
                         this.modal.classList.add('flex');
+                        this.modal.style.display = 'flex'; // Aseguramos visualización
                         // Inicializar Cropper después de que la imagen esté cargada
                         if (this.cropper) this.cropper.destroy();
                         this.cropper = new Cropper(this.image, {
@@ -226,8 +431,8 @@
                 });
 
                 this.cancelBtn.addEventListener('click', () => {
-                    this.modal.classList.add('hidden');
                     this.modal.classList.remove('flex');
+                    this.modal.style.display = 'none';
                     if (this.cropper) {
                         this.cropper.destroy();
                         this.cropper = null;
@@ -238,15 +443,14 @@
                     if (!this.cropper) return;
                     const croppedCanvas = this.cropper.getCroppedCanvas({ width: 300, height: 400 });
                     const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.92);
-                    this.modal.classList.add('hidden');
                     this.modal.classList.remove('flex');
+                    this.modal.style.display = 'none';
                     this.cropper.destroy();
                     this.cropper = null;
                     if (this.callback) this.callback(dataUrl);
                 });
             }
 
-            // Permite a UIManager suscribirse al resultado del recorte
             onPhotoCropped(callback) {
                 this.callback = callback;
             }
@@ -261,13 +465,12 @@
                 this.employeeData = null;
                 this.photoDataUrl = null;
                 this.qrDataUrl = null;
-                // Nodos de texto referenciados por clave para actualizar fácilmente
+                // Nodos de texto referenciados por clave
                 this.textNodes = {};
                 this.photoNode = null;
                 this.qrNode = null;
             }
 
-            // Inicializar ambos lienzos de Fabric
             init(frontCanvasEl, backCanvasEl) {
                 this.frontCanvas = new fabric.Canvas(frontCanvasEl, {
                     backgroundColor: '#ffffff',
@@ -288,12 +491,11 @@
                 this.backCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
                 this.backCanvas.on('selection:cleared', () => this._onObjectSelected(null));
 
-                // Cargar fondos por defecto (podrían venir de settings)
+                // Cargar fondos por defecto
                 this._loadDefaultBackgrounds();
             }
 
             _loadDefaultBackgrounds() {
-                // Fondo blanco con borde sutil para simular carnet
                 const defaultBg = 'data:image/svg+xml,' + encodeURIComponent(`
             <svg xmlns="http://www.w3.org/2000/svg" width="520" height="326">
                 <rect width="100%" height="100%" fill="#ffffff" rx="10"/>
@@ -306,7 +508,6 @@
                 }, { crossOrigin: 'anonymous' });
             }
 
-            // Colocar los datos del empleado en el canvas seleccionado
             setEmployeeData(employee, photoDataUrl, qrDataUrl) {
                 this.employeeData = employee;
                 this.photoDataUrl = photoDataUrl;
@@ -316,7 +517,7 @@
                 this.frontCanvas.getObjects().forEach(obj => { if (obj !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(obj); });
                 this.backCanvas.getObjects().forEach(obj => { if (obj !== this.backCanvas.backgroundImage) this.backCanvas.remove(obj); });
 
-                // Crear textos en posiciones predeterminadas (coordenadas iniciales)
+                // Crear textos en posiciones predeterminadas
                 this.textNodes.nombres = this._addText(this.frontCanvas, employee.nombres || '', 130, 60, 16, '#000000', 'Arial');
                 this.textNodes.apellidos = this._addText(this.frontCanvas, employee.apellidos || '', 130, 90, 18, '#003366', 'Arial');
                 this.textNodes.cargo = this._addText(this.frontCanvas, employee.cargo || '', 130, 150, 14, '#333333', 'Arial');
@@ -368,13 +569,13 @@
                     fontFamily: fontFamily,
                     hasControls: true,
                     hasBorders: true,
-                    editable: true
+                    editable: true,
+                    textBaseline: 'alphabetic'   // ← Corrección del error textBaseline
                 });
                 canvas.add(fabricText);
                 return fabricText;
             }
 
-            // Actualizar textos desde el formulario (se llama al guardar datos del empleado)
             updateTextFromForm(formData) {
                 if (this.textNodes.nombres) this.textNodes.nombres.set('text', formData.nombres || '');
                 if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', formData.apellidos || '');
@@ -385,7 +586,6 @@
                 this.backCanvas.renderAll();
             }
 
-            // Método para actualizar estilos del objeto seleccionado
             updateSelectedStyle(properties) {
                 const activeCanvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
                 const obj = activeCanvas.getActiveObject();
@@ -397,7 +597,6 @@
                 }
             }
 
-            // Devolver el JSON del layout
             serializeLayout() {
                 const layout = {
                     front: this.frontCanvas.getObjects().map(obj => this._serializeObject(obj)),
@@ -422,7 +621,6 @@
                 };
             }
 
-            // Exportar JPG del lado actual
             exportJPG(side) {
                 const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
                 const dataURL = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
@@ -433,7 +631,6 @@
             }
 
             _onObjectSelected(obj) {
-                // Notificar al UIManager para actualizar panel de estilo
                 if (obj && obj.type === 'i-text') {
                     document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
                     document.getElementById('font-size-input').value = obj.fontSize || 14;
@@ -445,7 +642,7 @@
             }
         }
 
-        // ---------- UI MANAGER (Coordinación general) ----------
+        // ---------- UI MANAGER ----------
         class UIManager {
             constructor() {
                 this.photoManager = new PhotoManager();
@@ -456,7 +653,6 @@
             }
 
             async init() {
-                // 1. Autenticación y datos del usuario
                 const user = api.getCurrentUser();
                 if (!user.username) { window.location.href = 'login.html'; return; }
                 document.getElementById('user-name').textContent = user.full_name || user.username;
@@ -467,18 +663,14 @@
                     window.location.href = 'login.html';
                 });
 
-                // 2. CSRF
                 if (typeof api.initCsrf === 'function') await api.initCsrf();
 
-                // 3. Inicializar Canvas
                 const frontCanvasEl = document.getElementById('canvas-anverso');
                 const backCanvasEl = document.getElementById('canvas-reverso');
                 this.canvasManager.init(frontCanvasEl, backCanvasEl);
 
-                // 4. Cargar empleado (por ID heredado de dashboard o localStorage)
                 let storedId = localStorage.getItem('selected_employee_id');
                 if (!storedId) {
-                    // Fallback: cargar último si hay
                     const res = await api.getEmployees({ limit: 1 });
                     if (res.data && res.data.length) storedId = res.data[0].id;
                 }
@@ -496,10 +688,7 @@
                     }
                 }
 
-                // 5. Configurar eventos de UI
                 this._bindUIEvents();
-
-                // 6. Mostrar panel frontal por defecto
                 this._switchSide('front');
             }
 
@@ -508,7 +697,6 @@
                 document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
                 document.getElementById('edit-cedula').value = emp.cedula || '';
                 document.getElementById('edit-cargo').value = emp.cargo || '';
-                // Poblar selector de gerencia
                 this._populateGerenciaSelect(emp.gerencia);
             }
 
@@ -543,13 +731,7 @@
             }
 
             _loadCanvasData() {
-                // Foto: si el empleado tiene foto_url, la cargamos como base (no se usa Cropper inicialmente)
-                let photoUrl = null;
-                if (this.employee.photo_url || this.employee.foto_url) {
-                    photoUrl = this.employee.photo_url || this.employee.foto_url;
-                } else {
-                    photoUrl = this._generateAvatar();
-                }
+                let photoUrl = (this.employee.photo_url || this.employee.foto_url) || this._generateAvatar();
                 this.canvasManager.setEmployeeData(this.employee, photoUrl, this.qrDataUrl);
             }
 
@@ -559,7 +741,6 @@
             }
 
             _bindUIEvents() {
-                // Guardar datos del empleado
                 document.getElementById('form-edit-employee').addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const btn = document.getElementById('btn-save-fields');
@@ -568,9 +749,8 @@
                         apellidos: document.getElementById('edit-apellidos').value.trim(),
                         cargo: document.getElementById('edit-cargo').value.trim(),
                         gerencia: document.getElementById('edit-gerencia').value,
-                        cedula: document.getElementById('edit-cedula').value // readonly
+                        cedula: document.getElementById('edit-cedula').value
                     };
-                    // Descomponer nombres y apellidos para la API
                     const nombresParts = data.nombres.split(' ');
                     const apellidosParts = data.apellidos.split(' ');
                     const fields = {
@@ -587,7 +767,6 @@
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
                         await api.updateEmployee(this.employee.id, fields);
-                        // Actualizar datos locales y canvas
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
                         showEditorToast('Datos del funcionario actualizados.', 'success');
@@ -598,9 +777,7 @@
                     }
                 });
 
-                // Recorte de foto: al recibir el dataURL del PhotoManager, actualizar photo node
                 this.photoManager.onPhotoCropped((dataUrl) => {
-                    // Reemplazar foto en el canvas
                     if (this.canvasManager.photoNode) {
                         this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
                     }
@@ -618,11 +795,9 @@
                         this.canvasManager.frontCanvas.add(img);
                         this.canvasManager.frontCanvas.renderAll();
                     });
-                    // No actualizamos la BD ahora, podría hacerse con botón aparte
                     showEditorToast('Foto recortada aplicada al diseño.', 'success');
                 });
 
-                // Botón aplicar estilo a selección
                 document.getElementById('btn-apply-text-style').addEventListener('click', () => {
                     const fontFamily = document.getElementById('font-family-select').value;
                     const fontSize = parseInt(document.getElementById('font-size-input').value, 10);
@@ -630,12 +805,10 @@
                     this.canvasManager.updateSelectedStyle({ fontFamily, fontSize, fill });
                 });
 
-                // Botón exportar JPG
                 document.getElementById('btn-export-jpg').addEventListener('click', () => {
                     this.canvasManager.exportJPG(this.canvasManager.currentSide);
                 });
 
-                // Botón guardar layout
                 document.getElementById('btn-save-layout').addEventListener('click', () => {
                     const layoutJson = this.canvasManager.serializeLayout();
                     console.log('📐 Layout a guardar (enviar a api/settings.php):', layoutJson);
@@ -647,7 +820,6 @@
                     });
                 });
 
-                // Cambio entre anverso y reverso
                 document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
@@ -680,7 +852,6 @@
             }
         }
 
-        // Función auxiliar para toast (reutilizada del sistema)
         function showEditorToast(message, type = 'success') {
             const c = {
                 success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
@@ -694,7 +865,6 @@
             setTimeout(() => t.remove(), 3500);
         }
 
-        // Inicializar todo al cargar
         document.addEventListener('DOMContentLoaded', () => {
             new UIManager();
         });
