@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor de Carnet (Avanzado) — TSS</title>
+    <!-- Tailwind CSS (UI del editor) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cropper.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- Dependencias existentes -->
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Estilos base del sistema (mantenemos el sidebar) -->
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <!-- Estilos adicionales propios del editor avanzado -->
+    <style>
+        .canvas-container {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .toolbar-btn {
+            cursor: pointer;
+        }
+
+        .toolbar-btn:hover {
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+
+    <div class="app-layout">
+        <!-- Sidebar (idéntico al original para no romper navegación) -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <img src="assets/img/logo_tss.png" alt="TSS" style="width: 32px; height: auto;">
+                </div>
+                <div class="sidebar-brand-text">
+                    <h1>SCI–TSS</h1>
+                    <p>Carnetización Inteligente</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-link" id="nav-dashboard"><span class="icon">📊</span> Panel
+                    General</a>
+                <a href="upload.html" class="nav-link" id="nav-upload"> <span class="icon">📤</span> Portal de Carga</a>
+                <a href="editor_advanced.html" class="nav-link active" id="nav-editor"><span class="icon">🪪</span>
+                    Editor Avanzado</a>
+                <a href="config.html" class="nav-link" id="nav-config"> <span class="icon">⚙️</span> Ajustes</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar" id="user-avatar">?</div>
+                <div class="sidebar-user-info">
+                    <p id="user-name">Cargando...</p><span id="user-role">...</span>
+                </div>
+                <button class="sidebar-logout" id="btn-logout" title="Salir del sistema">⬡</button>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <a href="dashboard.html" style="color:var(--color-muted);font-size:.85rem;">← Volver al
+                        Dashboard</a>
+                    <h2 style="margin-top:4px;">Editor y Diseñador de Carnet (Interactivo)</h2>
+                    <p id="editor-subtitle">Cargando datos del empleado...</p>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-secondary" onclick="UIManager.printCard()">🖨️ Imprimir</button>
+                    <button class="btn btn-primary" id="btn-export-jpg">⬇ Exportar JPG</button>
+                </div>
+            </div>
+
+            <!-- Panel de herramientas y lienzos -->
+            <div class="flex h-full">
+                <!-- Barra lateral izquierda: datos del empleado + configuración de estilo -->
+                <div class="w-72 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
+                    <!-- Formulario de datos del empleado (funcionalidad original) -->
+                    <div>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📝 Datos del Funcionario</h3>
+                        <form id="form-edit-employee" class="flex flex-col gap-2">
+                            <input type="text" id="edit-nombres" placeholder="Nombres" class="form-input" required />
+                            <input type="text" id="edit-apellidos" placeholder="Apellidos" class="form-input"
+                                required />
+                            <input type="text" id="edit-cedula" placeholder="Cédula" class="form-input" readonly />
+                            <input type="text" id="edit-cargo" placeholder="Cargo" class="form-input" required />
+                            <select id="edit-gerencia" class="form-input form-select"></select>
+                            <div class="flex gap-2">
+                                <button type="submit" id="btn-save-fields" class="btn btn-primary flex-1">💾 Guardar
+                                    Datos</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Herramientas de diseño sobre el canvas -->
+                    <div>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">🎨 Estilo de texto</h3>
+                        <div class="flex flex-col gap-2" id="text-style-panel">
+                            <label class="text-xs">Fuente</label>
+                            <select id="font-family-select" class="form-input form-select">
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                            </select>
+                            <label class="text-xs">Tamaño</label>
+                            <input type="number" id="font-size-input" class="form-input" value="14" min="6" max="72" />
+                            <label class="text-xs">Color</label>
+                            <input type="color" id="color-picker" class="form-input h-8" value="#000000" />
+                            <button id="btn-apply-text-style" class="btn btn-secondary">Aplicar a selección</button>
+                        </div>
+                    </div>
+
+                    <!-- Botones de fotografía y recorte (usará Cropper.js) -->
+                    <div>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📸 Fotografía</h3>
+                        <input type="file" id="photo-file-input" accept="image/*" class="hidden" />
+                        <button id="btn-load-photo" class="btn btn-primary w-full">📸 Cargar Nueva Foto</button>
+                    </div>
+
+                    <!-- Botón de guardado de layout -->
+                    <div>
+                        <button id="btn-save-layout" class="btn btn-secondary w-full">💾 Guardar Layout (JSON)</button>
+                    </div>
+                </div>
+
+                <!-- Área central: Vistas del carnet (anverso/reverso) -->
+                <div class="flex-1 p-4 flex flex-col items-center gap-4">
+                    <!-- Selector de cara y orientación (se mantiene la esencia) -->
+                    <div class="flex gap-2 bg-white rounded-lg shadow p-2">
+                        <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Anverso</button>
+                        <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Reverso</button>
+                    </div>
+
+                    <!-- Contenedores Canvas (se mostrará uno u otro) -->
+                    <div class="flex gap-4 justify-center items-start flex-wrap">
+                        <div class="canvas-container" id="front-container">
+                            <canvas id="canvas-anverso" width="520" height="326"></canvas>
+                        </div>
+                        <div class="canvas-container hidden" id="back-container">
+                            <canvas id="canvas-reverso" width="520" height="326"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Barra de zoom (simplificada, Fabric.js tiene su propio zoom) -->
+                    <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de recorte (Cropper.js) -->
+    <div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-11/12 max-w-2xl flex flex-col gap-4">
+            <h3 class="text-lg font-bold">Recortar Fotografía (3:4)</h3>
+            <div class="flex-1 min-h-0">
+                <img id="crop-image" src="" alt="Imagen a recortar" class="max-w-full" />
+            </div>
+            <div class="flex justify-end gap-3">
+                <button id="btn-crop-cancel" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+                <button id="btn-crop-apply" class="px-4 py-2 bg-blue-600 text-white rounded">Aplicar Recorte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts del sistema existente -->
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/validaciones.js"></script>
+
+    <script>
+        // ===================================================================
+        // SCI-TSS Editor Avanzado — Implementación modular ES6
+        // Clases: PhotoManager, CanvasManager, UIManager
+        // ===================================================================
+
+        // ---------- PHOTO MANAGER (Cropper.js) ----------
+        class PhotoManager {
+            constructor() {
+                this.cropper = null;
+                this.modal = document.getElementById('crop-modal');
+                this.image = document.getElementById('crop-image');
+                this.cancelBtn = document.getElementById('btn-crop-cancel');
+                this.applyBtn = document.getElementById('btn-crop-apply');
+                this.fileInput = document.getElementById('photo-file-input');
+                this.callback = null; // función que recibe dataURL
+                this._bindEvents();
+            }
+
+            _bindEvents() {
+                // Abrir modal al seleccionar archivo
+                document.getElementById('btn-load-photo').addEventListener('click', () => this.fileInput.click());
+                this.fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        this.image.src = ev.target.result;
+                        this.modal.classList.remove('hidden');
+                        this.modal.classList.add('flex');
+                        // Inicializar Cropper después de que la imagen esté cargada
+                        if (this.cropper) this.cropper.destroy();
+                        this.cropper = new Cropper(this.image, {
+                            aspectRatio: 3 / 4,           // Relación fija 3:4
+                            viewMode: 1,
+                            autoCropArea: 0.9,
+                            movable: true,
+                            zoomable: true,
+                            rotatable: false,
+                            scalable: false
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                    this.fileInput.value = ''; // permitir volver a seleccionar el mismo archivo
+                });
+
+                this.cancelBtn.addEventListener('click', () => {
+                    this.modal.classList.add('hidden');
+                    this.modal.classList.remove('flex');
+                    if (this.cropper) {
+                        this.cropper.destroy();
+                        this.cropper = null;
+                    }
+                });
+
+                this.applyBtn.addEventListener('click', () => {
+                    if (!this.cropper) return;
+                    const croppedCanvas = this.cropper.getCroppedCanvas({ width: 300, height: 400 });
+                    const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.92);
+                    this.modal.classList.add('hidden');
+                    this.modal.classList.remove('flex');
+                    this.cropper.destroy();
+                    this.cropper = null;
+                    if (this.callback) this.callback(dataUrl);
+                });
+            }
+
+            // Permite a UIManager suscribirse al resultado del recorte
+            onPhotoCropped(callback) {
+                this.callback = callback;
+            }
+        }
+
+        // ---------- CANVAS MANAGER (Fabric.js) ----------
+        class CanvasManager {
+            constructor() {
+                this.frontCanvas = null;
+                this.backCanvas = null;
+                this.currentSide = 'front'; // 'front' | 'back'
+                this.employeeData = null;
+                this.photoDataUrl = null;
+                this.qrDataUrl = null;
+                // Nodos de texto referenciados por clave para actualizar fácilmente
+                this.textNodes = {};
+                this.photoNode = null;
+                this.qrNode = null;
+            }
+
+            // Inicializar ambos lienzos de Fabric
+            init(frontCanvasEl, backCanvasEl) {
+                this.frontCanvas = new fabric.Canvas(frontCanvasEl, {
+                    backgroundColor: '#ffffff',
+                    selection: true,
+                    preserveObjectStacking: true
+                });
+                this.backCanvas = new fabric.Canvas(backCanvasEl, {
+                    backgroundColor: '#ffffff',
+                    selection: true,
+                    preserveObjectStacking: true
+                });
+
+                // Escuchar cambios de selección para actualizar panel de estilo
+                this.frontCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
+                this.frontCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
+                this.frontCanvas.on('selection:cleared', () => this._onObjectSelected(null));
+                this.backCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
+                this.backCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
+                this.backCanvas.on('selection:cleared', () => this._onObjectSelected(null));
+
+                // Cargar fondos por defecto (podrían venir de settings)
+                this._loadDefaultBackgrounds();
+            }
+
+            _loadDefaultBackgrounds() {
+                // Fondo blanco con borde sutil para simular carnet
+                const defaultBg = 'data:image/svg+xml,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="520" height="326">
+                <rect width="100%" height="100%" fill="#ffffff" rx="10"/>
+                <rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/>
+            </svg>
+        `);
+                fabric.Image.fromURL(defaultBg, (img) => {
+                    this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas));
+                    this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas));
+                }, { crossOrigin: 'anonymous' });
+            }
+
+            // Colocar los datos del empleado en el canvas seleccionado
+            setEmployeeData(employee, photoDataUrl, qrDataUrl) {
+                this.employeeData = employee;
+                this.photoDataUrl = photoDataUrl;
+                this.qrDataUrl = qrDataUrl;
+
+                // Limpiar objetos existentes (excepto fondo)
+                this.frontCanvas.getObjects().forEach(obj => { if (obj !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(obj); });
+                this.backCanvas.getObjects().forEach(obj => { if (obj !== this.backCanvas.backgroundImage) this.backCanvas.remove(obj); });
+
+                // Crear textos en posiciones predeterminadas (coordenadas iniciales)
+                this.textNodes.nombres = this._addText(this.frontCanvas, employee.nombres || '', 130, 60, 16, '#000000', 'Arial');
+                this.textNodes.apellidos = this._addText(this.frontCanvas, employee.apellidos || '', 130, 90, 18, '#003366', 'Arial');
+                this.textNodes.cargo = this._addText(this.frontCanvas, employee.cargo || '', 130, 150, 14, '#333333', 'Arial');
+                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${employee.cedula || ''}`, 40, 240, 14, '#000000', 'Courier New');
+                this.textNodes.gerencia = this._addText(this.backCanvas, employee.gerencia || '', 40, 180, 14, '#444444', 'Arial');
+
+                // Foto (si hay)
+                if (photoDataUrl) {
+                    fabric.Image.fromURL(photoDataUrl, (img) => {
+                        img.set({
+                            left: 20,
+                            top: 50,
+                            scaleX: 0.3,
+                            scaleY: 0.3,
+                            hasControls: true,
+                            hasBorders: true,
+                            lockUniScaling: true
+                        });
+                        this.photoNode = img;
+                        this.frontCanvas.add(img);
+                        this.frontCanvas.renderAll();
+                    });
+                }
+
+                // QR (si hay)
+                if (qrDataUrl) {
+                    fabric.Image.fromURL(qrDataUrl, (img) => {
+                        img.set({
+                            left: 430,
+                            top: 230,
+                            scaleX: 0.4,
+                            scaleY: 0.4,
+                            hasControls: true,
+                            hasBorders: true
+                        });
+                        this.qrNode = img;
+                        this.frontCanvas.add(img);
+                        this.frontCanvas.renderAll();
+                    });
+                }
+            }
+
+            _addText(canvas, text, left, top, fontSize, fill, fontFamily) {
+                const fabricText = new fabric.IText(text, {
+                    left: left,
+                    top: top,
+                    fontSize: fontSize,
+                    fill: fill,
+                    fontFamily: fontFamily,
+                    hasControls: true,
+                    hasBorders: true,
+                    editable: true
+                });
+                canvas.add(fabricText);
+                return fabricText;
+            }
+
+            // Actualizar textos desde el formulario (se llama al guardar datos del empleado)
+            updateTextFromForm(formData) {
+                if (this.textNodes.nombres) this.textNodes.nombres.set('text', formData.nombres || '');
+                if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', formData.apellidos || '');
+                if (this.textNodes.cargo) this.textNodes.cargo.set('text', formData.cargo || '');
+                if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${formData.cedula || ''}`);
+                if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', formData.gerencia || '');
+                this.frontCanvas.renderAll();
+                this.backCanvas.renderAll();
+            }
+
+            // Método para actualizar estilos del objeto seleccionado
+            updateSelectedStyle(properties) {
+                const activeCanvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
+                const obj = activeCanvas.getActiveObject();
+                if (obj) {
+                    Object.keys(properties).forEach(key => {
+                        obj.set(key, properties[key]);
+                    });
+                    activeCanvas.renderAll();
+                }
+            }
+
+            // Devolver el JSON del layout
+            serializeLayout() {
+                const layout = {
+                    front: this.frontCanvas.getObjects().map(obj => this._serializeObject(obj)),
+                    back: this.backCanvas.getObjects().map(obj => this._serializeObject(obj))
+                };
+                return JSON.stringify(layout, null, 2);
+            }
+
+            _serializeObject(obj) {
+                return {
+                    type: obj.type,
+                    text: obj.text || '',
+                    left: obj.left,
+                    top: obj.top,
+                    fontSize: obj.fontSize,
+                    fontFamily: obj.fontFamily,
+                    fill: obj.fill,
+                    scaleX: obj.scaleX,
+                    scaleY: obj.scaleY,
+                    width: obj.width,
+                    height: obj.height
+                };
+            }
+
+            // Exportar JPG del lado actual
+            exportJPG(side) {
+                const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
+                const dataURL = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = `carnet_${side}.jpg`;
+                link.click();
+            }
+
+            _onObjectSelected(obj) {
+                // Notificar al UIManager para actualizar panel de estilo
+                if (obj && obj.type === 'i-text') {
+                    document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
+                    document.getElementById('font-size-input').value = obj.fontSize || 14;
+                    document.getElementById('color-picker').value = obj.fill || '#000000';
+                    document.getElementById('text-style-panel').classList.remove('opacity-50');
+                } else {
+                    document.getElementById('text-style-panel').classList.add('opacity-50');
+                }
+            }
+        }
+
+        // ---------- UI MANAGER (Coordinación general) ----------
+        class UIManager {
+            constructor() {
+                this.photoManager = new PhotoManager();
+                this.canvasManager = new CanvasManager();
+                this.employee = null;
+                this.qrDataUrl = null;
+                this.init();
+            }
+
+            async init() {
+                // 1. Autenticación y datos del usuario
+                const user = api.getCurrentUser();
+                if (!user.username) { window.location.href = 'login.html'; return; }
+                document.getElementById('user-name').textContent = user.full_name || user.username;
+                document.getElementById('user-role').textContent = (user.effective_role || user.role || '').toUpperCase();
+                document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0).toUpperCase();
+                document.getElementById('btn-logout').addEventListener('click', async () => {
+                    await api.logout();
+                    window.location.href = 'login.html';
+                });
+
+                // 2. CSRF
+                if (typeof api.initCsrf === 'function') await api.initCsrf();
+
+                // 3. Inicializar Canvas
+                const frontCanvasEl = document.getElementById('canvas-anverso');
+                const backCanvasEl = document.getElementById('canvas-reverso');
+                this.canvasManager.init(frontCanvasEl, backCanvasEl);
+
+                // 4. Cargar empleado (por ID heredado de dashboard o localStorage)
+                let storedId = localStorage.getItem('selected_employee_id');
+                if (!storedId) {
+                    // Fallback: cargar último si hay
+                    const res = await api.getEmployees({ limit: 1 });
+                    if (res.data && res.data.length) storedId = res.data[0].id;
+                }
+                if (storedId) {
+                    try {
+                        const res = await api.getEmployees({ id: storedId });
+                        if (res.data && res.data.length) {
+                            this.employee = res.data[0];
+                            this._fillEmployeeForm(this.employee);
+                            this._generateQR();
+                            this._loadCanvasData();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                // 5. Configurar eventos de UI
+                this._bindUIEvents();
+
+                // 6. Mostrar panel frontal por defecto
+                this._switchSide('front');
+            }
+
+            _fillEmployeeForm(emp) {
+                document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
+                document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
+                document.getElementById('edit-cedula').value = emp.cedula || '';
+                document.getElementById('edit-cargo').value = emp.cargo || '';
+                // Poblar selector de gerencia
+                this._populateGerenciaSelect(emp.gerencia);
+            }
+
+            async _populateGerenciaSelect(selectedGerencia) {
+                try {
+                    const res = await api.getGerencias();
+                    const select = document.getElementById('edit-gerencia');
+                    select.innerHTML = '<option value="">Seleccionar...</option>';
+                    (res.data || []).forEach(g => {
+                        const option = document.createElement('option');
+                        option.value = g.nombre;
+                        option.textContent = g.nombre;
+                        if (g.nombre === selectedGerencia) option.selected = true;
+                        select.appendChild(option);
+                    });
+                } catch (e) { console.warn(e); }
+            }
+
+            _generateQR() {
+                if (typeof QRious === 'undefined') return;
+                const canvas = document.createElement('canvas');
+                new QRious({
+                    element: canvas,
+                    value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`,
+                    size: 200,
+                    level: 'M',
+                    background: '#ffffff',
+                    foreground: '#003366',
+                    padding: 8
+                });
+                this.qrDataUrl = canvas.toDataURL('image/png');
+            }
+
+            _loadCanvasData() {
+                // Foto: si el empleado tiene foto_url, la cargamos como base (no se usa Cropper inicialmente)
+                let photoUrl = null;
+                if (this.employee.photo_url || this.employee.foto_url) {
+                    photoUrl = this.employee.photo_url || this.employee.foto_url;
+                } else {
+                    photoUrl = this._generateAvatar();
+                }
+                this.canvasManager.setEmployeeData(this.employee, photoUrl, this.qrDataUrl);
+            }
+
+            _generateAvatar() {
+                const name = `${this.employee.primer_nombre || ''} ${this.employee.primer_apellido || ''}`;
+                return typeof makeAvatar !== 'undefined' ? makeAvatar(name) : '';
+            }
+
+            _bindUIEvents() {
+                // Guardar datos del empleado
+                document.getElementById('form-edit-employee').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById('btn-save-fields');
+                    const data = {
+                        nombres: document.getElementById('edit-nombres').value.trim(),
+                        apellidos: document.getElementById('edit-apellidos').value.trim(),
+                        cargo: document.getElementById('edit-cargo').value.trim(),
+                        gerencia: document.getElementById('edit-gerencia').value,
+                        cedula: document.getElementById('edit-cedula').value // readonly
+                    };
+                    // Descomponer nombres y apellidos para la API
+                    const nombresParts = data.nombres.split(' ');
+                    const apellidosParts = data.apellidos.split(' ');
+                    const fields = {
+                        primer_nombre: nombresParts[0] || '',
+                        segundo_nombre: nombresParts.slice(1).join(' ') || null,
+                        primer_apellido: apellidosParts[0] || '',
+                        segundo_apellido: apellidosParts.slice(1).join(' ') || null,
+                        nombres: data.nombres,
+                        apellidos: data.apellidos,
+                        cargo: data.cargo,
+                        gerencia: data.gerencia,
+                        cedula: data.cedula
+                    };
+                    ui.setLoading(btn, true, 'Guardando...');
+                    try {
+                        await api.updateEmployee(this.employee.id, fields);
+                        // Actualizar datos locales y canvas
+                        Object.assign(this.employee, fields);
+                        this.canvasManager.updateTextFromForm(fields);
+                        showEditorToast('Datos del funcionario actualizados.', 'success');
+                    } catch (err) {
+                        showEditorToast(err.message, 'danger');
+                    } finally {
+                        ui.setLoading(btn, false);
+                    }
+                });
+
+                // Recorte de foto: al recibir el dataURL del PhotoManager, actualizar photo node
+                this.photoManager.onPhotoCropped((dataUrl) => {
+                    // Reemplazar foto en el canvas
+                    if (this.canvasManager.photoNode) {
+                        this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
+                    }
+                    fabric.Image.fromURL(dataUrl, (img) => {
+                        img.set({
+                            left: 20,
+                            top: 50,
+                            scaleX: 0.3,
+                            scaleY: 0.3,
+                            hasControls: true,
+                            hasBorders: true,
+                            lockUniScaling: true
+                        });
+                        this.canvasManager.photoNode = img;
+                        this.canvasManager.frontCanvas.add(img);
+                        this.canvasManager.frontCanvas.renderAll();
+                    });
+                    // No actualizamos la BD ahora, podría hacerse con botón aparte
+                    showEditorToast('Foto recortada aplicada al diseño.', 'success');
+                });
+
+                // Botón aplicar estilo a selección
+                document.getElementById('btn-apply-text-style').addEventListener('click', () => {
+                    const fontFamily = document.getElementById('font-family-select').value;
+                    const fontSize = parseInt(document.getElementById('font-size-input').value, 10);
+                    const fill = document.getElementById('color-picker').value;
+                    this.canvasManager.updateSelectedStyle({ fontFamily, fontSize, fill });
+                });
+
+                // Botón exportar JPG
+                document.getElementById('btn-export-jpg').addEventListener('click', () => {
+                    this.canvasManager.exportJPG(this.canvasManager.currentSide);
+                });
+
+                // Botón guardar layout
+                document.getElementById('btn-save-layout').addEventListener('click', () => {
+                    const layoutJson = this.canvasManager.serializeLayout();
+                    console.log('📐 Layout a guardar (enviar a api/settings.php):', layoutJson);
+                    Swal.fire({
+                        title: 'Layout capturado',
+                        html: `<pre style="text-align:left; font-size:12px;">${layoutJson}</pre>`,
+                        icon: 'success',
+                        width: 800
+                    });
+                });
+
+                // Cambio entre anverso y reverso
+                document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
+                document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
+            }
+
+            _switchSide(side) {
+                this.canvasManager.currentSide = side;
+                const frontContainer = document.getElementById('front-container');
+                const backContainer = document.getElementById('back-container');
+                const btnFront = document.getElementById('btn-front');
+                const btnBack = document.getElementById('btn-back');
+                if (side === 'front') {
+                    frontContainer.classList.remove('hidden');
+                    backContainer.classList.add('hidden');
+                    btnFront.classList.add('bg-gray-800', 'text-white');
+                    btnFront.classList.remove('bg-gray-200');
+                    btnBack.classList.add('bg-gray-200');
+                    btnBack.classList.remove('bg-gray-800', 'text-white');
+                } else {
+                    frontContainer.classList.add('hidden');
+                    backContainer.classList.remove('hidden');
+                    btnBack.classList.add('bg-gray-800', 'text-white');
+                    btnBack.classList.remove('bg-gray-200');
+                    btnFront.classList.add('bg-gray-200');
+                    btnFront.classList.remove('bg-gray-800', 'text-white');
+                }
+            }
+
+            static printCard() {
+                window.print();
+            }
+        }
+
+        // Función auxiliar para toast (reutilizada del sistema)
+        function showEditorToast(message, type = 'success') {
+            const c = {
+                success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+                danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
+                info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' }
+            }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
+            const t = document.createElement('div');
+            t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
+            t.textContent = message;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        // Inicializar todo al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            new UIManager();
+        });
+    </script>
+
+</body>
+
+</html>
