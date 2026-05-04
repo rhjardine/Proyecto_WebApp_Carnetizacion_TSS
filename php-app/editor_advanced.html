@@ -245,7 +245,7 @@
 <body class="bg-gray-100">
 
     <div class="app-layout">
-        <!-- Sidebar (idéntico al original para no romper navegación) -->
+        <!-- Sidebar (idéntico al original) -->
         <aside class="sidebar">
             <div class="sidebar-brand">
                 <div class="sidebar-brand-icon">
@@ -273,7 +273,6 @@
             </div>
         </aside>
 
-        <!-- Contenido principal -->
         <main class="main-content">
             <div class="page-header">
                 <div>
@@ -288,11 +287,10 @@
                 </div>
             </div>
 
-            <!-- Panel de herramientas y lienzos -->
             <div class="flex h-full">
-                <!-- Barra lateral izquierda: datos del empleado + configuración de estilo -->
+                <!-- Barra lateral izquierda -->
                 <div class="w-72 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
-                    <!-- Formulario de datos del empleado (funcionalidad original) -->
+                    <!-- Datos del Funcionario -->
                     <div>
                         <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📝 Datos del Funcionario</h3>
                         <form id="form-edit-employee" class="flex flex-col gap-2">
@@ -309,7 +307,7 @@
                         </form>
                     </div>
 
-                    <!-- Herramientas de diseño sobre el canvas -->
+                    <!-- Estilo de texto -->
                     <div>
                         <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">🎨 Estilo de texto</h3>
                         <div class="flex flex-col gap-2" id="text-style-panel">
@@ -328,14 +326,14 @@
                         </div>
                     </div>
 
-                    <!-- Botones de fotografía y recorte (usará Cropper.js) -->
+                    <!-- Fotografía -->
                     <div>
                         <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📸 Fotografía</h3>
                         <input type="file" id="photo-file-input" accept="image/*" class="hidden" />
                         <button id="btn-load-photo" class="btn btn-primary w-full">📸 Cargar Nueva Foto</button>
                     </div>
 
-                    <!-- 3. PLANTILLA Y DISEÑO (v2 avanzada) -->
+                    <!-- PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
                         <h3
                             style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
@@ -356,7 +354,7 @@
                                 style="flex:1;justify-content:center;font-size:.75rem;">Vertical</button>
                         </div>
 
-                        <!-- Fondo personalizado (se aplica como backgroundImage, no interactivo) -->
+                        <!-- Fondo personalizado -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🖼️ Fondo Personalizado (PNG/JPG)
@@ -379,7 +377,7 @@
                             </p>
                         </div>
 
-                        <!-- Imagen Anverso del Carnet (objeto interactivo) -->
+                        <!-- Imagen Anverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🪪 Imagen Anverso (Frente del Carnet)
@@ -403,7 +401,7 @@
                             </div>
                         </div>
 
-                        <!-- Imagen Reverso del Carnet (objeto interactivo) -->
+                        <!-- Imagen Reverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🔄 Imagen Reverso (Parte Trasera del Carnet)
@@ -428,21 +426,19 @@
                         </div>
                     </div>
 
-                    <!-- Botón de guardado de layout -->
+                    <!-- Guardar Layout -->
                     <div>
                         <button id="btn-save-layout" class="btn btn-secondary w-full">💾 Guardar Layout (JSON)</button>
                     </div>
                 </div>
 
-                <!-- Área central: Vistas del carnet (anverso/reverso) -->
+                <!-- Área central -->
                 <div class="flex-1 p-4 flex flex-col items-center gap-4">
-                    <!-- Selector de cara y orientación -->
                     <div class="flex gap-2 bg-white rounded-lg shadow p-2">
                         <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Anverso</button>
                         <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Reverso</button>
                     </div>
 
-                    <!-- Contenedores Canvas (se mostrará uno u otro) -->
                     <div class="flex gap-4 justify-center items-start flex-wrap">
                         <div class="canvas-container" id="front-container">
                             <canvas id="canvas-anverso" width="520" height="326"></canvas>
@@ -452,14 +448,13 @@
                         </div>
                     </div>
 
-                    <!-- Barra de zoom -->
                     <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal de recorte (Cropper.js) -->
+    <!-- Modal de recorte -->
     <div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-11/12 max-w-2xl flex flex-col gap-4">
             <h3 class="text-lg font-bold">Recortar Fotografía (3:4)</h3>
@@ -479,13 +474,9 @@
 
     <script>
         // ===================================================================
-        // SCI-TSS Editor Avanzado — Implementación modular ES6
-        // Clases: PhotoManager, CanvasManager, UIManager
-        // v2.3 — Fondo fijo, anverso/reverso como objetos interactivos
+        // SCI-TSS Editor Avanzado v2.4 – Carga inteligente de plantillas
         // ===================================================================
-
-        // ---------- PHOTO MANAGER (Cropper.js) ----------
-        class PhotoManager {
+        class PhotoManager { /* ... idéntico a versiones anteriores ... */
             constructor() {
                 this.cropper = null;
                 this.modal = document.getElementById('crop-modal');
@@ -496,7 +487,6 @@
                 this.callback = null;
                 this._bindEvents();
             }
-
             _bindEvents() {
                 document.getElementById('btn-load-photo').addEventListener('click', () => this.fileInput.click());
                 this.fileInput.addEventListener('change', (e) => {
@@ -505,219 +495,146 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         this.image.src = ev.target.result;
-                        this.modal.classList.add('flex');
-                        this.modal.style.display = 'flex';
+                        this.modal.classList.add('flex'); this.modal.style.display = 'flex';
                         if (this.cropper) this.cropper.destroy();
                         this.cropper = new Cropper(this.image, {
-                            aspectRatio: 3 / 4,
-                            viewMode: 1,
-                            autoCropArea: 0.9,
-                            movable: true,
-                            zoomable: true,
-                            rotatable: false,
-                            scalable: false
+                            aspectRatio: 3 / 4, viewMode: 1, autoCropArea: 0.9,
+                            movable: true, zoomable: true, rotatable: false, scalable: false
                         });
                     };
                     reader.readAsDataURL(file);
                     this.fileInput.value = '';
                 });
-
                 this.cancelBtn.addEventListener('click', () => {
-                    this.modal.classList.remove('flex');
-                    this.modal.style.display = 'none';
+                    this.modal.classList.remove('flex'); this.modal.style.display = 'none';
                     if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
                 });
-
                 this.applyBtn.addEventListener('click', () => {
                     if (!this.cropper) return;
                     const croppedCanvas = this.cropper.getCroppedCanvas({ width: 300, height: 400 });
                     const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.92);
-                    this.modal.classList.remove('flex');
-                    this.modal.style.display = 'none';
-                    this.cropper.destroy();
-                    this.cropper = null;
+                    this.modal.classList.remove('flex'); this.modal.style.display = 'none';
+                    this.cropper.destroy(); this.cropper = null;
                     if (this.callback) this.callback(dataUrl);
                 });
             }
-
             onPhotoCropped(callback) { this.callback = callback; }
         }
 
-        // ---------- CANVAS MANAGER (Fabric.js) ----------
         class CanvasManager {
             constructor() {
-                this.frontCanvas = null;
-                this.backCanvas = null;
+                this.frontCanvas = null; this.backCanvas = null;
                 this.currentSide = 'front';
-                this.employeeData = null;
-                this.photoDataUrl = null;
-                this.qrDataUrl = null;
-                this.textNodes = {};
-                this.photoNode = null;
-                this.qrNode = null;
-                // Referencias a las imágenes de plantilla (para poder eliminarlas)
-                this.frontOverlay = null;
-                this.backOverlay = null;
+                this.employeeData = null; this.photoDataUrl = null; this.qrDataUrl = null;
+                this.textNodes = {}; this.photoNode = null; this.qrNode = null;
+                this.frontOverlay = null; this.backOverlay = null;
             }
-
             init(frontCanvasEl, backCanvasEl) {
-                this.frontCanvas = new fabric.Canvas(frontCanvasEl, {
-                    backgroundColor: '#ffffff',
-                    selection: true,
-                    preserveObjectStacking: true
-                });
-                this.backCanvas = new fabric.Canvas(backCanvasEl, {
-                    backgroundColor: '#ffffff',
-                    selection: true,
-                    preserveObjectStacking: true
-                });
-
+                this.frontCanvas = new fabric.Canvas(frontCanvasEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
+                this.backCanvas = new fabric.Canvas(backCanvasEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
                 this.frontCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
                 this.frontCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
                 this.frontCanvas.on('selection:cleared', () => this._onObjectSelected(null));
                 this.backCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
                 this.backCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
                 this.backCanvas.on('selection:cleared', () => this._onObjectSelected(null));
-
                 this._loadDefaultBackgrounds();
             }
-
             _loadDefaultBackgrounds() {
-                const defaultBg = 'data:image/svg+xml,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="520" height="326">
-                <rect width="100%" height="100%" fill="#ffffff" rx="10"/>
-                <rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/>
-            </svg>
-        `);
+                const defaultBg = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`);
                 fabric.Image.fromURL(defaultBg, (img) => {
                     this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas));
                     this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas));
                 }, { crossOrigin: 'anonymous' });
             }
-
-            setEmployeeData(employee, photoDataUrl, qrDataUrl) {
-                this.employeeData = employee;
-                this.photoDataUrl = photoDataUrl;
-                this.qrDataUrl = qrDataUrl;
-
+            setEmployeeData(employee, photoDataUrl, qrDataUrl) { /* ... igual ... */
+                this.employeeData = employee; this.photoDataUrl = photoDataUrl; this.qrDataUrl = qrDataUrl;
                 this.frontCanvas.getObjects().forEach(obj => { if (obj !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(obj); });
                 this.backCanvas.getObjects().forEach(obj => { if (obj !== this.backCanvas.backgroundImage) this.backCanvas.remove(obj); });
-
                 this.textNodes.nombres = this._addText(this.frontCanvas, employee.nombres || '', 130, 60, 16, '#000000', 'Arial');
                 this.textNodes.apellidos = this._addText(this.frontCanvas, employee.apellidos || '', 130, 90, 18, '#003366', 'Arial');
                 this.textNodes.cargo = this._addText(this.frontCanvas, employee.cargo || '', 130, 150, 14, '#333333', 'Arial');
                 this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${employee.cedula || ''}`, 40, 240, 14, '#000000', 'Courier New');
                 this.textNodes.gerencia = this._addText(this.backCanvas, employee.gerencia || '', 40, 180, 14, '#444444', 'Arial');
-
                 if (photoDataUrl) {
                     fabric.Image.fromURL(photoDataUrl, (img) => {
-                        img.set({
-                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3,
-                            hasControls: true, hasBorders: true, lockUniScaling: true
-                        });
-                        this.photoNode = img;
-                        this.frontCanvas.add(img);
-                        this.frontCanvas.renderAll();
+                        img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
+                        this.photoNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
                     });
                 }
-
                 if (qrDataUrl) {
                     fabric.Image.fromURL(qrDataUrl, (img) => {
-                        img.set({
-                            left: 430, top: 230, scaleX: 0.4, scaleY: 0.4,
-                            hasControls: true, hasBorders: true
-                        });
-                        this.qrNode = img;
-                        this.frontCanvas.add(img);
-                        this.frontCanvas.renderAll();
+                        img.set({ left: 430, top: 230, scaleX: 0.4, scaleY: 0.4, hasControls: true, hasBorders: true });
+                        this.qrNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
                     });
                 }
             }
-
             _addText(canvas, text, left, top, fontSize, fill, fontFamily) {
-                const fabricText = new fabric.IText(text, {
-                    left, top, fontSize, fill, fontFamily,
-                    hasControls: true, hasBorders: true, editable: true,
-                    textBaseline: 'alphabetic'
-                });
-                canvas.add(fabricText);
-                return fabricText;
+                const t = new fabric.IText(text, { left, top, fontSize, fill, fontFamily, hasControls: true, hasBorders: true, editable: true, textBaseline: 'alphabetic' });
+                canvas.add(t); return t;
             }
-
-            updateTextFromForm(formData) {
-                if (this.textNodes.nombres) this.textNodes.nombres.set('text', formData.nombres || '');
-                if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', formData.apellidos || '');
-                if (this.textNodes.cargo) this.textNodes.cargo.set('text', formData.cargo || '');
-                if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${formData.cedula || ''}`);
-                if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', formData.gerencia || '');
-                this.frontCanvas.renderAll();
-                this.backCanvas.renderAll();
-            }
-
-            updateSelectedStyle(properties) {
-                const activeCanvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
-                const obj = activeCanvas.getActiveObject();
-                if (obj) {
-                    Object.keys(properties).forEach(key => obj.set(key, properties[key]));
-                    activeCanvas.renderAll();
-                }
-            }
-
-            serializeLayout() {
-                const layout = {
-                    front: this.frontCanvas.getObjects().map(obj => this._serializeObject(obj)),
-                    back: this.backCanvas.getObjects().map(obj => this._serializeObject(obj))
-                };
-                return JSON.stringify(layout, null, 2);
-            }
-
-            _serializeObject(obj) {
-                return {
-                    type: obj.type, text: obj.text || '', left: obj.left, top: obj.top,
-                    fontSize: obj.fontSize, fontFamily: obj.fontFamily, fill: obj.fill,
-                    scaleX: obj.scaleX, scaleY: obj.scaleY, width: obj.width, height: obj.height
-                };
-            }
-
-            exportJPG(side) {
-                const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
-                const dataURL = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
-                const link = document.createElement('a');
-                link.href = dataURL; link.download = `carnet_${side}.jpg`; link.click();
-            }
-
-            _onObjectSelected(obj) {
-                if (obj && obj.type === 'i-text') {
-                    document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
-                    document.getElementById('font-size-input').value = obj.fontSize || 14;
-                    document.getElementById('color-picker').value = obj.fill || '#000000';
-                    document.getElementById('text-style-panel').classList.remove('opacity-50');
-                } else {
-                    document.getElementById('text-style-panel').classList.add('opacity-50');
-                }
-            }
+            updateTextFromForm(formData) { /* ... */ }
+            updateSelectedStyle(properties) { /* ... */ }
+            serializeLayout() { /* ... */ }
+            _serializeObject(obj) { /* ... */ }
+            exportJPG(side) { /* ... */ }
+            _onObjectSelected(obj) { /* ... */ }
         }
+
+        // Asegurar que los métodos no queden undefined (copiar implementaciones previas)
+        CanvasManager.prototype.updateTextFromForm = function (formData) {
+            if (this.textNodes.nombres) this.textNodes.nombres.set('text', formData.nombres || '');
+            if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', formData.apellidos || '');
+            if (this.textNodes.cargo) this.textNodes.cargo.set('text', formData.cargo || '');
+            if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${formData.cedula || ''}`);
+            if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', formData.gerencia || '');
+            this.frontCanvas.renderAll(); this.backCanvas.renderAll();
+        };
+        CanvasManager.prototype.updateSelectedStyle = function (properties) {
+            const activeCanvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
+            const obj = activeCanvas.getActiveObject();
+            if (obj) { Object.keys(properties).forEach(key => obj.set(key, properties[key])); activeCanvas.renderAll(); }
+        };
+        CanvasManager.prototype.serializeLayout = function () {
+            return JSON.stringify({
+                front: this.frontCanvas.getObjects().map(o => this._serializeObject(o)),
+                back: this.backCanvas.getObjects().map(o => this._serializeObject(o))
+            }, null, 2);
+        };
+        CanvasManager.prototype._serializeObject = function (obj) {
+            return { type: obj.type, text: obj.text || '', left: obj.left, top: obj.top, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fill: obj.fill, scaleX: obj.scaleX, scaleY: obj.scaleY };
+        };
+        CanvasManager.prototype.exportJPG = function (side) {
+            const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
+            const dataURL = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
+            const link = document.createElement('a'); link.href = dataURL; link.download = `carnet_${side}.jpg`; link.click();
+        };
+        CanvasManager.prototype._onObjectSelected = function (obj) {
+            if (obj && obj.type === 'i-text') {
+                document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
+                document.getElementById('font-size-input').value = obj.fontSize || 14;
+                document.getElementById('color-picker').value = obj.fill || '#000000';
+                document.getElementById('text-style-panel').classList.remove('opacity-50');
+            } else {
+                document.getElementById('text-style-panel').classList.add('opacity-50');
+            }
+        };
 
         // ---------- UI MANAGER ----------
         class UIManager {
             constructor() {
                 this.photoManager = new PhotoManager();
                 this.canvasManager = new CanvasManager();
-                this.employee = null;
-                this.qrDataUrl = null;
+                this.employee = null; this.qrDataUrl = null;
                 this.init();
             }
-
             async init() {
                 const user = api.getCurrentUser();
                 if (!user.username) { window.location.href = 'login.html'; return; }
                 document.getElementById('user-name').textContent = user.full_name || user.username;
                 document.getElementById('user-role').textContent = (user.effective_role || user.role || '').toUpperCase();
                 document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0).toUpperCase();
-                document.getElementById('btn-logout').addEventListener('click', async () => {
-                    await api.logout(); window.location.href = 'login.html';
-                });
-
+                document.getElementById('btn-logout').addEventListener('click', async () => { await api.logout(); window.location.href = 'login.html'; });
                 if (typeof api.initCsrf === 'function') await api.initCsrf();
 
                 const frontCanvasEl = document.getElementById('canvas-anverso');
@@ -725,10 +642,7 @@
                 this.canvasManager.init(frontCanvasEl, backCanvasEl);
 
                 let storedId = localStorage.getItem('selected_employee_id');
-                if (!storedId) {
-                    const res = await api.getEmployees({ limit: 1 });
-                    if (res.data && res.data.length) storedId = res.data[0].id;
-                }
+                if (!storedId) { const res = await api.getEmployees({ limit: 1 }); if (res.data && res.data.length) storedId = res.data[0].id; }
                 if (storedId) {
                     try {
                         const res = await api.getEmployees({ id: storedId });
@@ -740,54 +654,16 @@
                         }
                     } catch (e) { console.error(e); }
                 }
-
                 this._bindUIEvents();
                 this._bindTemplateEvents();
                 this._switchSide('front');
             }
 
-            _fillEmployeeForm(emp) {
-                document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
-                document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
-                document.getElementById('edit-cedula').value = emp.cedula || '';
-                document.getElementById('edit-cargo').value = emp.cargo || '';
-                this._populateGerenciaSelect(emp.gerencia);
-            }
-
-            async _populateGerenciaSelect(selectedGerencia) {
-                try {
-                    const res = await api.getGerencias();
-                    const select = document.getElementById('edit-gerencia');
-                    select.innerHTML = '<option value="">Seleccionar...</option>';
-                    (res.data || []).forEach(g => {
-                        const option = document.createElement('option');
-                        option.value = g.nombre; option.textContent = g.nombre;
-                        if (g.nombre === selectedGerencia) option.selected = true;
-                        select.appendChild(option);
-                    });
-                } catch (e) { console.warn(e); }
-            }
-
-            _generateQR() {
-                if (typeof QRious === 'undefined') return;
-                const canvas = document.createElement('canvas');
-                new QRious({
-                    element: canvas,
-                    value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`,
-                    size: 200, level: 'M', background: '#ffffff', foreground: '#003366', padding: 8
-                });
-                this.qrDataUrl = canvas.toDataURL('image/png');
-            }
-
-            _loadCanvasData() {
-                let photoUrl = (this.employee.photo_url || this.employee.foto_url) || this._generateAvatar();
-                this.canvasManager.setEmployeeData(this.employee, photoUrl, this.qrDataUrl);
-            }
-
-            _generateAvatar() {
-                const name = `${this.employee.primer_nombre || ''} ${this.employee.primer_apellido || ''}`;
-                return typeof makeAvatar !== 'undefined' ? makeAvatar(name) : '';
-            }
+            _fillEmployeeForm(emp) { /* ... igual ... */ }
+            async _populateGerenciaSelect(selectedGerencia) { /* ... igual ... */ }
+            _generateQR() { /* ... igual ... */ }
+            _loadCanvasData() { /* ... igual ... */ }
+            _generateAvatar() { /* ... igual ... */ }
 
             _bindUIEvents() {
                 document.getElementById('form-edit-employee').addEventListener('submit', async (e) => {
@@ -800,22 +676,18 @@
                         gerencia: document.getElementById('edit-gerencia').value,
                         cedula: document.getElementById('edit-cedula').value
                     };
-                    const nombresParts = data.nombres.split(' ');
-                    const apellidosParts = data.apellidos.split(' ');
+                    const nombresParts = data.nombres.split(' '); const apellidosParts = data.apellidos.split(' ');
                     const fields = {
-                        primer_nombre: nombresParts[0] || '',
-                        segundo_nombre: nombresParts.slice(1).join(' ') || null,
-                        primer_apellido: apellidosParts[0] || '',
-                        segundo_apellido: apellidosParts.slice(1).join(' ') || null,
-                        nombres: data.nombres, apellidos: data.apellidos,
-                        cargo: data.cargo, gerencia: data.gerencia, cedula: data.cedula
+                        primer_nombre: nombresParts[0] || '', segundo_nombre: nombresParts.slice(1).join(' ') || null,
+                        primer_apellido: apellidosParts[0] || '', segundo_apellido: apellidosParts.slice(1).join(' ') || null,
+                        nombres: data.nombres, apellidos: data.apellidos, cargo: data.cargo, gerencia: data.gerencia, cedula: data.cedula
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
                         await api.updateEmployee(this.employee.id, fields);
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
-                        showEditorToast('Datos del funcionario actualizados.', 'success');
+                        showEditorToast('Datos actualizados.', 'success');
                     } catch (err) { showEditorToast(err.message, 'danger'); }
                     finally { ui.setLoading(btn, false); }
                 });
@@ -823,143 +695,126 @@
                 this.photoManager.onPhotoCropped((dataUrl) => {
                     if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
                     fabric.Image.fromURL(dataUrl, (img) => {
-                        img.set({
-                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3,
-                            hasControls: true, hasBorders: true, lockUniScaling: true
-                        });
-                        this.canvasManager.photoNode = img;
-                        this.canvasManager.frontCanvas.add(img);
-                        this.canvasManager.frontCanvas.renderAll();
+                        img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
+                        this.canvasManager.photoNode = img; this.canvasManager.frontCanvas.add(img); this.canvasManager.frontCanvas.renderAll();
                     });
-                    showEditorToast('Foto recortada aplicada al diseño.', 'success');
+                    showEditorToast('Foto recortada aplicada.', 'success');
                 });
 
                 document.getElementById('btn-apply-text-style').addEventListener('click', () => {
-                    const fontFamily = document.getElementById('font-family-select').value;
-                    const fontSize = parseInt(document.getElementById('font-size-input').value, 10);
-                    const fill = document.getElementById('color-picker').value;
-                    this.canvasManager.updateSelectedStyle({ fontFamily, fontSize, fill });
+                    this.canvasManager.updateSelectedStyle({
+                        fontFamily: document.getElementById('font-family-select').value,
+                        fontSize: parseInt(document.getElementById('font-size-input').value, 10),
+                        fill: document.getElementById('color-picker').value
+                    });
                 });
 
-                document.getElementById('btn-export-jpg').addEventListener('click', () => {
-                    this.canvasManager.exportJPG(this.canvasManager.currentSide);
-                });
-
+                document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(this.canvasManager.currentSide));
                 document.getElementById('btn-save-layout').addEventListener('click', () => {
-                    const layoutJson = this.canvasManager.serializeLayout();
-                    console.log('📐 Layout a guardar:', layoutJson);
-                    Swal.fire({ title: 'Layout capturado', html: `<pre style="text-align:left; font-size:12px;">${layoutJson}</pre>`, icon: 'success', width: 800 });
+                    const json = this.canvasManager.serializeLayout();
+                    console.log('📐 Layout:', json);
+                    Swal.fire({ title: 'Layout capturado', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`, icon: 'success', width: 800 });
                 });
-
                 document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
             _bindTemplateEvents() {
-                // Fondo personalizado (como backgroundImage, no interactivo)
+                // Fondo personalizado
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+                    const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            img.set({
-                                left: 0, top: 0,
-                                scaleX: this.canvasManager.frontCanvas.width / img.width,
-                                scaleY: this.canvasManager.frontCanvas.height / img.height,
-                                evented: false, selectable: false,
-                                lockMovementX: true, lockMovementY: true,
-                                lockScalingX: true, lockScalingY: true,
-                                hasControls: false, hasBorders: false
-                            });
+                            img.set({ left: 0, top: 0, scaleX: this.canvasManager.frontCanvas.width / img.width, scaleY: this.canvasManager.frontCanvas.height / img.height, evented: false, selectable: false, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, hasControls: false, hasBorders: false });
                             this.canvasManager.frontCanvas.setBackgroundImage(img, this.canvasManager.frontCanvas.renderAll.bind(this.canvasManager.frontCanvas));
                             this.canvasManager.backCanvas.setBackgroundImage(img, this.canvasManager.backCanvas.renderAll.bind(this.canvasManager.backCanvas));
                         });
                     };
                     reader.readAsDataURL(file);
                 });
+                document.getElementById('btn-reset-bg').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showEditorToast('Fondo restablecido.', 'success'); });
 
-                document.getElementById('btn-reset-bg').addEventListener('click', () => {
-                    this.canvasManager._loadDefaultBackgrounds();
-                    showEditorToast('Fondo restablecido.', 'success');
-                });
-
-                // Anverso personalizado (objeto interactivo, inicialmente tamaño reducido)
+                // === ANVERSO (mejorado) ===
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+                    const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            // Tamaño inicial reducido para que no cubra todo
-                            const targetWidth = 150; // ancho inicial en píxeles
-                            const scale = targetWidth / img.width;
+                            const canvas = this.canvasManager.frontCanvas;
+                            // Escala inteligente: máximo 60% del canvas, sin agrandar
+                            const maxWidth = canvas.width * 0.6;
+                            const maxHeight = canvas.height * 0.6;
+                            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
                             img.set({
-                                left: 10,
-                                top: 10,
+                                left: (canvas.width - img.width * scale) / 2,
+                                top: (canvas.height - img.height * scale) / 2,
                                 scaleX: scale,
                                 scaleY: scale,
                                 hasControls: true,
                                 hasBorders: true,
                                 lockUniScaling: true
                             });
-                            // Eliminar overlay anterior si existe
-                            if (this.canvasManager.frontOverlay) {
-                                this.canvasManager.frontCanvas.remove(this.canvasManager.frontOverlay);
-                            }
+                            if (this.canvasManager.frontOverlay) canvas.remove(this.canvasManager.frontOverlay);
                             this.canvasManager.frontOverlay = img;
-                            this.canvasManager.frontCanvas.add(img);
-                            this.canvasManager.frontCanvas.sendToBack(img);   // detrás de textos
-                            this.canvasManager.frontCanvas.renderAll();
+                            canvas.add(img);
+                            canvas.sendToBack(img);   // detrás de textos, delante del fondo
+                            canvas.renderAll();
+                            // Mostrar preview si existe
+                            const preview = document.getElementById('front-preview');
+                            const previewImg = document.getElementById('front-preview-img');
+                            if (preview && previewImg) { previewImg.src = ev.target.result; preview.style.display = 'block'; }
                         });
                     };
                     reader.readAsDataURL(file);
                 });
-
                 document.getElementById('btn-reset-front').addEventListener('click', () => {
                     if (this.canvasManager.frontOverlay) {
                         this.canvasManager.frontCanvas.remove(this.canvasManager.frontOverlay);
                         this.canvasManager.frontOverlay = null;
                         this.canvasManager.frontCanvas.renderAll();
+                        document.getElementById('front-preview').style.display = 'none';
                         showEditorToast('Imagen de anverso eliminada.', 'success');
                     }
                 });
 
-                // Reverso personalizado (objeto interactivo, inicialmente tamaño reducido)
+                // === REVERSO (mejorado) ===
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+                    const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            const targetWidth = 150;
-                            const scale = targetWidth / img.width;
+                            const canvas = this.canvasManager.backCanvas;
+                            const maxWidth = canvas.width * 0.6;
+                            const maxHeight = canvas.height * 0.6;
+                            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
                             img.set({
-                                left: 10,
-                                top: 10,
+                                left: (canvas.width - img.width * scale) / 2,
+                                top: (canvas.height - img.height * scale) / 2,
                                 scaleX: scale,
                                 scaleY: scale,
                                 hasControls: true,
                                 hasBorders: true,
                                 lockUniScaling: true
                             });
-                            if (this.canvasManager.backOverlay) {
-                                this.canvasManager.backCanvas.remove(this.canvasManager.backOverlay);
-                            }
+                            if (this.canvasManager.backOverlay) canvas.remove(this.canvasManager.backOverlay);
                             this.canvasManager.backOverlay = img;
-                            this.canvasManager.backCanvas.add(img);
-                            this.canvasManager.backCanvas.sendToBack(img);
-                            this.canvasManager.backCanvas.renderAll();
+                            canvas.add(img);
+                            canvas.sendToBack(img);
+                            canvas.renderAll();
+                            const preview = document.getElementById('back-preview');
+                            const previewImg = document.getElementById('back-preview-img');
+                            if (preview && previewImg) { previewImg.src = ev.target.result; preview.style.display = 'block'; }
                         });
                     };
                     reader.readAsDataURL(file);
                 });
-
                 document.getElementById('btn-reset-back').addEventListener('click', () => {
                     if (this.canvasManager.backOverlay) {
                         this.canvasManager.backCanvas.remove(this.canvasManager.backOverlay);
                         this.canvasManager.backOverlay = null;
                         this.canvasManager.backCanvas.renderAll();
+                        document.getElementById('back-preview').style.display = 'none';
                         showEditorToast('Imagen de reverso eliminada.', 'success');
                     }
                 });
@@ -967,44 +822,64 @@
 
             _switchSide(side) {
                 this.canvasManager.currentSide = side;
-                const frontContainer = document.getElementById('front-container');
-                const backContainer = document.getElementById('back-container');
-                const btnFront = document.getElementById('btn-front');
-                const btnBack = document.getElementById('btn-back');
+                document.getElementById('front-container').classList.toggle('hidden', side !== 'front');
+                document.getElementById('back-container').classList.toggle('hidden', side !== 'back');
+                const btnF = document.getElementById('btn-front'), btnB = document.getElementById('btn-back');
                 if (side === 'front') {
-                    frontContainer.classList.remove('hidden');
-                    backContainer.classList.add('hidden');
-                    btnFront.classList.add('bg-gray-800', 'text-white'); btnFront.classList.remove('bg-gray-200');
-                    btnBack.classList.add('bg-gray-200'); btnBack.classList.remove('bg-gray-800', 'text-white');
+                    btnF.className = 'px-4 py-1 rounded bg-gray-800 text-white';
+                    btnB.className = 'px-4 py-1 rounded bg-gray-200';
                 } else {
-                    frontContainer.classList.add('hidden');
-                    backContainer.classList.remove('hidden');
-                    btnBack.classList.add('bg-gray-800', 'text-white'); btnBack.classList.remove('bg-gray-200');
-                    btnFront.classList.add('bg-gray-200'); btnFront.classList.remove('bg-gray-800', 'text-white');
+                    btnB.className = 'px-4 py-1 rounded bg-gray-800 text-white';
+                    btnF.className = 'px-4 py-1 rounded bg-gray-200';
                 }
             }
 
             static printCard() { window.print(); }
         }
 
-        function showEditorToast(message, type = 'success') {
-            const c = {
-                success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
-                danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
-                info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' }
-            }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
-            const t = document.createElement('div');
-            t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
-            t.textContent = message;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 3500);
+        // Rellenar métodos faltantes de UIManager
+        UIManager.prototype._fillEmployeeForm = function (emp) {
+            document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
+            document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
+            document.getElementById('edit-cedula').value = emp.cedula || '';
+            document.getElementById('edit-cargo').value = emp.cargo || '';
+            this._populateGerenciaSelect(emp.gerencia);
+        };
+        UIManager.prototype._populateGerenciaSelect = async function (sel) {
+            try {
+                const res = await api.getGerencias();
+                const select = document.getElementById('edit-gerencia');
+                select.innerHTML = '<option value="">Seleccionar...</option>';
+                (res.data || []).forEach(g => {
+                    const o = document.createElement('option'); o.value = g.nombre; o.textContent = g.nombre;
+                    if (g.nombre === sel) o.selected = true;
+                    select.appendChild(o);
+                });
+            } catch (e) { }
+        };
+        UIManager.prototype._generateQR = function () {
+            if (typeof QRious === 'undefined') return;
+            const c = document.createElement('canvas');
+            new QRious({ element: c, value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`, size: 200, level: 'M', background: '#ffffff', foreground: '#003366', padding: 8 });
+            this.qrDataUrl = c.toDataURL('image/png');
+        };
+        UIManager.prototype._loadCanvasData = function () {
+            let photo = this.employee.photo_url || this.employee.foto_url || this._generateAvatar();
+            this.canvasManager.setEmployeeData(this.employee, photo, this.qrDataUrl);
+        };
+        UIManager.prototype._generateAvatar = function () {
+            const n = `${this.employee.primer_nombre || ''} ${this.employee.primer_apellido || ''}`;
+            return typeof makeAvatar !== 'undefined' ? makeAvatar(n) : '';
+        };
+
+        function showEditorToast(m, t = 'success') {
+            const c = { success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }, info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' } }[t] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
+            const d = document.createElement('div'); d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
+            d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 3500);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            new UIManager();
-        });
+        document.addEventListener('DOMContentLoaded', () => new UIManager());
     </script>
-
 </body>
 
 </html>
