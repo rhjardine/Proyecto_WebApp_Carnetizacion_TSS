@@ -402,6 +402,40 @@
     <script src="assets/js/api.js"></script>
     <script src="assets/js/validaciones.js"></script>
     <script>
+        // ===== PROTECCIÓN CONTRA ERRORES EN ENTORNO DE PREVISUALIZACIÓN =====
+        // Esto evita que la aplicación colapse (ReferenceError) cuando se abre en 
+        // un visor de código donde `api.js` o `validaciones.js` no logran cargar por rutas relativas.
+        if (typeof api === 'undefined') {
+            console.warn("El objeto 'api' no está definido. Inyectando mock local para evitar fallos en el visor.");
+            window.api = {
+                getCurrentUser: () => ({ username: 'pruebas', full_name: 'Usuario de Pruebas', role: 'admin' }),
+                initCsrf: async () => { },
+                getEmployees: async (opts) => ({
+                    data: [{ id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678', cargo: 'Analista de Sistemas', gerencia: 'Tecnología' }]
+                }),
+                getGerencias: async () => ({
+                    data: [{ nombre: 'Tecnología' }, { nombre: 'Recursos Humanos' }, { nombre: 'Operaciones' }]
+                }),
+                updateEmployee: async (id, data) => { return true; },
+                logout: async () => { }
+            };
+        }
+        if (typeof ui === 'undefined') {
+            window.ui = {
+                setLoading: (btn, isLoading, text) => {
+                    if (isLoading) {
+                        btn.dataset.ogText = btn.innerHTML;
+                        btn.innerHTML = text;
+                        btn.disabled = true;
+                    } else {
+                        btn.innerHTML = btn.dataset.ogText || 'Guardar';
+                        btn.disabled = false;
+                    }
+                }
+            };
+        }
+        // ====================================================================
+
         // ============= PHOTO MANAGER (Cropper.js) =============
         class PhotoManager {
             constructor() {
@@ -422,26 +456,38 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         this.image.src = ev.target.result;
-                        this.modal.classList.add('flex'); this.modal.style.display = 'flex';
+                        this.modal.classList.add('flex');
+                        this.modal.style.display = 'flex';
                         if (this.cropper) this.cropper.destroy();
                         this.cropper = new Cropper(this.image, {
-                            aspectRatio: 3 / 4, viewMode: 1, autoCropArea: 0.9,
-                            movable: true, zoomable: true, rotatable: false, scalable: false
+                            aspectRatio: 3 / 4,
+                            viewMode: 1,
+                            autoCropArea: 0.9,
+                            movable: true,
+                            zoomable: true,
+                            rotatable: false,
+                            scalable: false
                         });
                     };
                     reader.readAsDataURL(file);
                     this.fileInput.value = '';
                 });
                 this.cancelBtn.addEventListener('click', () => {
-                    this.modal.classList.remove('flex'); this.modal.style.display = 'none';
-                    if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
+                    this.modal.classList.remove('flex');
+                    this.modal.style.display = 'none';
+                    if (this.cropper) {
+                        this.cropper.destroy();
+                        this.cropper = null;
+                    }
                 });
                 this.applyBtn.addEventListener('click', () => {
                     if (!this.cropper) return;
                     const croppedCanvas = this.cropper.getCroppedCanvas({ width: 300, height: 400 });
                     const dataUrl = croppedCanvas.toDataURL('image/jpeg', 0.92);
-                    this.modal.classList.remove('flex'); this.modal.style.display = 'none';
-                    this.cropper.destroy(); this.cropper = null;
+                    this.modal.classList.remove('flex');
+                    this.modal.style.display = 'none';
+                    this.cropper.destroy();
+                    this.cropper = null;
                     if (this.callback) this.callback(dataUrl);
                 });
             }
@@ -451,15 +497,25 @@
         // ============= CANVAS MANAGER (Fabric.js) =============
         class CanvasManager {
             constructor() {
-                this.frontCanvas = null; this.backCanvas = null;
+                this.frontCanvas = null;
+                this.backCanvas = null;
                 this.currentSide = 'front';
-                this.textNodes = {}; this.photoNode = null; this.qrNode = null;
-                this.frontOverlay = null; this.backOverlay = null;
+                this.textNodes = {};
+                this.photoNode = null;
+                this.qrNode = null;
+                this.frontOverlay = null;
+                this.backOverlay = null;
             }
 
             init(frontEl, backEl) {
-                this.frontCanvas = new fabric.Canvas(frontEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
-                this.backCanvas = new fabric.Canvas(backEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
+                this.frontCanvas = new fabric.Canvas(frontEl, {
+                    backgroundColor: '#ffffff', selection: true,
+                    preserveObjectStacking: true
+                });
+                this.backCanvas = new fabric.Canvas(backEl, {
+                    backgroundColor: '#ffffff', selection: true,
+                    preserveObjectStacking: true
+                });
 
                 const onSelect = (e) => this._onObjectSelected(e.selected ? e.selected[0] : null);
                 this.frontCanvas.on('selection:created', onSelect);
@@ -469,11 +525,21 @@
                 this.backCanvas.on('selection:updated', onSelect);
                 this.backCanvas.on('selection:cleared', () => onSelect({}));
 
+                // Depuración: confirmar que los objetos son seleccionables
+                this.frontCanvas.on('object:selected', (e) => {
+                    console.log('Objeto seleccionado (anverso):', e.target?.type, e.target?.left, e.target?.top);
+                });
+                this.backCanvas.on('object:selected', (e) => {
+                    console.log('Objeto seleccionado (reverso):', e.target?.type, e.target?.left, e.target?.top);
+                });
+
                 this._loadDefaultBackgrounds();
             }
 
             _loadDefaultBackgrounds() {
-                const svg = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`);
+                const svg = 'data:image/svg+xml,' + encodeURIComponent(
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`
+                );
                 fabric.Image.fromURL(svg, (img) => {
                     this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas));
                     this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas));
@@ -481,32 +547,51 @@
             }
 
             setEmployeeData(emp, photoUrl, qrUrl) {
-                this.frontCanvas.getObjects().forEach(o => { if (o !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(o); });
-                this.backCanvas.getObjects().forEach(o => { if (o !== this.backCanvas.backgroundImage) this.backCanvas.remove(o); });
+                this.frontCanvas.getObjects().forEach(o => {
+                    if (o !== this.frontCanvas.backgroundImage) this.frontCanvas
+                        .remove(o);
+                });
+                this.backCanvas.getObjects().forEach(o => {
+                    if (o !== this.backCanvas.backgroundImage) this.backCanvas
+                        .remove(o);
+                });
 
                 this.textNodes.nombres = this._addText(this.frontCanvas, emp.nombres || '', 130, 60, 16, '#000', 'Arial');
-                this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || '', 130, 90, 18, '#003366', 'Arial');
+                this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || '', 130, 90, 18, '#003366',
+                    'Arial');
                 this.textNodes.cargo = this._addText(this.frontCanvas, emp.cargo || '', 130, 150, 14, '#333', 'Arial');
-                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${emp.cedula || ''}`, 40, 240, 14, '#000', 'Courier New');
+                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${emp.cedula || ''}`, 40, 240, 14, '#000',
+                    'Courier New');
                 this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || '', 40, 180, 14, '#444', 'Arial');
 
                 if (photoUrl) {
                     fabric.Image.fromURL(photoUrl, (img) => {
-                        img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
-                        this.photoNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
+                        img.set({
+                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true,
+                            hasBorders: true, lockUniScaling: true
+                        });
+                        this.photoNode = img;
+                        this.frontCanvas.add(img);
+                        this.frontCanvas.renderAll();
                     });
                 }
                 if (qrUrl) {
                     fabric.Image.fromURL(qrUrl, (img) => {
                         img.set({ left: 430, top: 230, scaleX: 0.4, scaleY: 0.4, hasControls: true });
-                        this.qrNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
+                        this.qrNode = img;
+                        this.frontCanvas.add(img);
+                        this.frontCanvas.renderAll();
                     });
                 }
             }
 
             _addText(canvas, text, left, top, fontSize, fill, fontFamily) {
-                const t = new fabric.IText(text, { left, top, fontSize, fill, fontFamily, hasControls: true, hasBorders: true, editable: true, textBaseline: 'alphabetic' });
-                canvas.add(t); return t;
+                const t = new fabric.IText(text, {
+                    left, top, fontSize, fill, fontFamily, hasControls: true,
+                    hasBorders: true, editable: true, textBaseline: 'alphabetic'
+                });
+                canvas.add(t);
+                return t;
             }
 
             updateTextFromForm(data) {
@@ -515,24 +600,37 @@
                 if (this.textNodes.cargo) this.textNodes.cargo.set('text', data.cargo || '');
                 if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${data.cedula || ''}`);
                 if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', data.gerencia || '');
-                this.frontCanvas.renderAll(); this.backCanvas.renderAll();
+                this.frontCanvas.renderAll();
+                this.backCanvas.renderAll();
             }
 
             updateSelectedStyle(props) {
                 const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
                 const obj = canvas.getActiveObject();
-                if (obj) { Object.keys(props).forEach(k => obj.set(k, props[k])); canvas.renderAll(); }
+                if (obj) {
+                    Object.keys(props).forEach(k => obj.set(k, props[k]));
+                    canvas.renderAll();
+                }
             }
 
             serializeLayout() {
-                const ser = (o) => ({ type: o.type, text: o.text || '', left: o.left, top: o.top, fontSize: o.fontSize, fontFamily: o.fontFamily, fill: o.fill, scaleX: o.scaleX, scaleY: o.scaleY });
-                return JSON.stringify({ front: this.frontCanvas.getObjects().map(ser), back: this.backCanvas.getObjects().map(ser) }, null, 2);
+                const ser = (o) => ({
+                    type: o.type, text: o.text || '', left: o.left, top: o.top, fontSize: o.fontSize,
+                    fontFamily: o.fontFamily, fill: o.fill, scaleX: o.scaleX, scaleY: o.scaleY
+                });
+                return JSON.stringify({
+                    front: this.frontCanvas.getObjects().map(ser), back: this.backCanvas.getObjects()
+                        .map(ser)
+                }, null, 2);
             }
 
             exportJPG(side) {
                 const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
                 const data = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
-                const a = document.createElement('a'); a.href = data; a.download = `carnet_${side}.jpg`; a.click();
+                const a = document.createElement('a');
+                a.href = data;
+                a.download = `carnet_${side}.jpg`;
+                a.click();
             }
 
             _onObjectSelected(obj) {
@@ -553,7 +651,8 @@
             constructor() {
                 this.photoManager = new PhotoManager();
                 this.canvasManager = new CanvasManager();
-                this.employee = null; this.qrDataUrl = null;
+                this.employee = null;
+                this.qrDataUrl = null;
                 this.init();
             }
 
@@ -562,11 +661,13 @@
                 if (!user.username) { window.location.href = 'login.html'; return; }
                 document.getElementById('user-name').textContent = user.full_name || user.username;
                 document.getElementById('user-role').textContent = (user.effective_role || user.role || '').toUpperCase();
-                document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0).toUpperCase();
+                document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0)
+                    .toUpperCase();
 
                 if (typeof api.initCsrf === 'function') await api.initCsrf();
 
-                this.canvasManager.init(document.getElementById('canvas-anverso'), document.getElementById('canvas-reverso'));
+                this.canvasManager.init(document.getElementById('canvas-anverso'), document.getElementById(
+                    'canvas-reverso'));
 
                 let id = localStorage.getItem('selected_employee_id');
                 if (!id) { const r = await api.getEmployees({ limit: 1 }); if (r.data?.length) id = r.data[0].id; }
@@ -586,8 +687,8 @@
                 this._bindTemplate();
                 this._switchSide('front');
 
-                // Logout robusto (anula cualquier interferencia de api.js)
-                this._setupLogout();
+                // Logout seguro (reemplaza setupLogout anterior)
+                this._applySecureLogout();
             }
 
             _fillForm(emp) {
@@ -604,7 +705,9 @@
                     const select = document.getElementById('edit-gerencia');
                     select.innerHTML = '<option value="">Seleccionar...</option>';
                     (res.data || []).forEach(g => {
-                        const o = document.createElement('option'); o.value = g.nombre; o.textContent = g.nombre;
+                        const o = document.createElement('option');
+                        o.value = g.nombre;
+                        o.textContent = g.nombre;
                         if (g.nombre === sel) o.selected = true;
                         select.appendChild(o);
                     });
@@ -614,7 +717,10 @@
             _generateQR() {
                 if (typeof QRious === 'undefined') return;
                 const c = document.createElement('canvas');
-                new QRious({ element: c, value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`, size: 200, level: 'M', background: '#fff', foreground: '#003366', padding: 8 });
+                new QRious({
+                    element: c, value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`,
+                    size: 200, level: 'M', background: '#fff', foreground: '#003366', padding: 8
+                });
                 this.qrDataUrl = c.toDataURL('image/png');
             }
 
@@ -639,11 +745,18 @@
                         gerencia: document.getElementById('edit-gerencia').value,
                         cedula: document.getElementById('edit-cedula').value
                     };
-                    const np = d.nombres.split(' '), ap = d.apellidos.split(' ');
+                    const np = d.nombres.split(' '),
+                        ap = d.apellidos.split(' ');
                     const fields = {
-                        primer_nombre: np[0] || '', segundo_nombre: np.slice(1).join(' ') || null,
-                        primer_apellido: ap[0] || '', segundo_apellido: ap.slice(1).join(' ') || null,
-                        nombres: d.nombres, apellidos: d.apellidos, cargo: d.cargo, gerencia: d.gerencia, cedula: d.cedula
+                        primer_nombre: np[0] || '',
+                        segundo_nombre: np.slice(1).join(' ') || null,
+                        primer_apellido: ap[0] || '',
+                        segundo_apellido: ap.slice(1).join(' ') || null,
+                        nombres: d.nombres,
+                        apellidos: d.apellidos,
+                        cargo: d.cargo,
+                        gerencia: d.gerencia,
+                        cedula: d.cedula
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
@@ -651,14 +764,20 @@
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
                         showToast('Datos actualizados.', 'success');
-                    } catch (err) { showToast(err.message, 'danger'); }
-                    finally { ui.setLoading(btn, false); }
+                    } catch (err) { showToast(err.message, 'danger'); } finally {
+                        ui.setLoading(btn,
+                            false);
+                    }
                 });
 
                 this.photoManager.onPhotoCropped((dataUrl) => {
-                    if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
+                    if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager
+                        .photoNode);
                     fabric.Image.fromURL(dataUrl, (img) => {
-                        img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
+                        img.set({
+                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true,
+                            hasBorders: true, lockUniScaling: true
+                        });
                         this.canvasManager.photoNode = img;
                         this.canvasManager.frontCanvas.add(img);
                         this.canvasManager.frontCanvas.renderAll();
@@ -674,58 +793,91 @@
                     });
                 });
 
-                document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(this.canvasManager.currentSide));
+                document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(
+                    this.canvasManager.currentSide));
                 document.getElementById('btn-save-layout').addEventListener('click', () => {
                     const json = this.canvasManager.serializeLayout();
                     console.log('Layout:', json);
-                    Swal.fire({ title: 'Layout', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`, icon: 'success', width: 800 });
+                    Swal.fire({
+                        title: 'Layout', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`,
+                        icon: 'success', width: 800
+                    });
                 });
                 document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
+            // ===== CORRECCIÓN: Imágenes interactivas =====
             _bindTemplate() {
                 // Fondo personalizado
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0]; if (!file) return;
+                    const file = e.target.files[0];
+                    if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            img.set({ left: 0, top: 0, scaleX: this.canvasManager.frontCanvas.width / img.width, scaleY: this.canvasManager.frontCanvas.height / img.height, evented: false, selectable: false, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, hasControls: false, hasBorders: false });
-                            this.canvasManager.frontCanvas.setBackgroundImage(img, this.canvasManager.frontCanvas.renderAll.bind(this.canvasManager.frontCanvas));
-                            this.canvasManager.backCanvas.setBackgroundImage(img, this.canvasManager.backCanvas.renderAll.bind(this.canvasManager.backCanvas));
+                            img.set({
+                                left: 0, top: 0, scaleX: this.canvasManager.frontCanvas.width / img
+                                    .width, scaleY: this.canvasManager.frontCanvas.height / img.height,
+                                evented: false, selectable: false, lockMovementX: true,
+                                lockMovementY: true, lockScalingX: true, lockScalingY: true,
+                                hasControls: false, hasBorders: false
+                            });
+                            this.canvasManager.frontCanvas.setBackgroundImage(img, this.canvasManager
+                                .frontCanvas.renderAll.bind(this.canvasManager.frontCanvas));
+                            this.canvasManager.backCanvas.setBackgroundImage(img, this.canvasManager
+                                .backCanvas.renderAll.bind(this.canvasManager.backCanvas));
                         });
                     };
                     reader.readAsDataURL(file);
                 });
-                document.getElementById('btn-reset-bg').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo restablecido.'); });
+                document.getElementById('btn-reset-bg').addEventListener('click', () => {
+                    this.canvasManager
+                        ._loadDefaultBackgrounds();
+                    showToast('Fondo restablecido.');
+                });
 
-                // Anverso (INTERACTIVO, controles visibles)
+                // Anverso (INTERACTIVO - CORREGIDO)
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0]; if (!file) return;
+                    const file = e.target.files[0];
+                    if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             console.log('Cargando imagen anverso...');
                             const canvas = this.canvasManager.frontCanvas;
-                            const maxW = canvas.width * 0.6, maxH = canvas.height * 0.6;
+                            const maxW = canvas.width * 0.6,
+                                maxH = canvas.height * 0.6;
                             const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+                            // Propiedades para total interactividad
                             img.set({
                                 left: (canvas.width - img.width * scale) / 2,
                                 top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale, scaleY: scale,
-                                hasControls: true, hasBorders: true,
+                                scaleX: scale,
+                                scaleY: scale,
+                                hasControls: true,
+                                hasBorders: true,
                                 lockUniScaling: true,
                                 selectable: true,
-                                evented: true
+                                evented: true,
+                                cornerSize: 10,
+                                transparentCorners: false,
+                                cornerColor: '#003366',
+                                borderColor: '#003366'
                             });
-                            if (this.canvasManager.frontOverlay) canvas.remove(this.canvasManager.frontOverlay);
+                            if (this.canvasManager.frontOverlay) canvas.remove(this.canvasManager
+                                .frontOverlay);
                             this.canvasManager.frontOverlay = img;
                             canvas.add(img);
+                            // Enviar al fondo pero manteniendo interactividad
                             canvas.sendToBack(img);
+                            img.setCoords(); // CRÍTICO: Actualizar coordenadas para habilitar el clic tras escalar
+                            // Forzar selección y actualización de controles
+                            canvas.discardActiveObject();
                             canvas.setActiveObject(img);
-                            canvas.renderAll();
-                            console.log('Anverso añadido, objeto activo:', canvas.getActiveObject());
+                            canvas.requestRenderAll();
+
+                            console.log('Anverso añadido, activo:', canvas.getActiveObject() === img);
                             document.getElementById('front-preview-img').src = ev.target.result;
                             document.getElementById('front-preview').style.display = 'block';
                             showToast('Anverso cargado. Ya puedes moverlo y redimensionarlo.');
@@ -743,32 +895,44 @@
                     }
                 });
 
-                // Reverso (INTERACTIVO, controles visibles)
+                // Reverso (INTERACTIVO - CORREGIDO)
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0]; if (!file) return;
+                    const file = e.target.files[0];
+                    if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             console.log('Cargando imagen reverso...');
                             const canvas = this.canvasManager.backCanvas;
-                            const maxW = canvas.width * 0.6, maxH = canvas.height * 0.6;
+                            const maxW = canvas.width * 0.6,
+                                maxH = canvas.height * 0.6;
                             const scale = Math.min(maxW / img.width, maxH / img.height, 1);
                             img.set({
                                 left: (canvas.width - img.width * scale) / 2,
                                 top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale, scaleY: scale,
-                                hasControls: true, hasBorders: true,
+                                scaleX: scale,
+                                scaleY: scale,
+                                hasControls: true,
+                                hasBorders: true,
                                 lockUniScaling: true,
                                 selectable: true,
-                                evented: true
+                                evented: true,
+                                cornerSize: 10,
+                                transparentCorners: false,
+                                cornerColor: '#003366',
+                                borderColor: '#003366'
                             });
-                            if (this.canvasManager.backOverlay) canvas.remove(this.canvasManager.backOverlay);
+                            if (this.canvasManager.backOverlay) canvas.remove(this.canvasManager
+                                .backOverlay);
                             this.canvasManager.backOverlay = img;
                             canvas.add(img);
                             canvas.sendToBack(img);
+                            img.setCoords(); // CRÍTICO: Actualizar coordenadas para habilitar el clic tras escalar
+                            canvas.discardActiveObject();
                             canvas.setActiveObject(img);
-                            canvas.renderAll();
-                            console.log('Reverso añadido, objeto activo:', canvas.getActiveObject());
+                            canvas.requestRenderAll();
+
+                            console.log('Reverso añadido, activo:', canvas.getActiveObject() === img);
                             document.getElementById('back-preview-img').src = ev.target.result;
                             document.getElementById('back-preview').style.display = 'block';
                             showToast('Reverso cargado. Ya puedes moverlo y redimensionarlo.');
@@ -791,24 +955,27 @@
                 this.canvasManager.currentSide = side;
                 document.getElementById('front-container').classList.toggle('hidden', side !== 'front');
                 document.getElementById('back-container').classList.toggle('hidden', side !== 'back');
-                const f = document.getElementById('btn-front'), b = document.getElementById('btn-back');
+                const f = document.getElementById('btn-front'),
+                    b = document.getElementById('btn-back');
                 f.className = `px-4 py-1 rounded ${side === 'front' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
                 b.className = `px-4 py-1 rounded ${side === 'back' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
             }
 
-            _setupLogout() {
+            // ===== CORRECCIÓN: Logout con confirmación =====
+            _applySecureLogout() {
                 const btn = document.getElementById('btn-logout');
                 if (!btn) return;
-                // Clonar para eliminar cualquier listener previo (especialmente el de api.js)
+                // Clonar para eliminar listeners previos
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.dataset.secureLogout = 'true'; // Marcar como gestionado
 
                 newBtn.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     let confirmed = false;
                     if (typeof Swal !== 'undefined') {
-                        const res = await Swal.fire({
+                        const result = await Swal.fire({
                             title: '¿Desea cerrar sesión?',
                             icon: 'question',
                             showCancelButton: true,
@@ -817,7 +984,7 @@
                             confirmButtonText: 'Sí, salir',
                             cancelButtonText: 'Cancelar'
                         });
-                        confirmed = res.isConfirmed;
+                        confirmed = result.isConfirmed;
                     } else {
                         confirmed = confirm('¿Desea cerrar sesión?');
                     }
@@ -832,7 +999,15 @@
         }
 
         function showToast(msg, type = 'success') {
-            const c = { success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }, info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' } }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
+            const c = {
+                success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: {
+                    bg: '#fee2e2',
+                    color: '#991b1b', border: '#fca5a5'
+                }, info: {
+                    bg: '#dbeafe', color: '#1e40af',
+                    border: '#93c5fd'
+                }
+            }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
             const d = document.createElement('div');
             d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
             d.textContent = msg;
