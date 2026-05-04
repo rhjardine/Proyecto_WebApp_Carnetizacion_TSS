@@ -1,21 +1,7 @@
 <?php
-/**
- * GET /api/auth/csrf.php
- * Retorna el CSRF token de la sesión activa.
- * El frontend lo llama al cargar cada página para tener el token actualizado.
- */
-$isSecure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+define('BYPASS_CSRF', true);
+require_once __DIR__ . '/../bootstrap.php';
 
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path'     => '/',
-    'domain'   => '',
-    'secure'   => $isSecure,
-    'httponly' => true,
-    'samesite' => 'Strict',
-]);
-
-session_start();
 header('Content-Type: application/json; charset=utf-8');
 
 if (empty($_SESSION['user_id'])) {
@@ -24,12 +10,11 @@ if (empty($_SESSION['user_id'])) {
     exit;
 }
 
-// Generar token si por alguna razón no existe aún
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 echo json_encode([
-    'success'    => true,
+    'success' => true,
     'csrf_token' => $_SESSION['csrf_token'],
 ]);

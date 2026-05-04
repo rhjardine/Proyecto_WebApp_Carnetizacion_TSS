@@ -1,44 +1,14 @@
 <?php
 /**
  * api/employees.php — CRUD de Empleados (MySQL / InnoDB)
- * =========================================================
  * Sistema de Carnetización Inteligente (SCI-TSS)
  * Esquema: carnetizacion_tss
  *
- * REFACTORIZACIÓN v3.1 (REMEDIACIÓN CRÍTICA):
- * - Permiso 'carnet.update' exigido para actualizaciones (POST con id).
- * - Lista blanca ampliada: nivel_permiso, vencimiento, datos_adicionales.
- * - Manejo correcto de datos_adicionales como JSON.
+ * v3.1 — Centralizado con bootstrap.php
  */
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/middleware/RBAC.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/middleware/auth_check.php';
-
-// ── PUENTES DE COMPATIBILIDAD (Evitan Errores 500 por funciones legacy) ──
-if (!function_exists('sendResponse')) {
-    function sendResponse($success, $message, $data = null, $code = 200)
-    {
-        http_response_code($code);
-        $res = ['success' => $success, 'message' => $message];
-        if ($data !== null) {
-            if (is_array($data) && isset($data['data'])) {
-                $res = array_merge($res, $data);
-            } else {
-                $res['data'] = $data;
-            }
-        }
-        echo json_encode($res);
-        exit;
-    }
-}
-if (!function_exists('logAction')) {
-    function logAction($db, $userId, $action, $details = [])
-    {
-        Security::logAudit($db, $userId, $action, 'empleados', null, null, $details);
-    }
-}
-// ────────────────────────────────────────────────────────────────────────
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -46,22 +16,16 @@ $userId = $_SESSION['user_id'] ?? null;
 $rolEf = $_SESSION['role'] ?? '';
 
 // HARDENING: NIST RBAC Enforcement
-// GET → todos los roles con carnet.view_all
 if ($method === 'GET')
     Security::requirePermission($db, 'carnet.view_all');
-// POST → se decide dentro del case entre carnet.create (nuevo) y carnet.update (edición)
-// DELETE → solo ADMIN
 if ($method === 'DELETE') {
     if ($rolEf !== 'ADMIN') {
         sendResponse(false, 'Acceso denegado. Solo un Administrador puede eliminar registros físicos.', null, 403);
     }
 }
 
-// ── Whitelist de estados válidos ──────────────────────────────
 const ESTADOS_VALIDOS = ['Pendiente por Imprimir', 'Carnet Impreso', 'Carnet Entregado'];
 const FORMAS_ENTREGA = ['', 'Manual', 'Digital'];
-
-// v3.1: Campos editables ampliados para incluir los campos del Editor
 const CAMPOS_EDITABLES = [
     'primer_nombre',
     'segundo_nombre',
@@ -76,31 +40,18 @@ const CAMPOS_EDITABLES = [
 ];
 
 try {
-
     switch ($method) {
-
-        // ════════════════════════════════════════════════════════
-        // GET — Lista paginada o empleado individual
-        // ════════════════════════════════════════════════════════
         case 'GET':
             $id = isset($_GET['id']) && is_numeric($_GET['id']) ? intval($_GET['id']) : null;
-
             if ($id) {
-                // ── Empleado individual (Para el Editor) ──────────────
-                $sql = "SELECT
-                            e.*,
-                            e.primer_nombre AS nombres,
-                            e.primer_apellido AS apellidos,
-                            g.nombre AS gerencia,
-                            e.foto_url AS photo_url
+                $sql = "SELECT e.*, e.primer_nombre AS nombres, e.primer_apellido AS apellidos,
+                               g.nombre AS gerencia, e.foto_url AS photo_url
                         FROM empleados e
                         LEFT JOIN gerencias g ON e.gerencia_id = g.id
-                        WHERE e.id = ?
-                        LIMIT 1";
+                        WHERE e.id = ? LIMIT 1";
                 $stmt = $db->prepare($sql);
                 $stmt->execute([$id]);
                 $emp = $stmt->fetch(PDO::FETCH_ASSOC);
-
                 if ($emp) {
                     echo json_encode(['success' => true, 'data' => $emp]);
                 } else {
@@ -110,7 +61,7 @@ try {
                 exit;
             }
 
-            // ── Lista paginada ───────────────────────────────────────
+            // Lista paginada
             $page = max(1, intval($_GET['page'] ?? 1));
             $limit = min(200, max(1, intval($_GET['limit'] ?? 50)));
             $search = trim($_GET['search'] ?? '');
@@ -153,12 +104,8 @@ try {
             $totalPages = (int) ceil($total / $limit);
 
             $dStmt = $db->prepare("
-                SELECT
-                    e.*,
-                    e.primer_nombre AS nombres,
-                    e.primer_apellido AS apellidos,
-                    g.nombre  AS gerencia,
-                    e.foto_url AS photo_url
+                SELECT e.*, e.primer_nombre AS nombres, e.primer_apellido AS apellidos,
+                       g.nombre AS gerencia, e.foto_url AS photo_url
                 FROM empleados e
                 LEFT JOIN gerencias g ON e.gerencia_id = g.id
                 {$where}
@@ -183,39 +130,27 @@ try {
             ]);
             break;
 
-        // ════════════════════════════════════════════════════════
-        // POST — Crear o Actualizar empleado
-        // ════════════════════════════════════════════════════════
         case 'POST':
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
             $id = isset($input['id']) ? intval($input['id']) : null;
             $action = trim($input['action'] ?? '');
 
-            // ── Acciones especiales ──────────────────────────────────
             if ($action === 'upload_payroll') {
                 Security::requirePermission($db, 'carnet.create');
                 $rows = $input['rows'] ?? [];
                 $added = 0;
                 $db->beginTransaction();
                 try {
-                    $ins = $db->prepare("
-                        INSERT IGNORE INTO empleados
-                            (nacionalidad, cedula, primer_nombre, segundo_nombre,
-                             primer_apellido, segundo_apellido, cargo, gerencia_id,
-                             fecha_ingreso, estado_carnet)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'Pendiente por Imprimir')
-                    ");
-
+                    $ins = $db->prepare("INSERT IGNORE INTO empleados
+                        (nacionalidad, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, cargo, gerencia_id, fecha_ingreso, estado_carnet)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'Pendiente por Imprimir')");
                     foreach ($rows as $r) {
                         $ced = preg_replace('/[^0-9]/', '', $r['Cédula'] ?? $r['cedula'] ?? '');
                         if (strlen($ced) < 5)
                             continue;
-
                         $nac = 'V';
-                        if (isset($r['Nacionalidad'])) {
+                        if (isset($r['Nacionalidad']))
                             $nac = strtoupper(trim($r['Nacionalidad'])) === 'E' ? 'E' : 'V';
-                        }
-
                         $gerNom = trim($r['Gerencia'] ?? $r['gerencia'] ?? '');
                         $gerId = null;
                         if ($gerNom) {
@@ -223,7 +158,6 @@ try {
                             $gStmt->execute([$gerNom]);
                             $gerId = $gStmt->fetchColumn() ?: null;
                         }
-
                         $ins->execute([
                             $nac,
                             $ced,
@@ -239,9 +173,7 @@ try {
                     }
                     $db->commit();
                     logAction($db, $userId, 'NOMINA_IMPORTADA', ['filas' => count($rows), 'registrados' => $added]);
-                    sendResponse(true, $added > 0
-                        ? "Nómina importada: {$added} empleado(s) registrado(s)."
-                        : 'No se importaron empleados (cédulas duplicadas o datos incompletos).');
+                    sendResponse(true, $added > 0 ? "Nómina importada: {$added} empleado(s) registrado(s)." : 'No se importaron empleados.');
                 } catch (Exception $ex) {
                     $db->rollBack();
                     sendResponse(false, 'Error al importar nómina: ' . $ex->getMessage(), null, 500);
@@ -256,19 +188,14 @@ try {
                 break;
             }
 
-            // ── Actualización parcial (PATCH semántico sobre POST) ──
             if ($id) {
-                // v3.1: Se requiere permiso específico de actualización
                 Security::requirePermission($db, 'carnet.update');
-
                 $setClauses = [];
                 $values = [];
 
-                // Campos básicos editables (whitelist ampliada)
                 foreach (CAMPOS_EDITABLES as $campo) {
                     if (array_key_exists($campo, $input)) {
                         $val = $input[$campo] ?? null;
-                        // Convertir arrays/objetos en datos_adicionales a JSON string
                         if ($campo === 'datos_adicionales' && is_array($val)) {
                             $val = json_encode($val, JSON_UNESCAPED_UNICODE);
                         }
@@ -291,7 +218,6 @@ try {
                     }
                 }
 
-                // Gerencia por nombre → resolver a ID
                 if (array_key_exists('gerencia', $input) && $input['gerencia']) {
                     $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
                     $gStmt->execute([trim($input['gerencia'])]);
@@ -302,7 +228,6 @@ try {
                     }
                 }
 
-                // Foto 
                 if (array_key_exists('photo_url', $input) || array_key_exists('foto_url', $input)) {
                     $foto = $input['foto_url'] ?? $input['photo_url'] ?? '';
                     $setClauses[] = "foto_url = ?";
@@ -319,15 +244,12 @@ try {
 
                 $sql = "UPDATE empleados SET " . implode(', ', $setClauses) . " WHERE id = ?";
                 $db->prepare($sql)->execute($values);
-
                 logAction($db, $userId, 'EMPLEADO_ACTUALIZADO', ['empleado_id' => $id]);
                 sendResponse(true, 'Empleado actualizado correctamente.');
                 break;
             }
 
-            // ── Creación de nuevo empleado ───────────────────────────
             Security::requirePermission($db, 'carnet.create');
-
             $cedula = preg_replace('/[^0-9]/', '', trim($input['cedula'] ?? ''));
             $primerNombre = trim($input['primer_nombre'] ?? $input['nombres'] ?? '');
             $primerApellido = trim($input['primer_apellido'] ?? $input['apellidos'] ?? '');
@@ -335,63 +257,36 @@ try {
             $gerenciaNom = trim($input['gerencia'] ?? '');
             $nac = strtoupper(trim($input['nacionalidad'] ?? 'V'));
             $nac = in_array($nac, ['V', 'E'], true) ? $nac : 'V';
-
             $segundoNombre = trim($input['segundo_nombre'] ?? '') ?: null;
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
             $fechaIngreso = trim($input['fecha_ingreso'] ?? '');
 
-            if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10) {
+            if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10)
                 sendResponse(false, 'La cédula debe contener entre 5 y 10 dígitos numéricos.', null, 400);
-                break;
-            }
-            if (!preg_match('/^[0-9]+$/', $cedula)) {
-                sendResponse(false, 'La cédula debe contener SOLO dígitos (0-9). No incluya prefijos V- o E-.', null, 400);
-                break;
-            }
-            if (!$primerNombre || !$primerApellido || !$cargo || !$gerenciaNom) {
-                sendResponse(false, 'Campos obligatorios incompletos: primer nombre, primer apellido, cargo y gerencia.', null, 400);
-                break;
-            }
+            if (!preg_match('/^[0-9]+$/', $cedula))
+                sendResponse(false, 'La cédula debe contener SOLO dígitos (0-9).', null, 400);
+            if (!$primerNombre || !$primerApellido || !$cargo || !$gerenciaNom)
+                sendResponse(false, 'Campos obligatorios incompletos.', null, 400);
 
             $check = $db->prepare("SELECT id FROM empleados WHERE cedula = ? LIMIT 1");
             $check->execute([$cedula]);
-            if ($check->fetchColumn()) {
+            if ($check->fetchColumn())
                 sendResponse(false, "Ya existe un empleado registrado con la cédula {$nac}-{$cedula}.", null, 409);
-                break;
-            }
 
             $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
             $gStmt->execute([$gerenciaNom]);
             $gerenciaId = $gStmt->fetchColumn();
-
             if (!$gerenciaId) {
                 $db->prepare("INSERT INTO gerencias (nombre) VALUES (?)")->execute([$gerenciaNom]);
                 $gerenciaId = $db->lastInsertId();
             }
 
-            $fechaFinal = $fechaIngreso && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaIngreso)
-                ? $fechaIngreso
-                : date('Y-m-d');
+            $fechaFinal = $fechaIngreso && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaIngreso) ? $fechaIngreso : date('Y-m-d');
 
-            $stmt = $db->prepare("
-                INSERT INTO empleados
-                    (nacionalidad, cedula, primer_nombre, segundo_nombre,
-                     primer_apellido, segundo_apellido, cargo, gerencia_id,
-                     fecha_ingreso, estado_laboral, estado_carnet)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')
-            ");
-
-            $stmt->execute([
-                $nac,
-                $cedula,
-                $primerNombre,
-                $segundoNombre,
-                $primerApellido,
-                $segundoApellido,
-                $cargo,
-                $gerenciaId,
-                $fechaFinal
-            ]);
+            $stmt = $db->prepare("INSERT INTO empleados
+                (nacionalidad, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, cargo, gerencia_id, fecha_ingreso, estado_laboral, estado_carnet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')");
+            $stmt->execute([$nac, $cedula, $primerNombre, $segundoNombre, $primerApellido, $segundoApellido, $cargo, $gerenciaId, $fechaFinal]);
             $newId = $db->lastInsertId();
 
             logAction($db, $userId, 'EMPLEADO_CREADO', [
@@ -406,35 +301,25 @@ try {
             sendResponse(true, 'Empleado registrado exitosamente.', ['id' => $newId]);
             break;
 
-        // ════════════════════════════════════════════════════════
-        // DELETE — Eliminar empleado
-        // ════════════════════════════════════════════════════════
         case 'DELETE':
             $id = isset($_GET['id']) ? intval($_GET['id']) : null;
-            if (!$id) {
+            if (!$id)
                 sendResponse(false, 'ID de empleado no proporcionado.', null, 400);
-                break;
-            }
-
             $empStmt = $db->prepare("SELECT cedula, primer_nombre, primer_apellido FROM empleados WHERE id = ? LIMIT 1");
             $empStmt->execute([$id]);
             $empData = $empStmt->fetch();
-
             $db->prepare("DELETE FROM empleados WHERE id = ?")->execute([$id]);
-
             logAction($db, $userId, 'EMPLEADO_ELIMINADO', [
                 'empleado_id' => $id,
                 'cedula' => $empData['cedula'] ?? 'N/A',
                 'nombre' => ($empData['primer_apellido'] ?? '') . ', ' . ($empData['primer_nombre'] ?? ''),
             ]);
-
             sendResponse(true, 'Empleado eliminado correctamente.');
             break;
 
         default:
             sendResponse(false, 'Método HTTP no permitido.', null, 405);
     }
-
 } catch (Exception $e) {
     error_log('[SCI-TSS employees.php] ' . $e->getMessage());
     sendResponse(false, 'Error interno del servidor. Contacte al administrador.', null, 500);
