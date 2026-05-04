@@ -356,7 +356,7 @@
                                 style="flex:1;justify-content:center;font-size:.75rem;">Vertical</button>
                         </div>
 
-                        <!-- Fondo personalizado -->
+                        <!-- Fondo personalizado (se aplica como backgroundImage, no interactivo) -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🖼️ Fondo Personalizado (PNG/JPG)
@@ -379,7 +379,7 @@
                             </p>
                         </div>
 
-                        <!-- Imagen Anverso del Carnet -->
+                        <!-- Imagen Anverso del Carnet (objeto interactivo) -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🪪 Imagen Anverso (Frente del Carnet)
@@ -403,7 +403,7 @@
                             </div>
                         </div>
 
-                        <!-- Imagen Reverso del Carnet -->
+                        <!-- Imagen Reverso del Carnet (objeto interactivo) -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
                             <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
                                 🔄 Imagen Reverso (Parte Trasera del Carnet)
@@ -481,7 +481,7 @@
         // ===================================================================
         // SCI-TSS Editor Avanzado — Implementación modular ES6
         // Clases: PhotoManager, CanvasManager, UIManager
-        // v2.2 — Soporte de fondo/anverso/reverso con bloqueo y ajuste automático
+        // v2.3 — Fondo fijo, anverso/reverso como objetos interactivos
         // ===================================================================
 
         // ---------- PHOTO MANAGER (Cropper.js) ----------
@@ -555,6 +555,9 @@
                 this.textNodes = {};
                 this.photoNode = null;
                 this.qrNode = null;
+                // Referencias a las imágenes de plantilla (para poder eliminarlas)
+                this.frontOverlay = null;
+                this.backOverlay = null;
             }
 
             init(frontCanvasEl, backCanvasEl) {
@@ -853,7 +856,7 @@
             }
 
             _bindTemplateEvents() {
-                // Fondo personalizado
+                // Fondo personalizado (como backgroundImage, no interactivo)
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -881,24 +884,32 @@
                     showEditorToast('Fondo restablecido.', 'success');
                 });
 
-                // Anverso personalizado
+                // Anverso personalizado (objeto interactivo, inicialmente tamaño reducido)
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
+                            // Tamaño inicial reducido para que no cubra todo
+                            const targetWidth = 150; // ancho inicial en píxeles
+                            const scale = targetWidth / img.width;
                             img.set({
-                                left: 0, top: 0,
-                                scaleX: this.canvasManager.frontCanvas.width / img.width,
-                                scaleY: this.canvasManager.frontCanvas.height / img.height,
-                                evented: false, selectable: false,
-                                lockMovementX: true, lockMovementY: true,
-                                lockScalingX: true, lockScalingY: true,
-                                hasControls: false, hasBorders: false
+                                left: 10,
+                                top: 10,
+                                scaleX: scale,
+                                scaleY: scale,
+                                hasControls: true,
+                                hasBorders: true,
+                                lockUniScaling: true
                             });
+                            // Eliminar overlay anterior si existe
+                            if (this.canvasManager.frontOverlay) {
+                                this.canvasManager.frontCanvas.remove(this.canvasManager.frontOverlay);
+                            }
+                            this.canvasManager.frontOverlay = img;
                             this.canvasManager.frontCanvas.add(img);
-                            this.canvasManager.frontCanvas.sendToBack(img);
+                            this.canvasManager.frontCanvas.sendToBack(img);   // detrás de textos
                             this.canvasManager.frontCanvas.renderAll();
                         });
                     };
@@ -906,28 +917,36 @@
                 });
 
                 document.getElementById('btn-reset-front').addEventListener('click', () => {
-                    const objs = this.canvasManager.frontCanvas.getObjects().filter(o => o.type === 'image' && o !== this.canvasManager.photoNode && o !== this.canvasManager.qrNode);
-                    objs.forEach(o => this.canvasManager.frontCanvas.remove(o));
-                    this.canvasManager.frontCanvas.renderAll();
-                    showEditorToast('Imagen de anverso eliminada.', 'success');
+                    if (this.canvasManager.frontOverlay) {
+                        this.canvasManager.frontCanvas.remove(this.canvasManager.frontOverlay);
+                        this.canvasManager.frontOverlay = null;
+                        this.canvasManager.frontCanvas.renderAll();
+                        showEditorToast('Imagen de anverso eliminada.', 'success');
+                    }
                 });
 
-                // Reverso personalizado
+                // Reverso personalizado (objeto interactivo, inicialmente tamaño reducido)
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
+                            const targetWidth = 150;
+                            const scale = targetWidth / img.width;
                             img.set({
-                                left: 0, top: 0,
-                                scaleX: this.canvasManager.backCanvas.width / img.width,
-                                scaleY: this.canvasManager.backCanvas.height / img.height,
-                                evented: false, selectable: false,
-                                lockMovementX: true, lockMovementY: true,
-                                lockScalingX: true, lockScalingY: true,
-                                hasControls: false, hasBorders: false
+                                left: 10,
+                                top: 10,
+                                scaleX: scale,
+                                scaleY: scale,
+                                hasControls: true,
+                                hasBorders: true,
+                                lockUniScaling: true
                             });
+                            if (this.canvasManager.backOverlay) {
+                                this.canvasManager.backCanvas.remove(this.canvasManager.backOverlay);
+                            }
+                            this.canvasManager.backOverlay = img;
                             this.canvasManager.backCanvas.add(img);
                             this.canvasManager.backCanvas.sendToBack(img);
                             this.canvasManager.backCanvas.renderAll();
@@ -937,10 +956,12 @@
                 });
 
                 document.getElementById('btn-reset-back').addEventListener('click', () => {
-                    const objs = this.canvasManager.backCanvas.getObjects().filter(o => o.type === 'image' && o !== this.canvasManager.photoNode && o !== this.canvasManager.qrNode);
-                    objs.forEach(o => this.canvasManager.backCanvas.remove(o));
-                    this.canvasManager.backCanvas.renderAll();
-                    showEditorToast('Imagen de reverso eliminada.', 'success');
+                    if (this.canvasManager.backOverlay) {
+                        this.canvasManager.backCanvas.remove(this.canvasManager.backOverlay);
+                        this.canvasManager.backOverlay = null;
+                        this.canvasManager.backCanvas.renderAll();
+                        showEditorToast('Imagen de reverso eliminada.', 'success');
+                    }
                 });
             }
 
