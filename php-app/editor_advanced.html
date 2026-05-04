@@ -15,11 +15,9 @@
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Estilos base del sistema (mantenemos el sidebar) -->
+    <!-- Estilos base del sistema -->
     <link rel="stylesheet" href="assets/css/style.css" />
-    <!-- Estilos adicionales propios del editor avanzado (sin Tailwind CDN) -->
     <style>
-        /* Utilidades mínimas para reemplazar Tailwind */
         .flex {
             display: flex;
         }
@@ -163,10 +161,6 @@
             overflow-y: auto;
         }
 
-        .overflow-hidden {
-            overflow: hidden;
-        }
-
         .border-b {
             border-bottom: 1px solid #e5e7eb;
         }
@@ -179,10 +173,6 @@
             margin-bottom: 0.5rem;
         }
 
-        .mt-2 {
-            margin-top: 0.5rem;
-        }
-
         .items-center {
             align-items: center;
         }
@@ -193,14 +183,6 @@
 
         .justify-end {
             justify-content: flex-end;
-        }
-
-        .justify-between {
-            justify-content: space-between;
-        }
-
-        .relative {
-            position: relative;
         }
 
         .fixed {
@@ -224,14 +206,6 @@
             display: inline-block;
         }
 
-        .toolbar-btn {
-            cursor: pointer;
-        }
-
-        .toolbar-btn:hover {
-            background: #f1f5f9;
-        }
-
         #crop-modal {
             display: none;
         }
@@ -245,7 +219,6 @@
 <body class="bg-gray-100">
 
     <div class="app-layout">
-        <!-- Sidebar (idéntico al original) -->
         <aside class="sidebar">
             <div class="sidebar-brand">
                 <div class="sidebar-brand-icon">
@@ -288,7 +261,6 @@
             </div>
 
             <div class="flex h-full">
-                <!-- Barra lateral izquierda -->
                 <div class="w-72 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
                     <!-- Datos del Funcionario -->
                     <div>
@@ -335,119 +307,80 @@
 
                     <!-- PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
-                        <h3
-                            style="font-size:.875rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
-                            <span>🎨</span> Plantilla Institucional
-                        </h3>
-                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">
-                            Seleccione el diseño gráfico oficial correspondiente al año en curso.
-                        </p>
-                        <select id="template-selector" class="form-input form-select" onchange="setTemplate(this.value)"
+                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantilla
+                            Institucional</h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Seleccione el diseño
+                            gráfico oficial.</p>
+                        <select id="template-selector" class="form-input form-select"
                             style="margin-bottom:12px;font-weight:600;">
                             <option value="2025" selected>Diseño Moderno (Año 2025)</option>
                             <option value="2024">Diseño Clásico (Año 2024)</option>
                         </select>
                         <div style="display:flex;gap:8px;margin-bottom:12px;">
-                            <button class="btn btn-primary" id="ori-h" onclick="setOrientation('horizontal')"
-                                style="flex:1;justify-content:center;font-size:.75rem;">Horizontal</button>
-                            <button class="btn btn-secondary" id="ori-v" onclick="setOrientation('vertical')"
-                                style="flex:1;justify-content:center;font-size:.75rem;">Vertical</button>
+                            <button class="btn btn-primary" id="ori-h" style="flex:1;">Horizontal</button>
+                            <button class="btn btn-secondary" id="ori-v" style="flex:1;">Vertical</button>
                         </div>
 
                         <!-- Fondo personalizado -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
-                                🖼️ Fondo Personalizado (PNG/JPG)
-                            </label>
+                            <label class="form-label" style="font-size:.72rem;">🖼️ Fondo Personalizado
+                                (PNG/JPG)</label>
                             <input type="file" id="custom-bg-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;">
-                                <button id="btn-upload-bg" class="btn btn-secondary"
-                                    onclick="document.getElementById('custom-bg-input').click()"
-                                    style="flex:1;justify-content:center;font-size:.75rem;">
-                                    📂 Subir Fondo
-                                </button>
-                                <button id="btn-reset-bg" class="btn btn-secondary"
-                                    style="padding:8px 10px;font-size:.75rem;" title="Restablecer fondo predeterminado">
-                                    ↺
-                                </button>
+                                <button id="btn-upload-bg" class="btn btn-secondary" style="flex:1;">📂 Subir
+                                    Fondo</button>
+                                <button id="btn-reset-bg" class="btn btn-secondary" style="padding:8px 10px;">↺</button>
                             </div>
-                            <p style="font-size:.68rem;color:var(--color-muted);margin-top:6px;">
-                                Diseño exportado de Illustrator. Se aplica como fondo al encabezado del carnet.
-                            </p>
                         </div>
 
                         <!-- Imagen Anverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
-                                🪪 Imagen Anverso (Frente del Carnet)
-                            </label>
+                            <label class="form-label" style="font-size:.72rem;">🪪 Imagen Anverso (Frente)</label>
                             <input type="file" id="card-front-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                <button id="btn-upload-front" class="btn btn-secondary"
-                                    onclick="document.getElementById('card-front-input').click()"
-                                    style="flex:1;justify-content:center;font-size:.75rem;">
-                                    📂 Subir Anverso
-                                </button>
+                                <button id="btn-upload-front" class="btn btn-secondary" style="flex:1;">📂 Subir
+                                    Anverso</button>
                                 <button id="btn-reset-front" class="btn btn-secondary"
-                                    style="padding:8px 10px;font-size:.75rem;" title="Quitar imagen anverso">
-                                    ↺
-                                </button>
+                                    style="padding:8px 10px;">↺</button>
                             </div>
-                            <div id="front-preview" style="display:none;margin-top:4px;">
-                                <img id="front-preview-img" src=""
-                                    style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
+                            <div id="front-preview" style="display:none;margin-top:4px;"><img id="front-preview-img"
+                                    src="" style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
                             </div>
                         </div>
 
                         <!-- Imagen Reverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;margin-bottom:6px;display:block;">
-                                🔄 Imagen Reverso (Parte Trasera del Carnet)
-                            </label>
+                            <label class="form-label" style="font-size:.72rem;">🔄 Imagen Reverso (Trasera)</label>
                             <input type="file" id="card-back-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                <button id="btn-upload-back" class="btn btn-secondary"
-                                    onclick="document.getElementById('card-back-input').click()"
-                                    style="flex:1;justify-content:center;font-size:.75rem;">
-                                    📂 Subir Reverso
-                                </button>
+                                <button id="btn-upload-back" class="btn btn-secondary" style="flex:1;">📂 Subir
+                                    Reverso</button>
                                 <button id="btn-reset-back" class="btn btn-secondary"
-                                    style="padding:8px 10px;font-size:.75rem;" title="Quitar imagen reverso">
-                                    ↺
-                                </button>
+                                    style="padding:8px 10px;">↺</button>
                             </div>
-                            <div id="back-preview" style="display:none;margin-top:4px;">
-                                <img id="back-preview-img" src=""
-                                    style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
+                            <div id="back-preview" style="display:none;margin-top:4px;"><img id="back-preview-img"
+                                    src="" style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Guardar Layout -->
-                    <div>
-                        <button id="btn-save-layout" class="btn btn-secondary w-full">💾 Guardar Layout (JSON)</button>
-                    </div>
+                    <button id="btn-save-layout" class="btn btn-secondary w-full">💾 Guardar Layout (JSON)</button>
                 </div>
 
-                <!-- Área central -->
                 <div class="flex-1 p-4 flex flex-col items-center gap-4">
                     <div class="flex gap-2 bg-white rounded-lg shadow p-2">
                         <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Anverso</button>
                         <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Reverso</button>
                     </div>
-
-                    <div class="flex gap-4 justify-center items-start flex-wrap">
-                        <div class="canvas-container" id="front-container">
-                            <canvas id="canvas-anverso" width="520" height="326"></canvas>
-                        </div>
-                        <div class="canvas-container hidden" id="back-container">
-                            <canvas id="canvas-reverso" width="520" height="326"></canvas>
-                        </div>
+                    <div class="flex gap-4 justify-center">
+                        <div class="canvas-container" id="front-container"><canvas id="canvas-anverso" width="520"
+                                height="326"></canvas></div>
+                        <div class="canvas-container hidden" id="back-container"><canvas id="canvas-reverso" width="520"
+                                height="326"></canvas></div>
                     </div>
-
                     <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
                 </div>
             </div>
@@ -458,9 +391,7 @@
     <div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-11/12 max-w-2xl flex flex-col gap-4">
             <h3 class="text-lg font-bold">Recortar Fotografía (3:4)</h3>
-            <div class="flex-1 min-h-0">
-                <img id="crop-image" src="" alt="Imagen a recortar" class="max-w-full" />
-            </div>
+            <div class="flex-1"><img id="crop-image" src="" alt="Imagen" class="max-w-full" /></div>
             <div class="flex justify-end gap-3">
                 <button id="btn-crop-cancel" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
                 <button id="btn-crop-apply" class="px-4 py-2 bg-blue-600 text-white rounded">Aplicar Recorte</button>
@@ -468,15 +399,11 @@
         </div>
     </div>
 
-    <!-- Scripts del sistema existente -->
     <script src="assets/js/api.js"></script>
     <script src="assets/js/validaciones.js"></script>
-
     <script>
-        // ===================================================================
-        // SCI-TSS Editor Avanzado v2.4 – Carga inteligente de plantillas
-        // ===================================================================
-        class PhotoManager { /* ... idéntico a versiones anteriores ... */
+        // ============= PHOTO MANAGER (Cropper.js) =============
+        class PhotoManager {
             constructor() {
                 this.cropper = null;
                 this.modal = document.getElementById('crop-modal');
@@ -521,106 +448,107 @@
             onPhotoCropped(callback) { this.callback = callback; }
         }
 
+        // ============= CANVAS MANAGER (Fabric.js) =============
         class CanvasManager {
             constructor() {
                 this.frontCanvas = null; this.backCanvas = null;
                 this.currentSide = 'front';
-                this.employeeData = null; this.photoDataUrl = null; this.qrDataUrl = null;
                 this.textNodes = {}; this.photoNode = null; this.qrNode = null;
                 this.frontOverlay = null; this.backOverlay = null;
             }
-            init(frontCanvasEl, backCanvasEl) {
-                this.frontCanvas = new fabric.Canvas(frontCanvasEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
-                this.backCanvas = new fabric.Canvas(backCanvasEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
-                this.frontCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
-                this.frontCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
-                this.frontCanvas.on('selection:cleared', () => this._onObjectSelected(null));
-                this.backCanvas.on('selection:created', (e) => this._onObjectSelected(e.selected[0]));
-                this.backCanvas.on('selection:updated', (e) => this._onObjectSelected(e.selected[0]));
-                this.backCanvas.on('selection:cleared', () => this._onObjectSelected(null));
+
+            init(frontEl, backEl) {
+                this.frontCanvas = new fabric.Canvas(frontEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
+                this.backCanvas = new fabric.Canvas(backEl, { backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true });
+
+                const onSelect = (e) => this._onObjectSelected(e.selected ? e.selected[0] : null);
+                this.frontCanvas.on('selection:created', onSelect);
+                this.frontCanvas.on('selection:updated', onSelect);
+                this.frontCanvas.on('selection:cleared', () => onSelect({}));
+                this.backCanvas.on('selection:created', onSelect);
+                this.backCanvas.on('selection:updated', onSelect);
+                this.backCanvas.on('selection:cleared', () => onSelect({}));
+
                 this._loadDefaultBackgrounds();
             }
+
             _loadDefaultBackgrounds() {
-                const defaultBg = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`);
-                fabric.Image.fromURL(defaultBg, (img) => {
+                const svg = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`);
+                fabric.Image.fromURL(svg, (img) => {
                     this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas));
                     this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas));
-                }, { crossOrigin: 'anonymous' });
+                });
             }
-            setEmployeeData(employee, photoDataUrl, qrDataUrl) { /* ... igual ... */
-                this.employeeData = employee; this.photoDataUrl = photoDataUrl; this.qrDataUrl = qrDataUrl;
-                this.frontCanvas.getObjects().forEach(obj => { if (obj !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(obj); });
-                this.backCanvas.getObjects().forEach(obj => { if (obj !== this.backCanvas.backgroundImage) this.backCanvas.remove(obj); });
-                this.textNodes.nombres = this._addText(this.frontCanvas, employee.nombres || '', 130, 60, 16, '#000000', 'Arial');
-                this.textNodes.apellidos = this._addText(this.frontCanvas, employee.apellidos || '', 130, 90, 18, '#003366', 'Arial');
-                this.textNodes.cargo = this._addText(this.frontCanvas, employee.cargo || '', 130, 150, 14, '#333333', 'Arial');
-                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${employee.cedula || ''}`, 40, 240, 14, '#000000', 'Courier New');
-                this.textNodes.gerencia = this._addText(this.backCanvas, employee.gerencia || '', 40, 180, 14, '#444444', 'Arial');
-                if (photoDataUrl) {
-                    fabric.Image.fromURL(photoDataUrl, (img) => {
+
+            setEmployeeData(emp, photoUrl, qrUrl) {
+                this.frontCanvas.getObjects().forEach(o => { if (o !== this.frontCanvas.backgroundImage) this.frontCanvas.remove(o); });
+                this.backCanvas.getObjects().forEach(o => { if (o !== this.backCanvas.backgroundImage) this.backCanvas.remove(o); });
+
+                this.textNodes.nombres = this._addText(this.frontCanvas, emp.nombres || '', 130, 60, 16, '#000', 'Arial');
+                this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || '', 130, 90, 18, '#003366', 'Arial');
+                this.textNodes.cargo = this._addText(this.frontCanvas, emp.cargo || '', 130, 150, 14, '#333', 'Arial');
+                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${emp.cedula || ''}`, 40, 240, 14, '#000', 'Courier New');
+                this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || '', 40, 180, 14, '#444', 'Arial');
+
+                if (photoUrl) {
+                    fabric.Image.fromURL(photoUrl, (img) => {
                         img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
                         this.photoNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
                     });
                 }
-                if (qrDataUrl) {
-                    fabric.Image.fromURL(qrDataUrl, (img) => {
-                        img.set({ left: 430, top: 230, scaleX: 0.4, scaleY: 0.4, hasControls: true, hasBorders: true });
+                if (qrUrl) {
+                    fabric.Image.fromURL(qrUrl, (img) => {
+                        img.set({ left: 430, top: 230, scaleX: 0.4, scaleY: 0.4, hasControls: true });
                         this.qrNode = img; this.frontCanvas.add(img); this.frontCanvas.renderAll();
                     });
                 }
             }
+
             _addText(canvas, text, left, top, fontSize, fill, fontFamily) {
                 const t = new fabric.IText(text, { left, top, fontSize, fill, fontFamily, hasControls: true, hasBorders: true, editable: true, textBaseline: 'alphabetic' });
                 canvas.add(t); return t;
             }
-            updateTextFromForm(formData) { /* ... */ }
-            updateSelectedStyle(properties) { /* ... */ }
-            serializeLayout() { /* ... */ }
-            _serializeObject(obj) { /* ... */ }
-            exportJPG(side) { /* ... */ }
-            _onObjectSelected(obj) { /* ... */ }
+
+            updateTextFromForm(data) {
+                if (this.textNodes.nombres) this.textNodes.nombres.set('text', data.nombres || '');
+                if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', data.apellidos || '');
+                if (this.textNodes.cargo) this.textNodes.cargo.set('text', data.cargo || '');
+                if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${data.cedula || ''}`);
+                if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', data.gerencia || '');
+                this.frontCanvas.renderAll(); this.backCanvas.renderAll();
+            }
+
+            updateSelectedStyle(props) {
+                const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
+                const obj = canvas.getActiveObject();
+                if (obj) { Object.keys(props).forEach(k => obj.set(k, props[k])); canvas.renderAll(); }
+            }
+
+            serializeLayout() {
+                const ser = (o) => ({ type: o.type, text: o.text || '', left: o.left, top: o.top, fontSize: o.fontSize, fontFamily: o.fontFamily, fill: o.fill, scaleX: o.scaleX, scaleY: o.scaleY });
+                return JSON.stringify({ front: this.frontCanvas.getObjects().map(ser), back: this.backCanvas.getObjects().map(ser) }, null, 2);
+            }
+
+            exportJPG(side) {
+                const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
+                const data = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
+                const a = document.createElement('a'); a.href = data; a.download = `carnet_${side}.jpg`; a.click();
+            }
+
+            _onObjectSelected(obj) {
+                const panel = document.getElementById('text-style-panel');
+                if (obj && obj.type === 'i-text') {
+                    document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
+                    document.getElementById('font-size-input').value = obj.fontSize || 14;
+                    document.getElementById('color-picker').value = obj.fill || '#000000';
+                    panel.classList.remove('opacity-50');
+                } else {
+                    panel.classList.add('opacity-50');
+                }
+            }
         }
 
-        // Asegurar que los métodos no queden undefined (copiar implementaciones previas)
-        CanvasManager.prototype.updateTextFromForm = function (formData) {
-            if (this.textNodes.nombres) this.textNodes.nombres.set('text', formData.nombres || '');
-            if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', formData.apellidos || '');
-            if (this.textNodes.cargo) this.textNodes.cargo.set('text', formData.cargo || '');
-            if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${formData.cedula || ''}`);
-            if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', formData.gerencia || '');
-            this.frontCanvas.renderAll(); this.backCanvas.renderAll();
-        };
-        CanvasManager.prototype.updateSelectedStyle = function (properties) {
-            const activeCanvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
-            const obj = activeCanvas.getActiveObject();
-            if (obj) { Object.keys(properties).forEach(key => obj.set(key, properties[key])); activeCanvas.renderAll(); }
-        };
-        CanvasManager.prototype.serializeLayout = function () {
-            return JSON.stringify({
-                front: this.frontCanvas.getObjects().map(o => this._serializeObject(o)),
-                back: this.backCanvas.getObjects().map(o => this._serializeObject(o))
-            }, null, 2);
-        };
-        CanvasManager.prototype._serializeObject = function (obj) {
-            return { type: obj.type, text: obj.text || '', left: obj.left, top: obj.top, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fill: obj.fill, scaleX: obj.scaleX, scaleY: obj.scaleY };
-        };
-        CanvasManager.prototype.exportJPG = function (side) {
-            const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
-            const dataURL = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
-            const link = document.createElement('a'); link.href = dataURL; link.download = `carnet_${side}.jpg`; link.click();
-        };
-        CanvasManager.prototype._onObjectSelected = function (obj) {
-            if (obj && obj.type === 'i-text') {
-                document.getElementById('font-family-select').value = obj.fontFamily || 'Arial';
-                document.getElementById('font-size-input').value = obj.fontSize || 14;
-                document.getElementById('color-picker').value = obj.fill || '#000000';
-                document.getElementById('text-style-panel').classList.remove('opacity-50');
-            } else {
-                document.getElementById('text-style-panel').classList.add('opacity-50');
-            }
-        };
-
-        // ---------- UI MANAGER ----------
+        // ============= UI MANAGER =============
         class UIManager {
             constructor() {
                 this.photoManager = new PhotoManager();
@@ -628,67 +556,102 @@
                 this.employee = null; this.qrDataUrl = null;
                 this.init();
             }
+
             async init() {
                 const user = api.getCurrentUser();
                 if (!user.username) { window.location.href = 'login.html'; return; }
                 document.getElementById('user-name').textContent = user.full_name || user.username;
                 document.getElementById('user-role').textContent = (user.effective_role || user.role || '').toUpperCase();
                 document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0).toUpperCase();
-                document.getElementById('btn-logout').addEventListener('click', async () => { await api.logout(); window.location.href = 'login.html'; });
+
                 if (typeof api.initCsrf === 'function') await api.initCsrf();
 
-                const frontCanvasEl = document.getElementById('canvas-anverso');
-                const backCanvasEl = document.getElementById('canvas-reverso');
-                this.canvasManager.init(frontCanvasEl, backCanvasEl);
+                this.canvasManager.init(document.getElementById('canvas-anverso'), document.getElementById('canvas-reverso'));
 
-                let storedId = localStorage.getItem('selected_employee_id');
-                if (!storedId) { const res = await api.getEmployees({ limit: 1 }); if (res.data && res.data.length) storedId = res.data[0].id; }
-                if (storedId) {
+                let id = localStorage.getItem('selected_employee_id');
+                if (!id) { const r = await api.getEmployees({ limit: 1 }); if (r.data?.length) id = r.data[0].id; }
+                if (id) {
                     try {
-                        const res = await api.getEmployees({ id: storedId });
-                        if (res.data && res.data.length) {
-                            this.employee = res.data[0];
-                            this._fillEmployeeForm(this.employee);
+                        const r = await api.getEmployees({ id });
+                        if (r.data?.length) {
+                            this.employee = r.data[0];
+                            this._fillForm(this.employee);
                             this._generateQR();
-                            this._loadCanvasData();
+                            this._loadCanvas();
                         }
                     } catch (e) { console.error(e); }
                 }
-                this._bindUIEvents();
-                this._bindTemplateEvents();
+
+                this._bindUI();
+                this._bindTemplate();
                 this._switchSide('front');
+
+                // Logout con confirmación (como en dashboard)
+                this._setupLogout();
             }
 
-            _fillEmployeeForm(emp) { /* ... igual ... */ }
-            async _populateGerenciaSelect(selectedGerencia) { /* ... igual ... */ }
-            _generateQR() { /* ... igual ... */ }
-            _loadCanvasData() { /* ... igual ... */ }
-            _generateAvatar() { /* ... igual ... */ }
+            _fillForm(emp) {
+                document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
+                document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
+                document.getElementById('edit-cedula').value = emp.cedula || '';
+                document.getElementById('edit-cargo').value = emp.cargo || '';
+                this._loadGerencias(emp.gerencia);
+            }
 
-            _bindUIEvents() {
+            async _loadGerencias(sel) {
+                try {
+                    const res = await api.getGerencias();
+                    const select = document.getElementById('edit-gerencia');
+                    select.innerHTML = '<option value="">Seleccionar...</option>';
+                    (res.data || []).forEach(g => {
+                        const o = document.createElement('option'); o.value = g.nombre; o.textContent = g.nombre;
+                        if (g.nombre === sel) o.selected = true;
+                        select.appendChild(o);
+                    });
+                } catch (e) { }
+            }
+
+            _generateQR() {
+                if (typeof QRious === 'undefined') return;
+                const c = document.createElement('canvas');
+                new QRious({ element: c, value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`, size: 200, level: 'M', background: '#fff', foreground: '#003366', padding: 8 });
+                this.qrDataUrl = c.toDataURL('image/png');
+            }
+
+            _loadCanvas() {
+                const photo = this.employee.photo_url || this.employee.foto_url || this._avatar();
+                this.canvasManager.setEmployeeData(this.employee, photo, this.qrDataUrl);
+            }
+
+            _avatar() {
+                const n = `${this.employee.primer_nombre || ''} ${this.employee.primer_apellido || ''}`;
+                return typeof makeAvatar !== 'undefined' ? makeAvatar(n) : '';
+            }
+
+            _bindUI() {
                 document.getElementById('form-edit-employee').addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const btn = document.getElementById('btn-save-fields');
-                    const data = {
+                    const d = {
                         nombres: document.getElementById('edit-nombres').value.trim(),
                         apellidos: document.getElementById('edit-apellidos').value.trim(),
                         cargo: document.getElementById('edit-cargo').value.trim(),
                         gerencia: document.getElementById('edit-gerencia').value,
                         cedula: document.getElementById('edit-cedula').value
                     };
-                    const nombresParts = data.nombres.split(' '); const apellidosParts = data.apellidos.split(' ');
+                    const np = d.nombres.split(' '), ap = d.apellidos.split(' ');
                     const fields = {
-                        primer_nombre: nombresParts[0] || '', segundo_nombre: nombresParts.slice(1).join(' ') || null,
-                        primer_apellido: apellidosParts[0] || '', segundo_apellido: apellidosParts.slice(1).join(' ') || null,
-                        nombres: data.nombres, apellidos: data.apellidos, cargo: data.cargo, gerencia: data.gerencia, cedula: data.cedula
+                        primer_nombre: np[0] || '', segundo_nombre: np.slice(1).join(' ') || null,
+                        primer_apellido: ap[0] || '', segundo_apellido: ap.slice(1).join(' ') || null,
+                        nombres: d.nombres, apellidos: d.apellidos, cargo: d.cargo, gerencia: d.gerencia, cedula: d.cedula
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
                         await api.updateEmployee(this.employee.id, fields);
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
-                        showEditorToast('Datos actualizados.', 'success');
-                    } catch (err) { showEditorToast(err.message, 'danger'); }
+                        showToast('Datos actualizados.', 'success');
+                    } catch (err) { showToast(err.message, 'danger'); }
                     finally { ui.setLoading(btn, false); }
                 });
 
@@ -696,9 +659,11 @@
                     if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
                     fabric.Image.fromURL(dataUrl, (img) => {
                         img.set({ left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true, hasBorders: true, lockUniScaling: true });
-                        this.canvasManager.photoNode = img; this.canvasManager.frontCanvas.add(img); this.canvasManager.frontCanvas.renderAll();
+                        this.canvasManager.photoNode = img;
+                        this.canvasManager.frontCanvas.add(img);
+                        this.canvasManager.frontCanvas.renderAll();
                     });
-                    showEditorToast('Foto recortada aplicada.', 'success');
+                    showToast('Foto aplicada.', 'success');
                 });
 
                 document.getElementById('btn-apply-text-style').addEventListener('click', () => {
@@ -712,14 +677,14 @@
                 document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(this.canvasManager.currentSide));
                 document.getElementById('btn-save-layout').addEventListener('click', () => {
                     const json = this.canvasManager.serializeLayout();
-                    console.log('📐 Layout:', json);
-                    Swal.fire({ title: 'Layout capturado', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`, icon: 'success', width: 800 });
+                    console.log('Layout:', json);
+                    Swal.fire({ title: 'Layout', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`, icon: 'success', width: 800 });
                 });
                 document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            _bindTemplateEvents() {
+            _bindTemplate() {
                 // Fondo personalizado
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0]; if (!file) return;
@@ -733,37 +698,30 @@
                     };
                     reader.readAsDataURL(file);
                 });
-                document.getElementById('btn-reset-bg').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showEditorToast('Fondo restablecido.', 'success'); });
+                document.getElementById('btn-reset-bg').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo restablecido.'); });
 
-                // === ANVERSO (mejorado) ===
+                // Anverso (INTERACTIVO)
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             const canvas = this.canvasManager.frontCanvas;
-                            // Escala inteligente: máximo 60% del canvas, sin agrandar
-                            const maxWidth = canvas.width * 0.6;
-                            const maxHeight = canvas.height * 0.6;
-                            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+                            const maxW = canvas.width * 0.6, maxH = canvas.height * 0.6;
+                            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
                             img.set({
                                 left: (canvas.width - img.width * scale) / 2,
                                 top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale,
-                                scaleY: scale,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockUniScaling: true
+                                scaleX: scale, scaleY: scale,
+                                hasControls: true, hasBorders: true, lockUniScaling: true
                             });
                             if (this.canvasManager.frontOverlay) canvas.remove(this.canvasManager.frontOverlay);
                             this.canvasManager.frontOverlay = img;
                             canvas.add(img);
-                            canvas.sendToBack(img);   // detrás de textos, delante del fondo
+                            canvas.sendToBack(img);
                             canvas.renderAll();
-                            // Mostrar preview si existe
-                            const preview = document.getElementById('front-preview');
-                            const previewImg = document.getElementById('front-preview-img');
-                            if (preview && previewImg) { previewImg.src = ev.target.result; preview.style.display = 'block'; }
+                            document.getElementById('front-preview-img').src = ev.target.result;
+                            document.getElementById('front-preview').style.display = 'block';
                         });
                     };
                     reader.readAsDataURL(file);
@@ -774,37 +732,32 @@
                         this.canvasManager.frontOverlay = null;
                         this.canvasManager.frontCanvas.renderAll();
                         document.getElementById('front-preview').style.display = 'none';
-                        showEditorToast('Imagen de anverso eliminada.', 'success');
+                        showToast('Anverso eliminado.');
                     }
                 });
 
-                // === REVERSO (mejorado) ===
+                // Reverso (INTERACTIVO)
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             const canvas = this.canvasManager.backCanvas;
-                            const maxWidth = canvas.width * 0.6;
-                            const maxHeight = canvas.height * 0.6;
-                            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+                            const maxW = canvas.width * 0.6, maxH = canvas.height * 0.6;
+                            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
                             img.set({
                                 left: (canvas.width - img.width * scale) / 2,
                                 top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale,
-                                scaleY: scale,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockUniScaling: true
+                                scaleX: scale, scaleY: scale,
+                                hasControls: true, hasBorders: true, lockUniScaling: true
                             });
                             if (this.canvasManager.backOverlay) canvas.remove(this.canvasManager.backOverlay);
                             this.canvasManager.backOverlay = img;
                             canvas.add(img);
                             canvas.sendToBack(img);
                             canvas.renderAll();
-                            const preview = document.getElementById('back-preview');
-                            const previewImg = document.getElementById('back-preview-img');
-                            if (preview && previewImg) { previewImg.src = ev.target.result; preview.style.display = 'block'; }
+                            document.getElementById('back-preview-img').src = ev.target.result;
+                            document.getElementById('back-preview').style.display = 'block';
                         });
                     };
                     reader.readAsDataURL(file);
@@ -815,7 +768,7 @@
                         this.canvasManager.backOverlay = null;
                         this.canvasManager.backCanvas.renderAll();
                         document.getElementById('back-preview').style.display = 'none';
-                        showEditorToast('Imagen de reverso eliminada.', 'success');
+                        showToast('Reverso eliminado.');
                     }
                 });
             }
@@ -824,61 +777,51 @@
                 this.canvasManager.currentSide = side;
                 document.getElementById('front-container').classList.toggle('hidden', side !== 'front');
                 document.getElementById('back-container').classList.toggle('hidden', side !== 'back');
-                const btnF = document.getElementById('btn-front'), btnB = document.getElementById('btn-back');
-                if (side === 'front') {
-                    btnF.className = 'px-4 py-1 rounded bg-gray-800 text-white';
-                    btnB.className = 'px-4 py-1 rounded bg-gray-200';
-                } else {
-                    btnB.className = 'px-4 py-1 rounded bg-gray-800 text-white';
-                    btnF.className = 'px-4 py-1 rounded bg-gray-200';
-                }
+                const f = document.getElementById('btn-front'), b = document.getElementById('btn-back');
+                f.className = `px-4 py-1 rounded ${side === 'front' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
+                b.className = `px-4 py-1 rounded ${side === 'back' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
+            }
+
+            _setupLogout() {
+                const btn = document.getElementById('btn-logout');
+                if (!btn) return;
+                btn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    let confirmed = true;
+                    if (typeof Swal !== 'undefined') {
+                        const res = await Swal.fire({
+                            title: '¿Desea cerrar sesión?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#003366',
+                            cancelButtonColor: '#dc2626',
+                            confirmButtonText: 'Sí, salir',
+                            cancelButtonText: 'Cancelar'
+                        });
+                        confirmed = res.isConfirmed;
+                    } else {
+                        confirmed = confirm('¿Desea cerrar sesión?');
+                    }
+                    if (confirmed) {
+                        await api.logout();
+                        window.location.href = 'login.html';
+                    }
+                });
             }
 
             static printCard() { window.print(); }
         }
 
-        // Rellenar métodos faltantes de UIManager
-        UIManager.prototype._fillEmployeeForm = function (emp) {
-            document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
-            document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
-            document.getElementById('edit-cedula').value = emp.cedula || '';
-            document.getElementById('edit-cargo').value = emp.cargo || '';
-            this._populateGerenciaSelect(emp.gerencia);
-        };
-        UIManager.prototype._populateGerenciaSelect = async function (sel) {
-            try {
-                const res = await api.getGerencias();
-                const select = document.getElementById('edit-gerencia');
-                select.innerHTML = '<option value="">Seleccionar...</option>';
-                (res.data || []).forEach(g => {
-                    const o = document.createElement('option'); o.value = g.nombre; o.textContent = g.nombre;
-                    if (g.nombre === sel) o.selected = true;
-                    select.appendChild(o);
-                });
-            } catch (e) { }
-        };
-        UIManager.prototype._generateQR = function () {
-            if (typeof QRious === 'undefined') return;
-            const c = document.createElement('canvas');
-            new QRious({ element: c, value: `${typeof VALIDATION_BASE_URL !== 'undefined' ? VALIDATION_BASE_URL : ''}?id=${this.employee.id}`, size: 200, level: 'M', background: '#ffffff', foreground: '#003366', padding: 8 });
-            this.qrDataUrl = c.toDataURL('image/png');
-        };
-        UIManager.prototype._loadCanvasData = function () {
-            let photo = this.employee.photo_url || this.employee.foto_url || this._generateAvatar();
-            this.canvasManager.setEmployeeData(this.employee, photo, this.qrDataUrl);
-        };
-        UIManager.prototype._generateAvatar = function () {
-            const n = `${this.employee.primer_nombre || ''} ${this.employee.primer_apellido || ''}`;
-            return typeof makeAvatar !== 'undefined' ? makeAvatar(n) : '';
-        };
-
-        function showEditorToast(m, t = 'success') {
-            const c = { success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }, info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' } }[t] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
-            const d = document.createElement('div'); d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
-            d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 3500);
+        function showToast(msg, type = 'success') {
+            const c = { success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }, info: { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' } }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
+            const d = document.createElement('div');
+            d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
+            d.textContent = msg;
+            document.body.appendChild(d);
+            setTimeout(() => d.remove(), 3500);
         }
 
-        document.addEventListener('DOMContentLoaded', () => new UIManager());
+        document.addEventListener('DOMContentLoaded', () => { new UIManager(); });
     </script>
 </body>
 
