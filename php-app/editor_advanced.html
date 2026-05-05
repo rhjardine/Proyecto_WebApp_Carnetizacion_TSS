@@ -402,40 +402,6 @@
     <script src="assets/js/api.js"></script>
     <script src="assets/js/validaciones.js"></script>
     <script>
-        // ===== PROTECCIÓN CONTRA ERRORES EN ENTORNO DE PREVISUALIZACIÓN =====
-        // Esto evita que la aplicación colapse (ReferenceError) cuando se abre en 
-        // un visor de código donde `api.js` o `validaciones.js` no logran cargar por rutas relativas.
-        if (typeof api === 'undefined') {
-            console.warn("El objeto 'api' no está definido. Inyectando mock local para evitar fallos en el visor.");
-            window.api = {
-                getCurrentUser: () => ({ username: 'pruebas', full_name: 'Usuario de Pruebas', role: 'admin' }),
-                initCsrf: async () => { },
-                getEmployees: async (opts) => ({
-                    data: [{ id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678', cargo: 'Analista de Sistemas', gerencia: 'Tecnología' }]
-                }),
-                getGerencias: async () => ({
-                    data: [{ nombre: 'Tecnología' }, { nombre: 'Recursos Humanos' }, { nombre: 'Operaciones' }]
-                }),
-                updateEmployee: async (id, data) => { return true; },
-                logout: async () => { }
-            };
-        }
-        if (typeof ui === 'undefined') {
-            window.ui = {
-                setLoading: (btn, isLoading, text) => {
-                    if (isLoading) {
-                        btn.dataset.ogText = btn.innerHTML;
-                        btn.innerHTML = text;
-                        btn.disabled = true;
-                    } else {
-                        btn.innerHTML = btn.dataset.ogText || 'Guardar';
-                        btn.disabled = false;
-                    }
-                }
-            };
-        }
-        // ====================================================================
-
         // ============= PHOTO MANAGER (Cropper.js) =============
         class PhotoManager {
             constructor() {
@@ -833,7 +799,7 @@
                 });
                 document.getElementById('btn-reset-bg').addEventListener('click', () => {
                     this.canvasManager
-                        ._loadDefaultBackgrounds();
+                    ._loadDefaultBackgrounds();
                     showToast('Fondo restablecido.');
                 });
 
@@ -871,7 +837,6 @@
                             canvas.add(img);
                             // Enviar al fondo pero manteniendo interactividad
                             canvas.sendToBack(img);
-                            img.setCoords(); // CRÍTICO: Actualizar coordenadas para habilitar el clic tras escalar
                             // Forzar selección y actualización de controles
                             canvas.discardActiveObject();
                             canvas.setActiveObject(img);
@@ -927,7 +892,6 @@
                             this.canvasManager.backOverlay = img;
                             canvas.add(img);
                             canvas.sendToBack(img);
-                            img.setCoords(); // CRÍTICO: Actualizar coordenadas para habilitar el clic tras escalar
                             canvas.discardActiveObject();
                             canvas.setActiveObject(img);
                             canvas.requestRenderAll();
