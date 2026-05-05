@@ -34,10 +34,11 @@
             display: none;
         }
 
-        .w-72 {
-            width: 18rem;
+        .w-80 {
+            width: 22rem;
         }
 
+        /* Ensanchado un poco el sidebar para acomodar nuevos campos */
         .w-full {
             width: 100%;
         }
@@ -204,6 +205,7 @@
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             display: inline-block;
+            background-color: white;
         }
 
         #crop-modal {
@@ -261,7 +263,7 @@
             </div>
 
             <div class="flex h-full">
-                <div class="w-72 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
+                <div class="w-80 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
                     <!-- Datos del Funcionario -->
                     <div>
                         <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📝 Datos del Funcionario</h3>
@@ -272,7 +274,23 @@
                             <input type="text" id="edit-cedula" placeholder="Cédula" class="form-input" readonly />
                             <input type="text" id="edit-cargo" placeholder="Cargo" class="form-input" required />
                             <select id="edit-gerencia" class="form-input form-select"></select>
-                            <div class="flex gap-2">
+
+                            <!-- NUEVOS CAMPOS DEL REVERSO -->
+                            <div style="border-top:1px dashed #e5e7eb; margin-top:8px; padding-top:8px;">
+                                <label class="text-xs font-bold">Datos del Reverso:</label>
+                                <input type="date" id="edit-fecha-ingreso" class="form-input mt-1"
+                                    title="Fecha de Ingreso" />
+                                <input type="text" id="edit-tipo-sangre" placeholder="Tipo de Sangre (Ej. O+)"
+                                    class="form-input mt-1" />
+                                <input type="text" id="edit-alergias" placeholder="Alergias (Ej. Ninguna)"
+                                    class="form-input mt-1" />
+                                <input type="text" id="edit-emergencia-nombre" placeholder="Nombre Contacto Emergencia"
+                                    class="form-input mt-1" />
+                                <input type="text" id="edit-emergencia-tel" placeholder="Teléfono Emergencia"
+                                    class="form-input mt-1" />
+                            </div>
+
+                            <div class="flex gap-2 mt-2">
                                 <button type="submit" id="btn-save-fields" class="btn btn-primary flex-1">💾 Guardar
                                     Datos</button>
                             </div>
@@ -307,63 +325,51 @@
 
                     <!-- PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
-                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantilla
-                            Institucional</h3>
-                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Seleccione el diseño
-                            gráfico oficial.</p>
-                        <select id="template-selector" class="form-input form-select"
-                            style="margin-bottom:12px;font-weight:600;">
-                            <option value="2025" selected>Diseño Moderno (Año 2025)</option>
-                            <option value="2024">Diseño Clásico (Año 2024)</option>
-                        </select>
-                        <div style="display:flex;gap:8px;margin-bottom:12px;">
-                            <button class="btn btn-primary" id="ori-h" style="flex:1;">Horizontal</button>
-                            <button class="btn btn-secondary" id="ori-v" style="flex:1;">Vertical</button>
-                        </div>
-
-                        <!-- Fondo personalizado -->
-                        <div style="border-top:1px solid var(--color-border);padding-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🖼️ Fondo Personalizado
-                                (PNG/JPG)</label>
-                            <input type="file" id="custom-bg-input" accept="image/png, image/jpeg"
-                                style="display:none;" />
-                            <div style="display:flex;gap:6px;">
-                                <button id="btn-upload-bg" class="btn btn-secondary" style="flex:1;">📂 Subir
-                                    Fondo</button>
-                                <button id="btn-reset-bg" class="btn btn-secondary" style="padding:8px 10px;">↺</button>
-                            </div>
-                        </div>
+                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantillas y
+                            Fondos</h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Cargue las plantillas
+                            base del carnet. Estas se ajustarán al fondo exacto.</p>
 
                         <!-- Imagen Anverso -->
-                        <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🪪 Imagen Anverso (Frente)</label>
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;">🪪 Plantilla Anverso (Fondo
+                                Frente)</label>
                             <input type="file" id="card-front-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                <button id="btn-upload-front" class="btn btn-secondary" style="flex:1;">📂 Subir
+                                <button id="btn-upload-front" class="btn btn-secondary" style="flex:1;">📂 Cargar
                                     Anverso</button>
                                 <button id="btn-reset-front" class="btn btn-secondary"
                                     style="padding:8px 10px;">↺</button>
-                            </div>
-                            <div id="front-preview" style="display:none;margin-top:4px;"><img id="front-preview-img"
-                                    src="" style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
                             </div>
                         </div>
 
                         <!-- Imagen Reverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🔄 Imagen Reverso (Trasera)</label>
+                            <label class="form-label" style="font-size:.72rem;">🔄 Plantilla Reverso (Fondo
+                                Atrás)</label>
                             <input type="file" id="card-back-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                <button id="btn-upload-back" class="btn btn-secondary" style="flex:1;">📂 Subir
+                                <button id="btn-upload-back" class="btn btn-secondary" style="flex:1;">📂 Cargar
                                     Reverso</button>
                                 <button id="btn-reset-back" class="btn btn-secondary"
                                     style="padding:8px 10px;">↺</button>
                             </div>
-                            <div id="back-preview" style="display:none;margin-top:4px;"><img id="back-preview-img"
-                                    src="" style="width:100%;border-radius:8px;border:1px solid var(--color-border);" />
+                        </div>
+
+                        <!-- Cintillo u Objeto Libre -->
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;">🖼️ Añadir Cintillo o Imagen
+                                Libre</label>
+                            <input type="file" id="custom-bg-input" accept="image/png, image/jpeg"
+                                style="display:none;" />
+                            <div style="display:flex;gap:6px;">
+                                <button id="btn-upload-bg" class="btn btn-secondary" style="flex:1;">📂 Añadir
+                                    Imagen</button>
                             </div>
+                            <p style="font-size:0.65rem; color:gray; margin-top:4px;">Se añadirá encima de todo y podrás
+                                moverlo.</p>
                         </div>
                     </div>
 
@@ -372,14 +378,17 @@
 
                 <div class="flex-1 p-4 flex flex-col items-center gap-4">
                     <div class="flex gap-2 bg-white rounded-lg shadow p-2">
-                        <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Anverso</button>
-                        <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Reverso</button>
+                        <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Ver Anverso</button>
+                        <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Ver Reverso</button>
                     </div>
                     <div class="flex gap-4 justify-center">
-                        <div class="canvas-container" id="front-container"><canvas id="canvas-anverso" width="520"
-                                height="326"></canvas></div>
-                        <div class="canvas-container hidden" id="back-container"><canvas id="canvas-reverso" width="520"
-                                height="326"></canvas></div>
+                        <!-- Dimensiones cambiadas a Formato Vertical Estandar (326 x 520) -->
+                        <div class="canvas-container" id="front-container">
+                            <canvas id="canvas-anverso" width="326" height="520"></canvas>
+                        </div>
+                        <div class="canvas-container hidden" id="back-container">
+                            <canvas id="canvas-reverso" width="326" height="520"></canvas>
+                        </div>
                     </div>
                     <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
                 </div>
@@ -402,6 +411,43 @@
     <script src="assets/js/api.js"></script>
     <script src="assets/js/validaciones.js"></script>
     <script>
+        // ===== PROTECCIÓN CONTRA ERRORES EN ENTORNO DE PREVISUALIZACIÓN =====
+        if (typeof api === 'undefined') {
+            console.warn("El objeto 'api' no está definido. Inyectando mock local.");
+            window.api = {
+                getCurrentUser: () => ({ username: 'pruebas', full_name: 'Usuario de Pruebas', role: 'admin' }),
+                initCsrf: async () => { },
+                getEmployees: async (opts) => ({
+                    data: [{
+                        id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678',
+                        cargo: 'Analista de Sistemas', gerencia: 'Tecnología',
+                        tipo_sangre: 'O+', alergias: 'Ninguna', fecha_ingreso: '2023-01-15',
+                        emergencia_nombre: 'Maria Perez', emergencia_tel: '0414-1234567'
+                    }]
+                }),
+                getGerencias: async () => ({
+                    data: [{ nombre: 'Tecnología' }, { nombre: 'Recursos Humanos' }, { nombre: 'Operaciones' }]
+                }),
+                updateEmployee: async (id, data) => { return true; },
+                logout: async () => { }
+            };
+        }
+        if (typeof ui === 'undefined') {
+            window.ui = {
+                setLoading: (btn, isLoading, text) => {
+                    if (isLoading) {
+                        btn.dataset.ogText = btn.innerHTML;
+                        btn.innerHTML = text;
+                        btn.disabled = true;
+                    } else {
+                        btn.innerHTML = btn.dataset.ogText || 'Guardar';
+                        btn.disabled = false;
+                    }
+                }
+            };
+        }
+        // ====================================================================
+
         // ============= PHOTO MANAGER (Cropper.js) =============
         class PhotoManager {
             constructor() {
@@ -469,18 +515,14 @@
                 this.textNodes = {};
                 this.photoNode = null;
                 this.qrNode = null;
-                this.frontOverlay = null;
-                this.backOverlay = null;
             }
 
             init(frontEl, backEl) {
                 this.frontCanvas = new fabric.Canvas(frontEl, {
-                    backgroundColor: '#ffffff', selection: true,
-                    preserveObjectStacking: true
+                    backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true
                 });
                 this.backCanvas = new fabric.Canvas(backEl, {
-                    backgroundColor: '#ffffff', selection: true,
-                    preserveObjectStacking: true
+                    backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true
                 });
 
                 const onSelect = (e) => this._onObjectSelected(e.selected ? e.selected[0] : null);
@@ -491,81 +533,92 @@
                 this.backCanvas.on('selection:updated', onSelect);
                 this.backCanvas.on('selection:cleared', () => onSelect({}));
 
-                // Depuración: confirmar que los objetos son seleccionables
-                this.frontCanvas.on('object:selected', (e) => {
-                    console.log('Objeto seleccionado (anverso):', e.target?.type, e.target?.left, e.target?.top);
-                });
-                this.backCanvas.on('object:selected', (e) => {
-                    console.log('Objeto seleccionado (reverso):', e.target?.type, e.target?.left, e.target?.top);
-                });
-
                 this._loadDefaultBackgrounds();
             }
 
             _loadDefaultBackgrounds() {
+                // SVG vertical 326x520
                 const svg = 'data:image/svg+xml,' + encodeURIComponent(
-                    `<svg xmlns="http://www.w3.org/2000/svg" width="520" height="326"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="518" height="324" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="326" height="520"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="324" height="518" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`
                 );
                 fabric.Image.fromURL(svg, (img) => {
-                    this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas));
-                    this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas));
+                    this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas), {
+                        scaleX: this.frontCanvas.width / img.width, scaleY: this.frontCanvas.height / img.height
+                    });
+                    this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas), {
+                        scaleX: this.backCanvas.width / img.width, scaleY: this.backCanvas.height / img.height
+                    });
                 });
             }
 
             setEmployeeData(emp, photoUrl, qrUrl) {
-                this.frontCanvas.getObjects().forEach(o => {
-                    if (o !== this.frontCanvas.backgroundImage) this.frontCanvas
-                        .remove(o);
-                });
-                this.backCanvas.getObjects().forEach(o => {
-                    if (o !== this.backCanvas.backgroundImage) this.backCanvas
-                        .remove(o);
-                });
+                this.frontCanvas.clear();
+                this.backCanvas.clear();
+                this._loadDefaultBackgrounds();
 
-                this.textNodes.nombres = this._addText(this.frontCanvas, emp.nombres || '', 130, 60, 16, '#000', 'Arial');
-                this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || '', 130, 90, 18, '#003366',
-                    'Arial');
-                this.textNodes.cargo = this._addText(this.frontCanvas, emp.cargo || '', 130, 150, 14, '#333', 'Arial');
-                this.textNodes.cedula = this._addText(this.frontCanvas, `CI: ${emp.cedula || ''}`, 40, 240, 14, '#000',
-                    'Courier New');
-                this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || '', 40, 180, 14, '#444', 'Arial');
+                // COORDENADAS PARA FORMATO VERTICAL (326x520)
+                // === ANVERSO ===
+                this.textNodes.nombres = this._addText(this.frontCanvas, emp.nombres || 'NOMBRES', 163, 270, 16, '#000', 'Arial', { originX: 'center', fontWeight: 'bold' });
+                this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || 'APELLIDOS', 163, 290, 16, '#003366', 'Arial', { originX: 'center', fontWeight: 'bold' });
+                this.textNodes.cedula = this._addText(this.frontCanvas, `C.I. ${emp.cedula || ''}`, 163, 315, 13, '#000', 'Courier New', { originX: 'center' });
+                this.textNodes.cargo = this._addText(this.frontCanvas, emp.cargo || 'CARGO', 163, 335, 12, '#333', 'Arial', { originX: 'center', textAlign: 'center' });
 
                 if (photoUrl) {
                     fabric.Image.fromURL(photoUrl, (img) => {
                         img.set({
-                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true,
-                            hasBorders: true, lockUniScaling: true
+                            left: 163, top: 150, originX: 'center', originY: 'center',
+                            scaleX: 0.45, scaleY: 0.45, hasControls: true, hasBorders: true, lockUniScaling: true
                         });
                         this.photoNode = img;
                         this.frontCanvas.add(img);
                         this.frontCanvas.renderAll();
                     });
                 }
+
+                // === REVERSO ===
                 if (qrUrl) {
                     fabric.Image.fromURL(qrUrl, (img) => {
-                        img.set({ left: 430, top: 230, scaleX: 0.4, scaleY: 0.4, hasControls: true });
+                        img.set({ left: 163, top: 90, originX: 'center', originY: 'center', scaleX: 0.5, scaleY: 0.5, hasControls: true });
                         this.qrNode = img;
-                        this.frontCanvas.add(img);
-                        this.frontCanvas.renderAll();
+                        this.backCanvas.add(img);
+                        this.backCanvas.renderAll();
                     });
                 }
+
+                let currentY = 160;
+                this.textNodes.fechaIngreso = this._addText(this.backCanvas, `FECHA INGRESO: ${emp.fecha_ingreso || 'N/A'}`, 20, currentY, 11, '#000', 'Arial');
+                this.textNodes.tipoSangre = this._addText(this.backCanvas, `TIPO SANGRE: ${emp.tipo_sangre || 'N/A'}`, 20, currentY += 20, 11, '#000', 'Arial');
+                this.textNodes.alergias = this._addText(this.backCanvas, `ALERGIAS: ${emp.alergias || 'Ninguna'}`, 20, currentY += 20, 11, '#000', 'Arial');
+
+                this._addText(this.backCanvas, "EN CASO DE EMERGENCIA AVISAR A:", 20, currentY += 30, 9, '#d32f2f', 'Arial', { fontWeight: 'bold', editable: false });
+                this.textNodes.emergenciaNombre = this._addText(this.backCanvas, emp.emergencia_nombre || 'Nombre del contacto', 20, currentY += 15, 11, '#000', 'Arial');
+                this.textNodes.emergenciaTel = this._addText(this.backCanvas, emp.emergencia_tel || 'Teléfono', 20, currentY += 15, 11, '#000', 'Arial');
+
+                this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || 'GERENCIA', 163, currentY += 60, 11, '#003366', 'Arial', { originX: 'center', fontWeight: 'bold' });
             }
 
-            _addText(canvas, text, left, top, fontSize, fill, fontFamily) {
+            _addText(canvas, text, left, top, fontSize, fill, fontFamily, extraOptions = {}) {
                 const t = new fabric.IText(text, {
                     left, top, fontSize, fill, fontFamily, hasControls: true,
-                    hasBorders: true, editable: true, textBaseline: 'alphabetic'
+                    hasBorders: true, editable: true, textBaseline: 'top', ...extraOptions
                 });
                 canvas.add(t);
                 return t;
             }
 
             updateTextFromForm(data) {
-                if (this.textNodes.nombres) this.textNodes.nombres.set('text', data.nombres || '');
-                if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', data.apellidos || '');
-                if (this.textNodes.cargo) this.textNodes.cargo.set('text', data.cargo || '');
-                if (this.textNodes.cedula) this.textNodes.cedula.set('text', `CI: ${data.cedula || ''}`);
-                if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', data.gerencia || '');
+                if (this.textNodes.nombres) this.textNodes.nombres.set('text', data.nombres || 'NOMBRES');
+                if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', data.apellidos || 'APELLIDOS');
+                if (this.textNodes.cargo) this.textNodes.cargo.set('text', data.cargo || 'CARGO');
+                if (this.textNodes.cedula) this.textNodes.cedula.set('text', `C.I. ${data.cedula || ''}`);
+                if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', data.gerencia || 'GERENCIA');
+
+                if (this.textNodes.fechaIngreso) this.textNodes.fechaIngreso.set('text', `FECHA INGRESO: ${data.fecha_ingreso || 'N/A'}`);
+                if (this.textNodes.tipoSangre) this.textNodes.tipoSangre.set('text', `TIPO SANGRE: ${data.tipo_sangre || 'N/A'}`);
+                if (this.textNodes.alergias) this.textNodes.alergias.set('text', `ALERGIAS: ${data.alergias || 'Ninguna'}`);
+                if (this.textNodes.emergenciaNombre) this.textNodes.emergenciaNombre.set('text', data.emergencia_nombre || 'Nombre del contacto');
+                if (this.textNodes.emergenciaTel) this.textNodes.emergenciaTel.set('text', data.emergencia_tel || 'Teléfono');
+
                 this.frontCanvas.renderAll();
                 this.backCanvas.renderAll();
             }
@@ -592,6 +645,9 @@
 
             exportJPG(side) {
                 const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
+                // Deseleccionar antes de exportar para que no salgan los bordes de selección
+                canvas.discardActiveObject();
+                canvas.renderAll();
                 const data = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
                 const a = document.createElement('a');
                 a.href = data;
@@ -627,13 +683,11 @@
                 if (!user.username) { window.location.href = 'login.html'; return; }
                 document.getElementById('user-name').textContent = user.full_name || user.username;
                 document.getElementById('user-role').textContent = (user.effective_role || user.role || '').toUpperCase();
-                document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0)
-                    .toUpperCase();
+                document.getElementById('user-avatar').textContent = (user.full_name || user.username).charAt(0).toUpperCase();
 
                 if (typeof api.initCsrf === 'function') await api.initCsrf();
 
-                this.canvasManager.init(document.getElementById('canvas-anverso'), document.getElementById(
-                    'canvas-reverso'));
+                this.canvasManager.init(document.getElementById('canvas-anverso'), document.getElementById('canvas-reverso'));
 
                 let id = localStorage.getItem('selected_employee_id');
                 if (!id) { const r = await api.getEmployees({ limit: 1 }); if (r.data?.length) id = r.data[0].id; }
@@ -652,8 +706,6 @@
                 this._bindUI();
                 this._bindTemplate();
                 this._switchSide('front');
-
-                // Logout seguro (reemplaza setupLogout anterior)
                 this._applySecureLogout();
             }
 
@@ -662,6 +714,14 @@
                 document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
                 document.getElementById('edit-cedula').value = emp.cedula || '';
                 document.getElementById('edit-cargo').value = emp.cargo || '';
+
+                // Nuevos campos
+                document.getElementById('edit-fecha-ingreso').value = emp.fecha_ingreso || '';
+                document.getElementById('edit-tipo-sangre').value = emp.tipo_sangre || '';
+                document.getElementById('edit-alergias').value = emp.alergias || '';
+                document.getElementById('edit-emergencia-nombre').value = emp.emergencia_nombre || '';
+                document.getElementById('edit-emergencia-tel').value = emp.emergencia_tel || '';
+
                 this._loadGerencias(emp.gerencia);
             }
 
@@ -709,40 +769,39 @@
                         apellidos: document.getElementById('edit-apellidos').value.trim(),
                         cargo: document.getElementById('edit-cargo').value.trim(),
                         gerencia: document.getElementById('edit-gerencia').value,
-                        cedula: document.getElementById('edit-cedula').value
+                        cedula: document.getElementById('edit-cedula').value,
+                        fecha_ingreso: document.getElementById('edit-fecha-ingreso').value,
+                        tipo_sangre: document.getElementById('edit-tipo-sangre').value.trim(),
+                        alergias: document.getElementById('edit-alergias').value.trim(),
+                        emergencia_nombre: document.getElementById('edit-emergencia-nombre').value.trim(),
+                        emergencia_tel: document.getElementById('edit-emergencia-tel').value.trim()
                     };
-                    const np = d.nombres.split(' '),
-                        ap = d.apellidos.split(' ');
+                    const np = d.nombres.split(' '), ap = d.apellidos.split(' ');
                     const fields = {
+                        ...d,
                         primer_nombre: np[0] || '',
                         segundo_nombre: np.slice(1).join(' ') || null,
                         primer_apellido: ap[0] || '',
-                        segundo_apellido: ap.slice(1).join(' ') || null,
-                        nombres: d.nombres,
-                        apellidos: d.apellidos,
-                        cargo: d.cargo,
-                        gerencia: d.gerencia,
-                        cedula: d.cedula
+                        segundo_apellido: ap.slice(1).join(' ') || null
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
+                        // Nota: Si la API no tiene estos campos nuevos en BD los omitirá o dará error. Asegúrate de actualizar la BD.
                         await api.updateEmployee(this.employee.id, fields);
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
                         showToast('Datos actualizados.', 'success');
                     } catch (err) { showToast(err.message, 'danger'); } finally {
-                        ui.setLoading(btn,
-                            false);
+                        ui.setLoading(btn, false);
                     }
                 });
 
                 this.photoManager.onPhotoCropped((dataUrl) => {
-                    if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager
-                        .photoNode);
+                    if (this.canvasManager.photoNode) this.canvasManager.frontCanvas.remove(this.canvasManager.photoNode);
                     fabric.Image.fromURL(dataUrl, (img) => {
                         img.set({
-                            left: 20, top: 50, scaleX: 0.3, scaleY: 0.3, hasControls: true,
-                            hasBorders: true, lockUniScaling: true
+                            left: 163, top: 150, originX: 'center', originY: 'center', scaleX: 0.45, scaleY: 0.45,
+                            hasControls: true, hasBorders: true, lockUniScaling: true
                         });
                         this.canvasManager.photoNode = img;
                         this.canvasManager.frontCanvas.add(img);
@@ -759,13 +818,11 @@
                     });
                 });
 
-                document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(
-                    this.canvasManager.currentSide));
+                document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(this.canvasManager.currentSide));
                 document.getElementById('btn-save-layout').addEventListener('click', () => {
                     const json = this.canvasManager.serializeLayout();
-                    console.log('Layout:', json);
                     Swal.fire({
-                        title: 'Layout', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`,
+                        title: 'Layout JSON', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`,
                         icon: 'success', width: 800
                     });
                 });
@@ -773,189 +830,105 @@
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== CORRECCIÓN: Imágenes interactivas =====
+            // ===== LA SOLUCIÓN DEFINITIVA A LOS FONDOS =====
             _bindTemplate() {
-                // Fondo personalizado
-                document.getElementById('custom-bg-input').addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        fabric.Image.fromURL(ev.target.result, (img) => {
-                            img.set({
-                                left: 0, top: 0, scaleX: this.canvasManager.frontCanvas.width / img
-                                    .width, scaleY: this.canvasManager.frontCanvas.height / img.height,
-                                evented: false, selectable: false, lockMovementX: true,
-                                lockMovementY: true, lockScalingX: true, lockScalingY: true,
-                                hasControls: false, hasBorders: false
-                            });
-                            this.canvasManager.frontCanvas.setBackgroundImage(img, this.canvasManager
-                                .frontCanvas.renderAll.bind(this.canvasManager.frontCanvas));
-                            this.canvasManager.backCanvas.setBackgroundImage(img, this.canvasManager
-                                .backCanvas.renderAll.bind(this.canvasManager.backCanvas));
-                        });
-                    };
-                    reader.readAsDataURL(file);
-                });
-                document.getElementById('btn-reset-bg').addEventListener('click', () => {
-                    this.canvasManager
-                    ._loadDefaultBackgrounds();
-                    showToast('Fondo restablecido.');
-                });
-
-                // Anverso (INTERACTIVO - CORREGIDO)
+                // 1. ANVERSO (Fondo Verdadero Inamovible)
+                document.getElementById('btn-upload-front').addEventListener('click', () => document.getElementById('card-front-input').click());
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            console.log('Cargando imagen anverso...');
                             const canvas = this.canvasManager.frontCanvas;
-                            const maxW = canvas.width * 0.6,
-                                maxH = canvas.height * 0.6;
-                            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-                            // Propiedades para total interactividad
-                            img.set({
-                                left: (canvas.width - img.width * scale) / 2,
-                                top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale,
-                                scaleY: scale,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockUniScaling: true,
-                                selectable: true,
-                                evented: true,
-                                cornerSize: 10,
-                                transparentCorners: false,
-                                cornerColor: '#003366',
-                                borderColor: '#003366'
+                            // El secreto es usar setBackgroundImage con escala calculada al tamaño exacto
+                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                                scaleX: canvas.width / img.width,
+                                scaleY: canvas.height / img.height
                             });
-                            if (this.canvasManager.frontOverlay) canvas.remove(this.canvasManager
-                                .frontOverlay);
-                            this.canvasManager.frontOverlay = img;
-                            canvas.add(img);
-                            // Enviar al fondo pero manteniendo interactividad
-                            canvas.sendToBack(img);
-                            // Forzar selección y actualización de controles
-                            canvas.discardActiveObject();
-                            canvas.setActiveObject(img);
-                            canvas.requestRenderAll();
-
-                            console.log('Anverso añadido, activo:', canvas.getActiveObject() === img);
-                            document.getElementById('front-preview-img').src = ev.target.result;
-                            document.getElementById('front-preview').style.display = 'block';
-                            showToast('Anverso cargado. Ya puedes moverlo y redimensionarlo.');
+                            showToast('Fondo de Anverso cargado correctamente.');
                         });
                     };
                     reader.readAsDataURL(file);
-                });
-                document.getElementById('btn-reset-front').addEventListener('click', () => {
-                    if (this.canvasManager.frontOverlay) {
-                        this.canvasManager.frontCanvas.remove(this.canvasManager.frontOverlay);
-                        this.canvasManager.frontOverlay = null;
-                        this.canvasManager.frontCanvas.renderAll();
-                        document.getElementById('front-preview').style.display = 'none';
-                        showToast('Anverso eliminado.');
-                    }
+                    e.target.value = ''; // Reset input
                 });
 
-                // Reverso (INTERACTIVO - CORREGIDO)
+                // 2. REVERSO (Fondo Verdadero Inamovible)
+                document.getElementById('btn-upload-back').addEventListener('click', () => document.getElementById('card-back-input').click());
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            console.log('Cargando imagen reverso...');
                             const canvas = this.canvasManager.backCanvas;
-                            const maxW = canvas.width * 0.6,
-                                maxH = canvas.height * 0.6;
-                            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-                            img.set({
-                                left: (canvas.width - img.width * scale) / 2,
-                                top: (canvas.height - img.height * scale) / 2,
-                                scaleX: scale,
-                                scaleY: scale,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockUniScaling: true,
-                                selectable: true,
-                                evented: true,
-                                cornerSize: 10,
-                                transparentCorners: false,
-                                cornerColor: '#003366',
-                                borderColor: '#003366'
+                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                                scaleX: canvas.width / img.width,
+                                scaleY: canvas.height / img.height
                             });
-                            if (this.canvasManager.backOverlay) canvas.remove(this.canvasManager
-                                .backOverlay);
-                            this.canvasManager.backOverlay = img;
-                            canvas.add(img);
-                            canvas.sendToBack(img);
-                            canvas.discardActiveObject();
-                            canvas.setActiveObject(img);
-                            canvas.requestRenderAll();
-
-                            console.log('Reverso añadido, activo:', canvas.getActiveObject() === img);
-                            document.getElementById('back-preview-img').src = ev.target.result;
-                            document.getElementById('back-preview').style.display = 'block';
-                            showToast('Reverso cargado. Ya puedes moverlo y redimensionarlo.');
+                            showToast('Fondo de Reverso cargado correctamente.');
                         });
                     };
                     reader.readAsDataURL(file);
+                    e.target.value = '';
                 });
-                document.getElementById('btn-reset-back').addEventListener('click', () => {
-                    if (this.canvasManager.backOverlay) {
-                        this.canvasManager.backCanvas.remove(this.canvasManager.backOverlay);
-                        this.canvasManager.backOverlay = null;
-                        this.canvasManager.backCanvas.renderAll();
-                        document.getElementById('back-preview').style.display = 'none';
-                        showToast('Reverso eliminado.');
-                    }
+
+                // 3. CINTILLO / IMAGEN LIBRE (Objeto superior arrastrable)
+                document.getElementById('btn-upload-bg').addEventListener('click', () => document.getElementById('custom-bg-input').click());
+                document.getElementById('custom-bg-input').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        fabric.Image.fromURL(ev.target.result, (img) => {
+                            const canvas = this.canvasManager.currentSide === 'front' ? this.canvasManager.frontCanvas : this.canvasManager.backCanvas;
+                            // Lo añadimos al ancho total, pero como objeto manipulable
+                            const scale = canvas.width / img.width;
+                            img.set({
+                                left: 0, top: 0, scaleX: scale, scaleY: scale,
+                                hasControls: true, hasBorders: true, lockUniScaling: true
+                            });
+                            canvas.add(img);
+                            canvas.setActiveObject(img);
+                            showToast('Cintillo / Objeto añadido. Puedes arrastrarlo.');
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
                 });
+
+                // Resetear Fondos
+                document.getElementById('btn-reset-front').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo Frontal restablecido.'); });
+                document.getElementById('btn-reset-back').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo Reverso restablecido.'); });
             }
 
             _switchSide(side) {
                 this.canvasManager.currentSide = side;
                 document.getElementById('front-container').classList.toggle('hidden', side !== 'front');
                 document.getElementById('back-container').classList.toggle('hidden', side !== 'back');
-                const f = document.getElementById('btn-front'),
-                    b = document.getElementById('btn-back');
+                const f = document.getElementById('btn-front'), b = document.getElementById('btn-back');
                 f.className = `px-4 py-1 rounded ${side === 'front' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
                 b.className = `px-4 py-1 rounded ${side === 'back' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
             }
 
-            // ===== CORRECCIÓN: Logout con confirmación =====
             _applySecureLogout() {
                 const btn = document.getElementById('btn-logout');
                 if (!btn) return;
-                // Clonar para eliminar listeners previos
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
-                newBtn.dataset.secureLogout = 'true'; // Marcar como gestionado
-
+                newBtn.dataset.secureLogout = 'true';
                 newBtn.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                     let confirmed = false;
                     if (typeof Swal !== 'undefined') {
                         const result = await Swal.fire({
-                            title: '¿Desea cerrar sesión?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonColor: '#003366',
-                            cancelButtonColor: '#dc2626',
-                            confirmButtonText: 'Sí, salir',
-                            cancelButtonText: 'Cancelar'
+                            title: '¿Desea cerrar sesión?', icon: 'question', showCancelButton: true,
+                            confirmButtonColor: '#003366', cancelButtonColor: '#dc2626',
+                            confirmButtonText: 'Sí, salir', cancelButtonText: 'Cancelar'
                         });
                         confirmed = result.isConfirmed;
-                    } else {
-                        confirmed = confirm('¿Desea cerrar sesión?');
-                    }
-                    if (confirmed) {
-                        await api.logout();
-                        window.location.href = 'login.html';
-                    }
+                    } else { confirmed = confirm('¿Desea cerrar sesión?'); }
+                    if (confirmed) { await api.logout(); window.location.href = 'login.html'; }
                 });
             }
 
@@ -964,13 +937,8 @@
 
         function showToast(msg, type = 'success') {
             const c = {
-                success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }, danger: {
-                    bg: '#fee2e2',
-                    color: '#991b1b', border: '#fca5a5'
-                }, info: {
-                    bg: '#dbeafe', color: '#1e40af',
-                    border: '#93c5fd'
-                }
+                success: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+                danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
             }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
             const d = document.createElement('div');
             d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
