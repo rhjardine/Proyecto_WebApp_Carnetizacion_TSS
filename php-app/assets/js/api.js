@@ -2,9 +2,10 @@
  * api.js — Cliente HTTP SCI-TSS v3.1
  * =====================================
  * REMEDIACIÓN CRÍTICA v3.1:
- *  - initCsrf() ahora obtiene el token del servidor (csrf.php) y lo guarda en memoria.
- *  - Las peticiones mutantes usan _csrfToken en lugar de current_user.csrf_token.
- *  - Se mantiene la normalización de empleados y la corrección del login (v3.0).
+ * - initCsrf() ahora obtiene el token del servidor (csrf.php) y lo guarda en memoria.
+ * - Soporte dinámico para lectura de token CSRF desde el DOM (meta tags) e iframes.
+ * - Las peticiones mutantes usan _csrfToken en lugar de current_user.csrf_token.
+ * - Se mantiene la normalización de empleados y la corrección del login (v3.0).
  *
  * @version 3.1.0
  */
@@ -65,8 +66,17 @@ async function request(url, method = 'GET', body = null) {
 
     // Inyectar CSRF token en peticiones mutantes (usa _csrfToken real)
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
-        if (_csrfToken) {
-            options.headers['X-CSRF-Token'] = _csrfToken;
+
+        // CORRECCIÓN: Buscar el token dinámicamente para soportar iframes
+        let activeToken = _csrfToken || api.csrfToken;
+        if (!activeToken) {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) activeToken = metaTag.content;
+        }
+
+        if (activeToken) {
+            options.headers['X-CSRF-Token'] = activeToken;
+            _csrfToken = activeToken; // Sincronizar memoria interna
         } else {
             console.warn('[SCI-TSS] CSRF token no disponible. La petición podría ser rechazada.');
         }
@@ -112,8 +122,15 @@ async function requestFormData(url, method = 'POST', formData) {
         credentials: 'same-origin',
     };
 
-    if (_csrfToken) {
-        options.headers['X-CSRF-Token'] = _csrfToken;
+    // CORRECCIÓN: Soporte de iframe para peticiones con FormData (Fotos/Excel)
+    let activeToken = _csrfToken || api.csrfToken;
+    if (!activeToken) {
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) activeToken = metaTag.content;
+    }
+
+    if (activeToken) {
+        options.headers['X-CSRF-Token'] = activeToken;
     }
 
     let response;
@@ -162,6 +179,17 @@ const api = {
             const data = await res.json();
             if (data.success && data.csrf_token) {
                 _csrfToken = data.csrf_token;
+                api.csrfToken = data.csrf_token; // Exponer la propiedad
+
+                // Estampar en el DOM para mayor resiliencia
+                let meta = document.querySelector('meta[name="csrf-token"]');
+                if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'csrf-token';
+                    document.head.appendChild(meta);
+                }
+                meta.content = data.csrf_token;
+
                 return true;
             }
         } catch (e) {
