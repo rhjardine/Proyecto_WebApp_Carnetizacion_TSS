@@ -77,8 +77,10 @@
                             <p style="font-size:.85rem;color:#64748b;margin-bottom:12px;">
                                 Su contraseña ha expirado o el sistema requiere que la cambie antes de continuar.
                             </p>
-                            <input id="swal-current" type="password" class="swal2-input" placeholder="Contraseña actual">
-                            <input id="swal-new" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6 caracteres)">
+                            <input id="swal-current" type="password" class="swal2-input" 
+                                   placeholder="Contraseña actual" autocomplete="current-password">
+                            <input id="swal-new" type="password" class="swal2-input" 
+                                   placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password">
                         `,
                         confirmButtonText: 'Cambiar y continuar',
                         showCancelButton: false,
