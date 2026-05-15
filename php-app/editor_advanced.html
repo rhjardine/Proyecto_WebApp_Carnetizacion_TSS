@@ -38,7 +38,6 @@
             width: 22rem;
         }
 
-        /* Ensanchado un poco el sidebar para acomodar nuevos campos */
         .w-full {
             width: 100%;
         }
@@ -537,18 +536,27 @@
             }
 
             _loadDefaultBackgrounds() {
-                // SVG vertical 326x520
-                const svg = 'data:image/svg+xml,' + encodeURIComponent(
-                    `<svg xmlns="http://www.w3.org/2000/svg" width="326" height="520"><rect width="100%" height="100%" fill="#ffffff" rx="10"/><rect x="1" y="1" width="324" height="518" fill="none" stroke="#003366" stroke-width="3" rx="10"/></svg>`
-                );
-                fabric.Image.fromURL(svg, (img) => {
-                    this.frontCanvas.setBackgroundImage(img, this.frontCanvas.renderAll.bind(this.frontCanvas), {
-                        scaleX: this.frontCanvas.width / img.width, scaleY: this.frontCanvas.height / img.height
+                // Usar rectángulo blanco en lugar de SVG opaco para que los objetos sean visibles
+                const createBg = (canvas) => {
+                    const rect = new fabric.Rect({
+                        width: canvas.width,
+                        height: canvas.height,
+                        fill: '#ffffff',
+                        selectable: false,
+                        evented: false,
+                        lockMovementX: true,
+                        lockMovementY: true,
+                        lockRotation: true,
+                        lockScalingX: true,
+                        lockScalingY: true
                     });
-                    this.backCanvas.setBackgroundImage(img, this.backCanvas.renderAll.bind(this.backCanvas), {
-                        scaleX: this.backCanvas.width / img.width, scaleY: this.backCanvas.height / img.height
-                    });
-                });
+                    canvas.add(rect);
+                    canvas.sendToBack(rect);
+                };
+                createBg(this.frontCanvas);
+                createBg(this.backCanvas);
+                this.frontCanvas.renderAll();
+                this.backCanvas.renderAll();
             }
 
             setEmployeeData(emp, photoUrl, qrUrl) {
@@ -645,7 +653,6 @@
 
             exportJPG(side) {
                 const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
-                // Deseleccionar antes de exportar para que no salgan los bordes de selección
                 canvas.discardActiveObject();
                 canvas.renderAll();
                 const data = canvas.toDataURL({ format: 'jpeg', quality: 1.0 });
@@ -786,7 +793,6 @@
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {
-                        // Nota: Si la API no tiene estos campos nuevos en BD los omitirá o dará error. Asegúrate de actualizar la BD.
                         await api.updateEmployee(this.employee.id, fields);
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
@@ -830,9 +836,9 @@
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== LA SOLUCIÓN DEFINITIVA A LOS FONDOS =====
+            // ===== PLANTILLAS Y FONDOS – CORREGIDO: objetos normales, no backgroundImage =====
             _bindTemplate() {
-                // 1. ANVERSO (Fondo Verdadero Inamovible)
+                // 1. ANVERSO (Fondo verdadero como objeto bloqueado)
                 document.getElementById('btn-upload-front').addEventListener('click', () => document.getElementById('card-front-input').click());
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -841,19 +847,36 @@
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             const canvas = this.canvasManager.frontCanvas;
-                            // El secreto es usar setBackgroundImage con escala calculada al tamaño exacto
-                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                                scaleX: canvas.width / img.width,
-                                scaleY: canvas.height / img.height
+                            // Eliminar cualquier fondo anterior (objeto bloqueado)
+                            canvas.getObjects().forEach(obj => {
+                                if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                                    canvas.remove(obj);
+                                }
                             });
+                            img.set({
+                                left: 0,
+                                top: 0,
+                                scaleX: canvas.width / img.width,
+                                scaleY: canvas.height / img.height,
+                                selectable: false,
+                                evented: false,
+                                lockMovementX: true,
+                                lockMovementY: true,
+                                lockRotation: true,
+                                lockScalingX: true,
+                                lockScalingY: true
+                            });
+                            canvas.add(img);
+                            canvas.sendToBack(img);
+                            canvas.renderAll();
                             showToast('Fondo de Anverso cargado correctamente.');
                         });
                     };
                     reader.readAsDataURL(file);
-                    e.target.value = ''; // Reset input
+                    e.target.value = '';
                 });
 
-                // 2. REVERSO (Fondo Verdadero Inamovible)
+                // 2. REVERSO (idéntico)
                 document.getElementById('btn-upload-back').addEventListener('click', () => document.getElementById('card-back-input').click());
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -862,10 +885,27 @@
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
                             const canvas = this.canvasManager.backCanvas;
-                            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                                scaleX: canvas.width / img.width,
-                                scaleY: canvas.height / img.height
+                            canvas.getObjects().forEach(obj => {
+                                if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                                    canvas.remove(obj);
+                                }
                             });
+                            img.set({
+                                left: 0,
+                                top: 0,
+                                scaleX: canvas.width / img.width,
+                                scaleY: canvas.height / img.height,
+                                selectable: false,
+                                evented: false,
+                                lockMovementX: true,
+                                lockMovementY: true,
+                                lockRotation: true,
+                                lockScalingX: true,
+                                lockScalingY: true
+                            });
+                            canvas.add(img);
+                            canvas.sendToBack(img);
+                            canvas.renderAll();
                             showToast('Fondo de Reverso cargado correctamente.');
                         });
                     };
@@ -873,7 +913,7 @@
                     e.target.value = '';
                 });
 
-                // 3. CINTILLO / IMAGEN LIBRE (Objeto superior arrastrable)
+                // 3. CINTILLO / IMAGEN LIBRE (objeto movible)
                 document.getElementById('btn-upload-bg').addEventListener('click', () => document.getElementById('custom-bg-input').click());
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -881,15 +921,22 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         fabric.Image.fromURL(ev.target.result, (img) => {
-                            const canvas = this.canvasManager.currentSide === 'front' ? this.canvasManager.frontCanvas : this.canvasManager.backCanvas;
-                            // Lo añadimos al ancho total, pero como objeto manipulable
+                            const canvas = this.canvasManager.currentSide === 'front'
+                                ? this.canvasManager.frontCanvas
+                                : this.canvasManager.backCanvas;
                             const scale = canvas.width / img.width;
                             img.set({
-                                left: 0, top: 0, scaleX: scale, scaleY: scale,
-                                hasControls: true, hasBorders: true, lockUniScaling: true
+                                left: 0,
+                                top: 0,
+                                scaleX: scale,
+                                scaleY: scale,
+                                hasControls: true,
+                                hasBorders: true,
+                                lockUniScaling: true
                             });
                             canvas.add(img);
                             canvas.setActiveObject(img);
+                            canvas.renderAll();
                             showToast('Cintillo / Objeto añadido. Puedes arrastrarlo.');
                         });
                     };
@@ -897,9 +944,27 @@
                     e.target.value = '';
                 });
 
-                // Resetear Fondos
-                document.getElementById('btn-reset-front').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo Frontal restablecido.'); });
-                document.getElementById('btn-reset-back').addEventListener('click', () => { this.canvasManager._loadDefaultBackgrounds(); showToast('Fondo Reverso restablecido.'); });
+                // Resetear Fondos (eliminar objetos de fondo)
+                document.getElementById('btn-reset-front').addEventListener('click', () => {
+                    const canvas = this.canvasManager.frontCanvas;
+                    canvas.getObjects().forEach(obj => {
+                        if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                            canvas.remove(obj);
+                        }
+                    });
+                    canvas.renderAll();
+                    showToast('Fondo Frontal restablecido.');
+                });
+                document.getElementById('btn-reset-back').addEventListener('click', () => {
+                    const canvas = this.canvasManager.backCanvas;
+                    canvas.getObjects().forEach(obj => {
+                        if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                            canvas.remove(obj);
+                        }
+                    });
+                    canvas.renderAll();
+                    showToast('Fondo Reverso restablecido.');
+                });
             }
 
             _switchSide(side) {
@@ -911,24 +976,49 @@
                 b.className = `px-4 py-1 rounded ${side === 'back' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
             }
 
+            // ===== LOGOUT CONFIRMADO – CORREGIDO =====
             _applySecureLogout() {
                 const btn = document.getElementById('btn-logout');
                 if (!btn) return;
+
+                // Reemplazar el botón para eliminar listeners previos
                 const newBtn = btn.cloneNode(true);
                 btn.parentNode.replaceChild(newBtn, btn);
-                newBtn.dataset.secureLogout = 'true';
+
                 newBtn.addEventListener('click', async (e) => {
-                    e.preventDefault(); e.stopPropagation();
-                    let confirmed = false;
-                    if (typeof Swal !== 'undefined') {
-                        const result = await Swal.fire({
-                            title: '¿Desea cerrar sesión?', icon: 'question', showCancelButton: true,
-                            confirmButtonColor: '#003366', cancelButtonColor: '#dc2626',
-                            confirmButtonText: 'Sí, salir', cancelButtonText: 'Cancelar'
-                        });
-                        confirmed = result.isConfirmed;
-                    } else { confirmed = confirm('¿Desea cerrar sesión?'); }
-                    if (confirmed) { await api.logout(); window.location.href = 'login.html'; }
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    const result = await Swal.fire({
+                        title: '¿Desea cerrar sesión?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#003366',
+                        cancelButtonColor: '#dc2626',
+                        confirmButtonText: 'Sí, salir',
+                        cancelButtonText: 'Cancelar'
+                    });
+
+                    if (result.isConfirmed) {
+                        try {
+                            const response = await fetch('api/auth/logout.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': api.getCurrentUser()?.csrf_token || ''
+                                },
+                                credentials: 'same-origin'
+                            });
+                            if (response.ok) {
+                                window.location.href = 'login.html';
+                            } else {
+                                throw new Error('No se pudo cerrar sesión.');
+                            }
+                        } catch (err) {
+                            console.error('Logout error:', err);
+                            window.location.href = 'login.html';
+                        }
+                    }
                 });
             }
 
