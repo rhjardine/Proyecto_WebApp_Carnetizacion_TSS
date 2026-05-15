@@ -4,6 +4,8 @@
  * REMEDIACIÓN CRÍTICA v3.1:
  * - initCsrf() ahora obtiene el token del servidor (csrf.php) y lo guarda en memoria.
  * - Soporte dinámico para lectura de token CSRF desde el DOM (meta tags) e iframes.
+ * - AUTO-RECUPERACIÓN JIT: Si el token falta en una petición POST, se auto-recupera 
+ * antes de enviarla, solucionando problemas de cruce de contextos en iframes.
  * - Las peticiones mutantes usan _csrfToken en lugar de current_user.csrf_token.
  * - Se mantiene la normalización de empleados y la corrección del login (v3.0).
  *
@@ -64,21 +66,33 @@ async function request(url, method = 'GET', body = null) {
         credentials: 'same-origin',
     };
 
-    // Inyectar CSRF token en peticiones mutantes (usa _csrfToken real)
+    // Inyectar CSRF token en peticiones mutantes
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
 
-        // CORRECCIÓN: Buscar el token dinámicamente para soportar iframes
         let activeToken = _csrfToken || api.csrfToken;
+
         if (!activeToken) {
             const metaTag = document.querySelector('meta[name="csrf-token"]');
             if (metaTag) activeToken = metaTag.content;
+        }
+
+        // AUTO-RECUPERACIÓN JUST-IN-TIME (JIT)
+        // Soluciona el problema de contextos cruzados en iframes
+        if (!activeToken && typeof api.initCsrf === 'function') {
+            console.info('[SCI-TSS] Token CSRF no detectado en contexto. Iniciando auto-recuperación (JIT)...');
+            await api.initCsrf();
+            activeToken = _csrfToken || api.csrfToken;
+            if (!activeToken) {
+                const metaTag = document.querySelector('meta[name="csrf-token"]');
+                if (metaTag) activeToken = metaTag.content;
+            }
         }
 
         if (activeToken) {
             options.headers['X-CSRF-Token'] = activeToken;
             _csrfToken = activeToken; // Sincronizar memoria interna
         } else {
-            console.warn('[SCI-TSS] CSRF token no disponible. La petición podría ser rechazada.');
+            console.warn('[SCI-TSS] CSRF token no disponible a pesar de la auto-recuperación. La petición fallará.');
         }
     }
 
@@ -122,11 +136,21 @@ async function requestFormData(url, method = 'POST', formData) {
         credentials: 'same-origin',
     };
 
-    // CORRECCIÓN: Soporte de iframe para peticiones con FormData (Fotos/Excel)
     let activeToken = _csrfToken || api.csrfToken;
     if (!activeToken) {
         const metaTag = document.querySelector('meta[name="csrf-token"]');
         if (metaTag) activeToken = metaTag.content;
+    }
+
+    // AUTO-RECUPERACIÓN JUST-IN-TIME (JIT) PARA FORMDATA
+    if (!activeToken && typeof api.initCsrf === 'function') {
+        console.info('[SCI-TSS] Token CSRF (FormData) no detectado. Iniciando auto-recuperación (JIT)...');
+        await api.initCsrf();
+        activeToken = _csrfToken || api.csrfToken;
+        if (!activeToken) {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) activeToken = metaTag.content;
+        }
     }
 
     if (activeToken) {
@@ -202,9 +226,7 @@ const api = {
     login: async (username, password) => {
         const res = await request('api/auth/login.php', 'POST', { username, password });
         const userData = res.data || {};
-        // Ya no guardamos csrf_token en sessionStorage; se maneja con _csrfToken
         sessionStorage.setItem('current_user', JSON.stringify(userData));
-        // Actualizar _csrfToken desde la respuesta del login
         if (res.csrf_token) {
             _csrfToken = res.csrf_token;
         }
@@ -225,7 +247,7 @@ const api = {
         catch (_) { return {}; }
     },
 
-    // Helpers de rol — leen effective_role primero (soporta SUDO temporal)
+    // Helpers de rol
     isAdmin: () => {
         const u = api.getCurrentUser();
         return (u.effective_role || u.role || '').toUpperCase() === 'ADMIN';
@@ -292,11 +314,9 @@ const api = {
 
         const res = await request(url);
 
-        // Normalizar: puede venir como array (lista) u objeto (individual por id)
         if (Array.isArray(res.data)) {
             res.data = res.data.map(normalizarEmpleado);
         } else if (res.data && typeof res.data === 'object') {
-            // Objeto individual → envolver en array para consistencia
             res.data = [normalizarEmpleado(res.data)];
         }
 
@@ -305,7 +325,6 @@ const api = {
 
     createEmployee: async (data) => {
         const payload = { ...data };
-        // Normalizar nombres/apellidos si vienen como campos compuestos
         if (payload.nombres && !payload.primer_nombre) {
             const partes = String(payload.nombres).trim().split(/\s+/);
             payload.primer_nombre = partes[0] || '';
@@ -350,7 +369,6 @@ const api = {
         try {
             return await request('api/stats.php');
         } catch (_) {
-            // Fallback: calcular desde lista de empleados
             const res = await api.getEmployees({ limit: 200 });
             const list = res.data || [];
             return {
@@ -380,7 +398,6 @@ function initGlobalUI() {
     const isAdminCoord = ['ADMIN', 'COORD'].includes(role);
     const isAdmin = role === 'ADMIN';
 
-    // Control de visibilidad de nav-config
     const navConfig = document.getElementById('nav-config');
     if (navConfig) {
         if (isAdminCoord) {
@@ -395,7 +412,6 @@ function initGlobalUI() {
         }
     }
 
-    // Control de visibilidad de nav-editor
     const navEditor = document.getElementById('nav-editor');
     if (navEditor) {
         if (isAdminCoord) {
@@ -410,7 +426,6 @@ function initGlobalUI() {
         }
     }
 
-    // Control de visibilidad de nav-usuarios
     const navUsuarios = document.getElementById('nav-usuarios');
     if (navUsuarios) navUsuarios.style.display = isAdmin ? 'flex' : 'none';
 
@@ -421,7 +436,6 @@ function setupGlobalLogout() {
     const btnLogout = document.getElementById('btn-logout');
     if (!btnLogout) return;
 
-    // Clonar para eliminar event listeners previos
     const newBtn = btnLogout.cloneNode(true);
     btnLogout.parentNode.replaceChild(newBtn, btnLogout);
 
@@ -450,7 +464,6 @@ function setupGlobalLogout() {
     });
 }
 
-// Ejecutar después del DOM
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initGlobalUI);
 } else {
@@ -502,7 +515,7 @@ const ui = {
     formatDate(d) {
         if (!d) return '—';
         try {
-            const date = new Date(d + 'T00:00:00'); // Evitar desfase de zona horaria
+            const date = new Date(d + 'T00:00:00');
             if (isNaN(date.getTime())) return d;
             return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
         } catch (_) { return d; }
