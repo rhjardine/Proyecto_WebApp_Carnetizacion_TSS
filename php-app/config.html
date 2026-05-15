@@ -111,7 +111,6 @@
                 <a href="config.html" class="nav-link active" id="nav-config" style="display:none;">
                     <span class="icon">⚙️</span> Ajustes
                 </a>
-
             </nav>
             <div class="sidebar-user">
                 <div class="sidebar-user-avatar" id="user-avatar">A</div>
@@ -270,6 +269,11 @@
                 window.location.href = 'login.html';
                 return;
             }
+
+            // ---> CORRECCIÓN CSRF: OBTENER TOKEN AL CARGAR <---
+            if (typeof api.initCsrf === 'function') await api.initCsrf();
+            // -------------------------------------------------
+
             if ((user.effective_role || user.role) !== 'ADMIN') {
                 Swal.fire('Acceso Denegado', 'No tienes permisos para ver esta página.', 'error').then(() => {
                     window.location.href = 'dashboard.html';
