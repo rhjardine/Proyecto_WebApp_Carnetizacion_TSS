@@ -243,7 +243,7 @@
                 <div class="sidebar-user-info">
                     <p id="user-name">Cargando...</p><span id="user-role">...</span>
                 </div>
-                <button class="sidebar-logout" id="btn-logout" title="Salir del sistema">⬡</button>
+                <button class="sidebar-logout" id="btn-editor-logout" title="Salir del sistema">⬡</button>
             </div>
         </aside>
 
@@ -836,43 +836,55 @@
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== PLANTILLAS Y FONDOS – CORREGIDO: objetos normales, no backgroundImage =====
+            // ===== PLANTILLAS Y FONDOS – CORREGIDO: objetos interactivos =====
             _bindTemplate() {
-                // 1. ANVERSO (Fondo verdadero como objeto bloqueado)
+                // Función inyectada según TAREA 3
+                function cargarImagenEnCanvas(url, canvasInstance, imageType) {
+                    fabric.Image.fromURL(url, function(img) {
+                        // Limpiar imagen anterior del mismo tipo
+                        const objetosPrevios = canvasInstance.getObjects();
+                        objetosPrevios.forEach(obj => {
+                            if (obj.customType === imageType) {
+                                canvasInstance.remove(obj);
+                            }
+                        });
+
+                        // Calcular escala al 90%
+                        const scaleX = canvasInstance.width / img.width;
+                        const scaleY = canvasInstance.height / img.height;
+                        const scale = Math.min(scaleX, scaleY) * 0.9;
+
+                        // Configurar interactividad y z-index
+                        img.set({
+                            left: canvasInstance.width / 2,
+                            top: canvasInstance.height / 2,
+                            originX: 'center',
+                            originY: 'center',
+                            scaleX: scale,
+                            scaleY: scale,
+                            hasControls: true,
+                            hasBorders: true,
+                            selectable: true,
+                            evented: true,
+                            customType: imageType
+                        });
+
+                        canvasInstance.add(img);
+                        img.sendToBack(); 
+                        canvasInstance.setActiveObject(img);
+                        canvasInstance.renderAll();
+
+                        console.log(`[Canvas] Imagen ${imageType} cargada y activada como objeto interactivo.`);
+                    }, { crossOrigin: 'anonymous' });
+                }
+
+                // 1. ANVERSO (Fondo verdadero como objeto interactivo)
                 document.getElementById('btn-upload-front').addEventListener('click', () => document.getElementById('card-front-input').click());
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        fabric.Image.fromURL(ev.target.result, (img) => {
-                            const canvas = this.canvasManager.frontCanvas;
-                            // Eliminar cualquier fondo anterior (objeto bloqueado)
-                            canvas.getObjects().forEach(obj => {
-                                if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
-                                    canvas.remove(obj);
-                                }
-                            });
-                            img.set({
-                                left: 0,
-                                top: 0,
-                                scaleX: canvas.width / img.width,
-                                scaleY: canvas.height / img.height,
-                                selectable: false,
-                                evented: false,
-                                lockMovementX: true,
-                                lockMovementY: true,
-                                lockRotation: true,
-                                lockScalingX: true,
-                                lockScalingY: true
-                            });
-                            canvas.add(img);
-                            canvas.sendToBack(img);
-                            canvas.renderAll();
-                            showToast('Fondo de Anverso cargado correctamente.');
-                        });
-                    };
-                    reader.readAsDataURL(file);
+                    const url = URL.createObjectURL(file);
+                    cargarImagenEnCanvas(url, this.canvasManager.frontCanvas, 'plantilla-anverso');
                     e.target.value = '';
                 });
 
@@ -881,35 +893,8 @@
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        fabric.Image.fromURL(ev.target.result, (img) => {
-                            const canvas = this.canvasManager.backCanvas;
-                            canvas.getObjects().forEach(obj => {
-                                if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
-                                    canvas.remove(obj);
-                                }
-                            });
-                            img.set({
-                                left: 0,
-                                top: 0,
-                                scaleX: canvas.width / img.width,
-                                scaleY: canvas.height / img.height,
-                                selectable: false,
-                                evented: false,
-                                lockMovementX: true,
-                                lockMovementY: true,
-                                lockRotation: true,
-                                lockScalingX: true,
-                                lockScalingY: true
-                            });
-                            canvas.add(img);
-                            canvas.sendToBack(img);
-                            canvas.renderAll();
-                            showToast('Fondo de Reverso cargado correctamente.');
-                        });
-                    };
-                    reader.readAsDataURL(file);
+                    const url = URL.createObjectURL(file);
+                    cargarImagenEnCanvas(url, this.canvasManager.backCanvas, 'plantilla-reverso');
                     e.target.value = '';
                 });
 
@@ -978,48 +963,7 @@
 
             // ===== LOGOUT CONFIRMADO – CORREGIDO =====
             _applySecureLogout() {
-                const btn = document.getElementById('btn-logout');
-                if (!btn) return;
-
-                // Reemplazar el botón para eliminar listeners previos
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-
-                newBtn.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-
-                    const result = await Swal.fire({
-                        title: '¿Desea cerrar sesión?',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#003366',
-                        cancelButtonColor: '#dc2626',
-                        confirmButtonText: 'Sí, salir',
-                        cancelButtonText: 'Cancelar'
-                    });
-
-                    if (result.isConfirmed) {
-                        try {
-                            const response = await fetch('api/auth/logout.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-Token': api.getCurrentUser()?.csrf_token || ''
-                                },
-                                credentials: 'same-origin'
-                            });
-                            if (response.ok) {
-                                window.location.href = 'login.html';
-                            } else {
-                                throw new Error('No se pudo cerrar sesión.');
-                            }
-                        } catch (err) {
-                            console.error('Logout error:', err);
-                            window.location.href = 'login.html';
-                        }
-                    }
-                });
+                // Se reemplaza la lógica en el DOMContentLoaded para Desacoplar el evento Salir
             }
 
             static printCard() { window.print(); }
@@ -1038,6 +982,37 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => { new UIManager(); });
+
+        // TAREA 2: Desacoplar evento "Salir"
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnEditorLogout = document.getElementById('btn-editor-logout');
+            
+            if (btnEditorLogout) {
+                btnEditorLogout.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    Swal.fire({
+                        title: '¿Salir del editor?',
+                        text: 'Se perderán los cambios que no hayas guardado/exportado.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Sí, salir',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            if (typeof api !== 'undefined' && typeof api.logout === 'function') {
+                                api.logout();
+                            } else {
+                                window.location.href = 'login.html';
+                            }
+                        }
+                    });
+                });
+            }
+        });
     </script>
 </body>
 

@@ -360,6 +360,27 @@
         </div>
     </div>
 
+    <!-- MODAL: Cambio de Contraseña -->
+    <div class="modal-overlay" id="modal-password">
+        <div class="modal">
+            <h2>Cambiar Contraseña</h2>
+            <form id="form-change-password" onsubmit="event.preventDefault();">
+                <div class="mb-3">
+                    <label>Nueva Contraseña</label>
+                    <input type="password" id="new-password" class="form-control" autocomplete="new-password">
+                </div>
+                <div class="mb-3">
+                    <label>Confirmar Contraseña</label>
+                    <input type="password" id="confirm-password" class="form-control" autocomplete="new-password">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="document.getElementById('modal-password').classList.remove('active');">Cancelar</button>
+                    <button type="button" class="btn btn-save" id="btn-save-password">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="assets/js/api.js"></script>
     <script>
         // ── Auth Guard ──────────────────────────────────────────
@@ -418,7 +439,7 @@
                         <td>
                             <div class="action-btns">
                                 <button class="action-btn" onclick="openEditModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">✏️ Editar</button>
-                                <button class="action-btn" onclick="changePassword(${u.id})">🔑 Clave</button>
+                                <button class="action-btn" onclick="openChangePasswordModal(${u.id})">🔑 Clave</button>
                                 ${u.is_locked ? `<button class="action-btn" onclick="unlockUser(${u.id})">🔓 Desbloquear</button>` : ''}
                                 <button class="action-btn danger" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>
                                 ${u.role === 'ANALISTA' ? `<button class="action-btn" style="color:#d97706;border-color:#fde68a" onclick="delegateSudo('${u.username}')">⚡ SUDO</button>` : ''}
@@ -443,6 +464,12 @@
             document.getElementById('modal-role').value = 'USUARIO';
             document.getElementById('password-group').style.display = 'block';
             document.getElementById('user-modal').classList.add('active');
+        }
+
+        function openChangePasswordModal(userId) {
+            document.getElementById('form-change-password').reset();
+            document.getElementById('modal-password').classList.add('active');
+            document.getElementById('btn-save-password').onclick = () => changePassword(userId);
         }
 
         function openEditModal(user) {
@@ -497,27 +524,43 @@
         });
 
         // ── User Actions ────────────────────────────────────────
-        async function changePassword(id) {
-            const { value: newPass } = await Swal.fire({
-                title: 'Cambiar Contraseña',
-                input: 'password',
-                inputLabel: 'Nueva contraseña (mínimo 6 caracteres)',
-                inputValidator: (val) => { if (!val || val.length < 6) return 'Mínimo 6 caracteres'; },
-                showCancelButton: true,
-                cancelButtonText: 'Cancelar',
-                // ---> CORRECCIÓN DOM: EVITAR WARNING "PASSWORD FIELD NOT IN FORM" <---
-                inputAttributes: {
-                    form: 'swal-password-form'
-                }
-                // ----------------------------------------------------------------
-            });
-            if (!newPass) return;
+        async function changePassword(userId) {
+            const newPass = document.getElementById('new-password').value;
+            const confPass = document.getElementById('confirm-password').value;
+
+            if (!newPass || newPass !== confPass) {
+                Swal.fire('Error', 'Las contraseñas no coinciden o están vacías', 'error');
+                return;
+            }
 
             try {
-                await api.changeUserPassword(id, newPass);
-                Swal.fire('Éxito', 'Contraseña actualizada.', 'success');
-            } catch (err) {
-                Swal.fire('Error', err.message, 'error');
+                // Asegurar que el token CSRF esté disponible antes de la mutación
+                if (typeof api.fetchCSRFToken === 'function') {
+                    await api.fetchCSRFToken(); 
+                }
+
+                if (typeof ui !== 'undefined' && ui.showLoading) ui.showLoading();
+                const response = await api.changeUserPassword(userId, newPass);
+                if (typeof ui !== 'undefined' && ui.hideLoading) ui.hideLoading();
+
+                if (response && response.success) {
+                    Swal.fire('Éxito', 'Contraseña actualizada', 'success');
+                    try {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('modal-password'));
+                        if(modal) modal.hide();
+                    } catch (e) {
+                        // Ignorar error si bootstrap no está definido
+                        const modalEl = document.getElementById('modal-password');
+                        if (modalEl && modalEl.classList) modalEl.classList.remove('active');
+                    }
+                    document.getElementById('form-change-password').reset();
+                } else {
+                    throw new Error(response ? response.message : 'Error desconocido');
+                }
+            } catch (error) {
+                if (typeof ui !== 'undefined' && ui.hideLoading) ui.hideLoading();
+                console.error("Error al cambiar password:", error);
+                Swal.fire('Error', 'No se pudo cambiar la contraseña. Verifica la consola.', 'error');
             }
         }
 
