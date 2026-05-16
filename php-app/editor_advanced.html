@@ -17,6 +17,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Estilos base del sistema -->
     <link rel="stylesheet" href="assets/css/style.css" />
+    <!-- Añadido FontAwesome para iconos -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .flex {
             display: flex;
@@ -263,7 +265,9 @@
             </div>
 
             <div class="flex h-full">
+                <!-- PANEL LATERAL DE HERRAMIENTAS -->
                 <div class="w-80 bg-white shadow-md p-4 overflow-y-auto flex flex-col gap-4">
+
                     <!-- Datos del Funcionario -->
                     <div>
                         <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📝 Datos del Funcionario</h3>
@@ -291,10 +295,29 @@
                             </div>
 
                             <div class="flex gap-2 mt-2">
-                                <button type="submit" id="btn-save-fields" class="btn btn-primary flex-1">💾 Guardar
-                                    Datos</button>
+                                <button type="submit" id="btn-save-fields" class="btn btn-primary flex-1">💾 Guardar y
+                                    Actualizar Vista</button>
                             </div>
                         </form>
+                    </div>
+
+                    <!-- NUEVO: INYECCIÓN DE CAMPOS DINÁMICOS -->
+                    <div>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">✨ Añadir Campo Dinámico</h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Agrega campos
+                            adicionales al lienzo activo. Útil para plantillas de Illustrator limpias.</p>
+                        <div class="flex flex-col gap-2">
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('NOMBRE')"><i
+                                    class="fas fa-user"></i> Nombres y Apellidos</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('CEDULA')"><i
+                                    class="fas fa-id-card"></i> Cédula</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('CARGO')"><i
+                                    class="fas fa-briefcase"></i> Cargo</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('SANGRE')"><i
+                                    class="fas fa-tint text-danger"></i> Tipo de Sangre</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('TEXTO_LIBRE')"><i
+                                    class="fas fa-font"></i> Texto Libre</button>
+                        </div>
                     </div>
 
                     <!-- Estilo de texto -->
@@ -325,11 +348,10 @@
 
                     <!-- PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
-                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantillas y
-                            Fondos</h3>
+                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantillas
+                            Base</h3>
                         <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Cargue las plantillas
-                            base del carnet exportadas de Illustrator. Se adaptarán al fondo y los campos se mantendrán
-                            arriba.</p>
+                            base exportadas de Illustrator. Se adaptarán al fondo y los textos quedarán por encima.</p>
 
                         <!-- Imagen Anverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
@@ -339,8 +361,8 @@
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
                                 <button id="btn-upload-front" class="btn btn-secondary" style="flex:1;">📂 Cargar
                                     Anverso</button>
-                                <button id="btn-reset-front" class="btn btn-secondary"
-                                    style="padding:8px 10px;">↺</button>
+                                <button id="btn-reset-front" class="btn btn-secondary" style="padding:8px 10px;"
+                                    title="Limpiar Anverso">↺</button>
                             </div>
                         </div>
 
@@ -352,36 +374,34 @@
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
                                 <button id="btn-upload-back" class="btn btn-secondary" style="flex:1;">📂 Cargar
                                     Reverso</button>
-                                <button id="btn-reset-back" class="btn btn-secondary"
-                                    style="padding:8px 10px;">↺</button>
+                                <button id="btn-reset-back" class="btn btn-secondary" style="padding:8px 10px;"
+                                    title="Limpiar Reverso">↺</button>
                             </div>
                         </div>
 
-                        <!-- Cintillo u Objeto Libre -->
+                        <!-- Imagen Libre -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🖼️ Añadir Cintillo o Imagen
-                                Libre</label>
+                            <label class="form-label" style="font-size:.72rem;">🖼️ Añadir Logo/Imagen Libre</label>
                             <input type="file" id="custom-bg-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;">
                                 <button id="btn-upload-bg" class="btn btn-secondary" style="flex:1;">📂 Añadir
                                     Imagen</button>
                             </div>
-                            <p style="font-size:0.65rem; color:gray; margin-top:4px;">Se añadirá encima de todo y podrás
-                                moverlo libremente.</p>
                         </div>
                     </div>
 
-                    <button id="btn-save-layout" class="btn btn-secondary w-full">💾 Guardar Layout (JSON)</button>
+                    <button id="btn-save-layout" class="btn btn-secondary w-full hidden">💾 Guardar Layout
+                        (JSON)</button>
                 </div>
 
+                <!-- ÁREA DE LIENZOS -->
                 <div class="flex-1 p-4 flex flex-col items-center gap-4">
                     <div class="flex gap-2 bg-white rounded-lg shadow p-2">
                         <button id="btn-front" class="px-4 py-1 rounded bg-gray-800 text-white">Ver Anverso</button>
                         <button id="btn-back" class="px-4 py-1 rounded bg-gray-200">Ver Reverso</button>
                     </div>
                     <div class="flex gap-4 justify-center">
-                        <!-- Dimensiones cambiadas a Formato Vertical Estandar (326 x 520) -->
                         <div class="canvas-container" id="front-container">
                             <canvas id="canvas-anverso" width="326" height="520"></canvas>
                         </div>
@@ -412,7 +432,7 @@
     <script src="assets/js/api.js"></script>
     <script src="assets/js/validaciones.js"></script>
     <script>
-        // ===== PROTECCIÓN CONTRA ERRORES EN ENTORNO DE PREVISUALIZACIÓN =====
+        // ===== PROTECCIÓN ENTORNO LOCAL =====
         if (typeof api === 'undefined') {
             console.warn("El objeto 'api' no está definido. Inyectando mock local.");
             window.api = {
@@ -449,7 +469,7 @@
         }
         // ====================================================================
 
-        // ============= PHOTO MANAGER (Cropper.js) =============
+        // ============= PHOTO MANAGER =============
         class PhotoManager {
             constructor() {
                 this.cropper = null;
@@ -507,7 +527,7 @@
             onPhotoCropped(callback) { this.callback = callback; }
         }
 
-        // ============= CANVAS MANAGER (Fabric.js) =============
+        // ============= CANVAS MANAGER =============
         class CanvasManager {
             constructor() {
                 this.frontCanvas = null;
@@ -519,13 +539,8 @@
             }
 
             init(frontEl, backEl) {
-                // Configurar backgroundColor aquí elimina la necesidad del problemático rectángulo blanco base
-                this.frontCanvas = new fabric.Canvas(frontEl, {
-                    backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true
-                });
-                this.backCanvas = new fabric.Canvas(backEl, {
-                    backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true
-                });
+                this.frontCanvas = new fabric.Canvas(frontEl, { backgroundColor: '#ffffff', preserveObjectStacking: true });
+                this.backCanvas = new fabric.Canvas(backEl, { backgroundColor: '#ffffff', preserveObjectStacking: true });
 
                 const onSelect = (e) => this._onObjectSelected(e.selected ? e.selected[0] : null);
                 this.frontCanvas.on('selection:created', onSelect);
@@ -535,12 +550,11 @@
                 this.backCanvas.on('selection:updated', onSelect);
                 this.backCanvas.on('selection:cleared', () => onSelect({}));
 
-                // Manejo de la tecla Suprimir
+                // Eliminar con Suprimir
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Delete' || e.key === 'Backspace') {
                         const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
                         const obj = canvas.getActiveObject();
-                        // No eliminar si estamos escribiendo dentro del texto
                         if (obj && obj.type === 'i-text' && obj.isEditing) return;
                         if (obj) {
                             e.preventDefault();
@@ -556,7 +570,6 @@
                 this.frontCanvas.clear();
                 this.backCanvas.clear();
 
-                // COORDENADAS PARA FORMATO VERTICAL (326x520)
                 // === ANVERSO ===
                 this.textNodes.nombres = this._addText(this.frontCanvas, emp.nombres || 'NOMBRES', 163, 270, 16, '#000', 'Arial', { originX: 'center', fontWeight: 'bold' });
                 this.textNodes.apellidos = this._addText(this.frontCanvas, emp.apellidos || 'APELLIDOS', 163, 290, 16, '#003366', 'Arial', { originX: 'center', fontWeight: 'bold' });
@@ -606,6 +619,49 @@
                 return t;
             }
 
+            // Inyección Dinámica
+            injectDynamicField(tipo) {
+                const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
+
+                let texto = "Texto Nuevo";
+                let opciones = { left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center' };
+
+                // Recuperar valores del formulario para auto-completar
+                const formNombres = document.getElementById('edit-nombres').value;
+                const formApellidos = document.getElementById('edit-apellidos').value;
+                const formCedula = document.getElementById('edit-cedula').value;
+                const formCargo = document.getElementById('edit-cargo').value;
+                const formSangre = document.getElementById('edit-tipo-sangre').value;
+
+                switch (tipo) {
+                    case 'NOMBRE':
+                        texto = (formNombres + " " + formApellidos).trim().toUpperCase() || 'NOMBRES Y APELLIDOS';
+                        opciones = { ...opciones, fontSize: 18, fontWeight: 'bold', fill: '#003366' };
+                        break;
+                    case 'CEDULA':
+                        texto = formCedula ? `C.I: ${formCedula}` : 'C.I: V-0000000';
+                        opciones = { ...opciones, fontSize: 14, fontWeight: 'bold', fill: '#333333' };
+                        break;
+                    case 'CARGO':
+                        texto = formCargo.toUpperCase() || 'CARGO O UNIDAD';
+                        opciones = { ...opciones, fontSize: 12, fill: '#64748b' };
+                        break;
+                    case 'SANGRE':
+                        texto = formSangre.toUpperCase() || 'O+';
+                        opciones = { ...opciones, fontSize: 20, fontWeight: 'bold', fill: '#dc2626' };
+                        break;
+                    case 'TEXTO_LIBRE':
+                        texto = 'Doble clic para editar';
+                        opciones = { ...opciones, fontSize: 14, fill: '#000000' };
+                        break;
+                }
+
+                const nuevoObj = this._addText(canvas, texto, opciones.left, opciones.top, opciones.fontSize, opciones.fill, 'Arial', opciones);
+                canvas.setActiveObject(nuevoObj);
+                canvas.renderAll();
+                showToast(`Campo ${tipo} añadido.`);
+            }
+
             updateTextFromForm(data) {
                 if (this.textNodes.nombres) this.textNodes.nombres.set('text', data.nombres || 'NOMBRES');
                 if (this.textNodes.apellidos) this.textNodes.apellidos.set('text', data.apellidos || 'APELLIDOS');
@@ -632,17 +688,6 @@
                 }
             }
 
-            serializeLayout() {
-                const ser = (o) => ({
-                    type: o.type, text: o.text || '', left: o.left, top: o.top, fontSize: o.fontSize,
-                    fontFamily: o.fontFamily, fill: o.fill, scaleX: o.scaleX, scaleY: o.scaleY
-                });
-                return JSON.stringify({
-                    front: this.frontCanvas.getObjects().map(ser), back: this.backCanvas.getObjects()
-                        .map(ser)
-                }, null, 2);
-            }
-
             exportJPG(side) {
                 const canvas = side === 'front' ? this.frontCanvas : this.backCanvas;
                 canvas.discardActiveObject();
@@ -667,11 +712,18 @@
             }
         }
 
+        // Variable global para que el HTML pueda llamar a InyectarCampo
+        let gCanvasManager = null;
+        window.inyectarCampo = function (tipo) {
+            if (gCanvasManager) gCanvasManager.injectDynamicField(tipo);
+        };
+
         // ============= UI MANAGER =============
         class UIManager {
             constructor() {
                 this.photoManager = new PhotoManager();
                 this.canvasManager = new CanvasManager();
+                gCanvasManager = this.canvasManager;
                 this.employee = null;
                 this.qrDataUrl = null;
                 this.init();
@@ -816,18 +868,12 @@
                 });
 
                 document.getElementById('btn-export-jpg').addEventListener('click', () => this.canvasManager.exportJPG(this.canvasManager.currentSide));
-                document.getElementById('btn-save-layout').addEventListener('click', () => {
-                    const json = this.canvasManager.serializeLayout();
-                    Swal.fire({
-                        title: 'Layout JSON', html: `<pre style="text-align:left;font-size:12px;">${json}</pre>`,
-                        icon: 'success', width: 800
-                    });
-                });
+
                 document.getElementById('btn-front').addEventListener('click', () => this._switchSide('front'));
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== PLANTILLAS Y FONDOS – LOGICA CORREGIDA =====
+            // ===== PLANTILLAS Y FONDOS =====
             _bindTemplate() {
                 const _this = this;
 
@@ -841,17 +887,14 @@
                             }
                         });
 
-                        // Calcular escala
+                        // Calcular escala para cubrir todo el canvas si es plantilla
                         const scaleX = canvasInstance.width / img.width;
                         const scaleY = canvasInstance.height / img.height;
-
-                        // Si es plantilla base, forzamos que cubra todo el lienzo
                         let scale = Math.min(scaleX, scaleY);
                         if (imageType.includes('plantilla')) {
-                            scale = Math.max(scaleX, scaleY);
+                            scale = Math.max(scaleX, scaleY); // Cubrir completo
                         }
 
-                        // Configurar interactividad y z-index
                         img.set({
                             left: canvasInstance.width / 2,
                             top: canvasInstance.height / 2,
@@ -868,7 +911,7 @@
 
                         canvasInstance.add(img);
 
-                        // Enviar estrictamente al fondo (índice 0 de la pila de objetos)
+                        // Mandar al fondo
                         if (imageType.includes('plantilla')) {
                             canvasInstance.sendToBack(img);
                         }
@@ -876,7 +919,7 @@
                         canvasInstance.setActiveObject(img);
                         canvasInstance.renderAll();
 
-                        showToast(`Plantilla cargada correctamente.`);
+                        showToast(`Plantilla cargada.`);
                     }, { crossOrigin: 'anonymous' });
                 }
 
@@ -900,7 +943,7 @@
                     e.target.value = '';
                 });
 
-                // 3. CINTILLO / IMAGEN LIBRE (Se añade arriba, no al fondo)
+                // 3. IMAGEN LIBRE
                 document.getElementById('btn-upload-bg').addEventListener('click', () => document.getElementById('custom-bg-input').click());
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -963,7 +1006,6 @@
         document.addEventListener('DOMContentLoaded', () => { new UIManager(); });
 
         // ===== INTERCEPCIÓN DEL EVENTO SALIR (FASE DE CAPTURA) =====
-        // Esto desactiva el listener genérico del api.js para esta vista
         document.addEventListener('click', function (e) {
             const btnLogout = e.target.closest('#btn-editor-logout');
             if (btnLogout) {
@@ -973,7 +1015,7 @@
 
                 Swal.fire({
                     title: '¿Salir del editor?',
-                    text: 'Se perderán los cambios visuales que no hayas exportado. (Los datos del formulario se mantienen en la base de datos si presionaste Guardar).',
+                    text: 'Se perderán los cambios visuales que no hayas exportado.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
