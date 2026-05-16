@@ -205,6 +205,7 @@
             border-radius: 8px;
             display: inline-block;
             background-color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
         }
 
         #crop-modal {
@@ -327,12 +328,12 @@
                         <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantillas y
                             Fondos</h3>
                         <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Cargue las plantillas
-                            base del carnet. Estas se ajustarán al fondo exacto.</p>
+                            base del carnet exportadas de Illustrator. Se adaptarán al fondo y los campos se mantendrán
+                            arriba.</p>
 
                         <!-- Imagen Anverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🪪 Plantilla Anverso (Fondo
-                                Frente)</label>
+                            <label class="form-label" style="font-size:.72rem;">🪪 Plantilla Anverso (Frente)</label>
                             <input type="file" id="card-front-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -345,8 +346,7 @@
 
                         <!-- Imagen Reverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🔄 Plantilla Reverso (Fondo
-                                Atrás)</label>
+                            <label class="form-label" style="font-size:.72rem;">🔄 Plantilla Reverso (Atrás)</label>
                             <input type="file" id="card-back-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -368,7 +368,7 @@
                                     Imagen</button>
                             </div>
                             <p style="font-size:0.65rem; color:gray; margin-top:4px;">Se añadirá encima de todo y podrás
-                                moverlo.</p>
+                                moverlo libremente.</p>
                         </div>
                     </div>
 
@@ -389,7 +389,9 @@
                             <canvas id="canvas-reverso" width="326" height="520"></canvas>
                         </div>
                     </div>
-                    <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos.</div>
+                    <div class="text-sm text-gray-500">Usa rueda del ratón para zoom, arrastra para mover objetos y
+                        doble clic para editar textos. Presiona <b>Suprimir</b> para eliminar el objeto seleccionado.
+                    </div>
                 </div>
             </div>
         </main>
@@ -517,6 +519,7 @@
             }
 
             init(frontEl, backEl) {
+                // Configurar backgroundColor aquí elimina la necesidad del problemático rectángulo blanco base
                 this.frontCanvas = new fabric.Canvas(frontEl, {
                     backgroundColor: '#ffffff', selection: true, preserveObjectStacking: true
                 });
@@ -532,37 +535,26 @@
                 this.backCanvas.on('selection:updated', onSelect);
                 this.backCanvas.on('selection:cleared', () => onSelect({}));
 
-                this._loadDefaultBackgrounds();
-            }
-
-            _loadDefaultBackgrounds() {
-                // Usar rectángulo blanco en lugar de SVG opaco para que los objetos sean visibles
-                const createBg = (canvas) => {
-                    const rect = new fabric.Rect({
-                        width: canvas.width,
-                        height: canvas.height,
-                        fill: '#ffffff',
-                        selectable: false,
-                        evented: false,
-                        lockMovementX: true,
-                        lockMovementY: true,
-                        lockRotation: true,
-                        lockScalingX: true,
-                        lockScalingY: true
-                    });
-                    canvas.add(rect);
-                    canvas.sendToBack(rect);
-                };
-                createBg(this.frontCanvas);
-                createBg(this.backCanvas);
-                this.frontCanvas.renderAll();
-                this.backCanvas.renderAll();
+                // Manejo de la tecla Suprimir
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
+                        const obj = canvas.getActiveObject();
+                        // No eliminar si estamos escribiendo dentro del texto
+                        if (obj && obj.type === 'i-text' && obj.isEditing) return;
+                        if (obj) {
+                            e.preventDefault();
+                            canvas.remove(obj);
+                            canvas.discardActiveObject();
+                            canvas.renderAll();
+                        }
+                    }
+                });
             }
 
             setEmployeeData(emp, photoUrl, qrUrl) {
                 this.frontCanvas.clear();
                 this.backCanvas.clear();
-                this._loadDefaultBackgrounds();
 
                 // COORDENADAS PARA FORMATO VERTICAL (326x520)
                 // === ANVERSO ===
@@ -713,7 +705,6 @@
                 this._bindUI();
                 this._bindTemplate();
                 this._switchSide('front');
-                this._applySecureLogout();
             }
 
             _fillForm(emp) {
@@ -796,7 +787,7 @@
                         await api.updateEmployee(this.employee.id, fields);
                         Object.assign(this.employee, fields);
                         this.canvasManager.updateTextFromForm(fields);
-                        showToast('Datos actualizados.', 'success');
+                        showToast('Datos actualizados en base de datos y diseño.', 'success');
                     } catch (err) { showToast(err.message, 'danger'); } finally {
                         ui.setLoading(btn, false);
                     }
@@ -836,11 +827,12 @@
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== PLANTILLAS Y FONDOS – CORREGIDO: objetos interactivos =====
+            // ===== PLANTILLAS Y FONDOS – LOGICA CORREGIDA =====
             _bindTemplate() {
-                // Función inyectada según TAREA 3
+                const _this = this;
+
                 function cargarImagenEnCanvas(url, canvasInstance, imageType) {
-                    fabric.Image.fromURL(url, function(img) {
+                    fabric.Image.fromURL(url, function (img) {
                         // Limpiar imagen anterior del mismo tipo
                         const objetosPrevios = canvasInstance.getObjects();
                         objetosPrevios.forEach(obj => {
@@ -849,10 +841,15 @@
                             }
                         });
 
-                        // Calcular escala al 90%
+                        // Calcular escala
                         const scaleX = canvasInstance.width / img.width;
                         const scaleY = canvasInstance.height / img.height;
-                        const scale = Math.min(scaleX, scaleY) * 0.9;
+
+                        // Si es plantilla base, forzamos que cubra todo el lienzo
+                        let scale = Math.min(scaleX, scaleY);
+                        if (imageType.includes('plantilla')) {
+                            scale = Math.max(scaleX, scaleY);
+                        }
 
                         // Configurar interactividad y z-index
                         img.set({
@@ -870,15 +867,20 @@
                         });
 
                         canvasInstance.add(img);
-                        img.sendToBack(); 
+
+                        // Enviar estrictamente al fondo (índice 0 de la pila de objetos)
+                        if (imageType.includes('plantilla')) {
+                            canvasInstance.sendToBack(img);
+                        }
+
                         canvasInstance.setActiveObject(img);
                         canvasInstance.renderAll();
 
-                        console.log(`[Canvas] Imagen ${imageType} cargada y activada como objeto interactivo.`);
+                        showToast(`Plantilla cargada correctamente.`);
                     }, { crossOrigin: 'anonymous' });
                 }
 
-                // 1. ANVERSO (Fondo verdadero como objeto interactivo)
+                // 1. ANVERSO
                 document.getElementById('btn-upload-front').addEventListener('click', () => document.getElementById('card-front-input').click());
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -888,7 +890,7 @@
                     e.target.value = '';
                 });
 
-                // 2. REVERSO (idéntico)
+                // 2. REVERSO
                 document.getElementById('btn-upload-back').addEventListener('click', () => document.getElementById('card-back-input').click());
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -898,57 +900,35 @@
                     e.target.value = '';
                 });
 
-                // 3. CINTILLO / IMAGEN LIBRE (objeto movible)
+                // 3. CINTILLO / IMAGEN LIBRE (Se añade arriba, no al fondo)
                 document.getElementById('btn-upload-bg').addEventListener('click', () => document.getElementById('custom-bg-input').click());
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        fabric.Image.fromURL(ev.target.result, (img) => {
-                            const canvas = this.canvasManager.currentSide === 'front'
-                                ? this.canvasManager.frontCanvas
-                                : this.canvasManager.backCanvas;
-                            const scale = canvas.width / img.width;
-                            img.set({
-                                left: 0,
-                                top: 0,
-                                scaleX: scale,
-                                scaleY: scale,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockUniScaling: true
-                            });
-                            canvas.add(img);
-                            canvas.setActiveObject(img);
-                            canvas.renderAll();
-                            showToast('Cintillo / Objeto añadido. Puedes arrastrarlo.');
-                        });
-                    };
-                    reader.readAsDataURL(file);
+                    const url = URL.createObjectURL(file);
+                    const canvas = this.canvasManager.currentSide === 'front' ? this.canvasManager.frontCanvas : this.canvasManager.backCanvas;
+                    cargarImagenEnCanvas(url, canvas, 'imagen-libre-' + Date.now());
                     e.target.value = '';
                 });
 
-                // Resetear Fondos (eliminar objetos de fondo)
+                // Resetear Fondos 
                 document.getElementById('btn-reset-front').addEventListener('click', () => {
                     const canvas = this.canvasManager.frontCanvas;
                     canvas.getObjects().forEach(obj => {
-                        if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                        if (obj.customType === 'plantilla-anverso' || obj.customType?.includes('imagen-libre')) {
                             canvas.remove(obj);
                         }
                     });
                     canvas.renderAll();
-                    showToast('Fondo Frontal restablecido.');
                 });
                 document.getElementById('btn-reset-back').addEventListener('click', () => {
                     const canvas = this.canvasManager.backCanvas;
                     canvas.getObjects().forEach(obj => {
-                        if (obj.type === 'image' && obj.selectable === false && obj.lockMovementX === true) {
+                        if (obj.customType === 'plantilla-reverso' || obj.customType?.includes('imagen-libre')) {
                             canvas.remove(obj);
                         }
                     });
                     canvas.renderAll();
-                    showToast('Fondo Reverso restablecido.');
                 });
             }
 
@@ -961,11 +941,6 @@
                 b.className = `px-4 py-1 rounded ${side === 'back' ? 'bg-gray-800 text-white' : 'bg-gray-200'}`;
             }
 
-            // ===== LOGOUT CONFIRMADO – CORREGIDO =====
-            _applySecureLogout() {
-                // Se reemplaza la lógica en el DOMContentLoaded para Desacoplar el evento Salir
-            }
-
             static printCard() { window.print(); }
         }
 
@@ -975,44 +950,48 @@
                 danger: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
             }[type] || { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
             const d = document.createElement('div');
-            d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;`;
+            d.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;box-shadow: 0 4px 6px rgba(0,0,0,0.1);`;
             d.textContent = msg;
             document.body.appendChild(d);
-            setTimeout(() => d.remove(), 3500);
+            setTimeout(() => {
+                d.style.opacity = '0';
+                d.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => d.remove(), 500);
+            }, 3000);
         }
 
         document.addEventListener('DOMContentLoaded', () => { new UIManager(); });
 
-        // TAREA 2: Desacoplar evento "Salir"
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnEditorLogout = document.getElementById('btn-editor-logout');
-            
-            if (btnEditorLogout) {
-                btnEditorLogout.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+        // ===== INTERCEPCIÓN DEL EVENTO SALIR (FASE DE CAPTURA) =====
+        // Esto desactiva el listener genérico del api.js para esta vista
+        document.addEventListener('click', function (e) {
+            const btnLogout = e.target.closest('#btn-editor-logout');
+            if (btnLogout) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
 
-                    Swal.fire({
-                        title: '¿Salir del editor?',
-                        text: 'Se perderán los cambios que no hayas guardado/exportado.',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#d33',
-                        cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Sí, salir',
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            if (typeof api !== 'undefined' && typeof api.logout === 'function') {
-                                api.logout();
-                            } else {
-                                window.location.href = 'login.html';
-                            }
+                Swal.fire({
+                    title: '¿Salir del editor?',
+                    text: 'Se perderán los cambios visuales que no hayas exportado. (Los datos del formulario se mantienen en la base de datos si presionaste Guardar).',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, salir',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (typeof api !== 'undefined' && typeof api.logout === 'function') {
+                            api.logout().finally(() => window.location.href = 'login.html');
+                        } else {
+                            window.location.href = 'login.html';
                         }
-                    });
+                    }
                 });
             }
-        });
+        }, true);
+
     </script>
 </body>
 
