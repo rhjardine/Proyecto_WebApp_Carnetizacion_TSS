@@ -37,9 +37,10 @@
         }
 
         .w-80 {
-            width: 22rem;
+            width: 23rem;
         }
 
+        /* Ligeramente más ancho para los nuevos campos */
         .w-full {
             width: 100%;
         }
@@ -129,6 +130,10 @@
         .py-2 {
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
+        }
+
+        .gap-1 {
+            gap: 0.25rem;
         }
 
         .gap-2 {
@@ -279,18 +284,14 @@
                             <input type="text" id="edit-cargo" placeholder="Cargo" class="form-input" required />
                             <select id="edit-gerencia" class="form-input form-select"></select>
 
-                            <!-- NUEVOS CAMPOS DEL REVERSO -->
+                            <!-- CAMPOS DEL REVERSO (Limpios según TSS) -->
                             <div style="border-top:1px dashed #e5e7eb; margin-top:8px; padding-top:8px;">
                                 <label class="text-xs font-bold">Datos del Reverso:</label>
                                 <input type="date" id="edit-fecha-ingreso" class="form-input mt-1"
                                     title="Fecha de Ingreso" />
-                                <input type="text" id="edit-tipo-sangre" placeholder="Tipo de Sangre (Ej. O+)"
+                                <input type="text" id="edit-emergencia-nombre" placeholder="Contacto de Emergencia"
                                     class="form-input mt-1" />
-                                <input type="text" id="edit-alergias" placeholder="Alergias (Ej. Ninguna)"
-                                    class="form-input mt-1" />
-                                <input type="text" id="edit-emergencia-nombre" placeholder="Nombre Contacto Emergencia"
-                                    class="form-input mt-1" />
-                                <input type="text" id="edit-emergencia-tel" placeholder="Teléfono Emergencia"
+                                <input type="text" id="edit-emergencia-tel" placeholder="Teléfono de Emergencia"
                                     class="form-input mt-1" />
                             </div>
 
@@ -301,11 +302,23 @@
                         </form>
                     </div>
 
-                    <!-- NUEVO: INYECCIÓN DE CAMPOS DINÁMICOS -->
+                    <!-- NUEVO: INYECCIÓN DE CAMPOS PERSONALIZADOS -->
                     <div>
-                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">✨ Añadir Campo Dinámico</h3>
-                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Agrega campos
-                            adicionales al lienzo activo. Útil para plantillas de Illustrator limpias.</p>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">✨ Campos Adicionales</h3>
+                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:8px;">Crea campos a medida
+                            para el lienzo activo.</p>
+
+                        <!-- Mini form de campos a medida -->
+                        <div class="flex gap-1 mb-3">
+                            <input type="text" id="custom-field-label" placeholder="Ej: TÍTULO"
+                                class="form-input flex-1 text-xs" />
+                            <input type="text" id="custom-field-value" placeholder="Valor"
+                                class="form-input flex-1 text-xs" />
+                            <button class="btn btn-primary btn-sm" onclick="inyectarCampoPersonalizado()"
+                                title="Añadir Campo">➕</button>
+                        </div>
+
+                        <!-- Botones rápidos genéricos -->
                         <div class="flex flex-col gap-2">
                             <button class="btn btn-secondary text-left" onclick="inyectarCampo('NOMBRE')"><i
                                     class="fas fa-user"></i> Nombres y Apellidos</button>
@@ -313,8 +326,10 @@
                                     class="fas fa-id-card"></i> Cédula</button>
                             <button class="btn btn-secondary text-left" onclick="inyectarCampo('CARGO')"><i
                                     class="fas fa-briefcase"></i> Cargo</button>
-                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('SANGRE')"><i
-                                    class="fas fa-tint text-danger"></i> Tipo de Sangre</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('FECHA_INGRESO')"><i
+                                    class="fas fa-calendar"></i> Fecha Ingreso</button>
+                            <button class="btn btn-secondary text-left" onclick="inyectarCampo('EMERGENCIA')"><i
+                                    class="fas fa-phone"></i> Emergencia</button>
                             <button class="btn btn-secondary text-left" onclick="inyectarCampo('TEXTO_LIBRE')"><i
                                     class="fas fa-font"></i> Texto Libre</button>
                         </div>
@@ -322,7 +337,7 @@
 
                     <!-- Estilo de texto -->
                     <div>
-                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">🎨 Estilo de texto</h3>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">🎨 Formato de Objeto</h3>
                         <div class="flex flex-col gap-2" id="text-style-panel">
                             <label class="text-xs">Fuente</label>
                             <select id="font-family-select" class="form-input form-select">
@@ -341,21 +356,32 @@
 
                     <!-- Fotografía -->
                     <div>
-                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📸 Fotografía</h3>
+                        <h3 class="font-bold text-gray-700 border-b pb-1 mb-2">📸 Fotografía Empleado</h3>
                         <input type="file" id="photo-file-input" accept="image/*" class="hidden" />
                         <button id="btn-load-photo" class="btn btn-primary w-full">📸 Cargar Nueva Foto</button>
                     </div>
 
                     <!-- PLANTILLA Y DISEÑO -->
                     <div class="card" style="padding:20px;">
-                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Plantillas
-                            Base</h3>
-                        <p style="font-size:.75rem;color:var(--color-muted);margin-bottom:12px;">Cargue las plantillas
-                            base exportadas de Illustrator. Se adaptarán al fondo y los textos quedarán por encima.</p>
+                        <h3 style="font-size:.875rem;font-weight:700;margin-bottom:14px;"><span>🎨</span> Diseño Base
+                        </h3>
+
+                        <!-- Cintillo Superior -->
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;">🏷️ Cintillo Superior</label>
+                            <input type="file" id="cintillo-input" accept="image/png, image/jpeg"
+                                style="display:none;" />
+                            <div style="display:flex;gap:6px;">
+                                <button id="btn-upload-cintillo" class="btn btn-primary" style="flex:1;">📂 Cargar
+                                    Cintillo</button>
+                            </div>
+                            <p style="font-size:0.65rem; color:gray; margin-top:4px;">Se ajustará automáticamente al
+                                borde superior del carnet.</p>
+                        </div>
 
                         <!-- Imagen Anverso -->
-                        <div style="border-top:1px solid var(--color-border);padding-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🪪 Plantilla Anverso (Frente)</label>
+                        <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
+                            <label class="form-label" style="font-size:.72rem;">🪪 Plantilla Anverso (Fondo)</label>
                             <input type="file" id="card-front-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -368,7 +394,7 @@
 
                         <!-- Imagen Reverso -->
                         <div style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:12px;">
-                            <label class="form-label" style="font-size:.72rem;">🔄 Plantilla Reverso (Atrás)</label>
+                            <label class="form-label" style="font-size:.72rem;">🔄 Plantilla Reverso (Fondo)</label>
                             <input type="file" id="card-back-input" accept="image/png, image/jpeg"
                                 style="display:none;" />
                             <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -442,7 +468,7 @@
                     data: [{
                         id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678',
                         cargo: 'Analista de Sistemas', gerencia: 'Tecnología',
-                        tipo_sangre: 'O+', alergias: 'Ninguna', fecha_ingreso: '2023-01-15',
+                        fecha_ingreso: '2023-01-15',
                         emergencia_nombre: 'Maria Perez', emergencia_tel: '0414-1234567'
                     }]
                 }),
@@ -467,7 +493,6 @@
                 }
             };
         }
-        // ====================================================================
 
         // ============= PHOTO MANAGER =============
         class PhotoManager {
@@ -588,7 +613,7 @@
                     });
                 }
 
-                // === REVERSO ===
+                // === REVERSO (Limpio según TSS) ===
                 if (qrUrl) {
                     fabric.Image.fromURL(qrUrl, (img) => {
                         img.set({ left: 163, top: 90, originX: 'center', originY: 'center', scaleX: 0.5, scaleY: 0.5, hasControls: true });
@@ -598,16 +623,14 @@
                     });
                 }
 
-                let currentY = 160;
+                let currentY = 180;
                 this.textNodes.fechaIngreso = this._addText(this.backCanvas, `FECHA INGRESO: ${emp.fecha_ingreso || 'N/A'}`, 20, currentY, 11, '#000', 'Arial');
-                this.textNodes.tipoSangre = this._addText(this.backCanvas, `TIPO SANGRE: ${emp.tipo_sangre || 'N/A'}`, 20, currentY += 20, 11, '#000', 'Arial');
-                this.textNodes.alergias = this._addText(this.backCanvas, `ALERGIAS: ${emp.alergias || 'Ninguna'}`, 20, currentY += 20, 11, '#000', 'Arial');
 
-                this._addText(this.backCanvas, "EN CASO DE EMERGENCIA AVISAR A:", 20, currentY += 30, 9, '#d32f2f', 'Arial', { fontWeight: 'bold', editable: false });
-                this.textNodes.emergenciaNombre = this._addText(this.backCanvas, emp.emergencia_nombre || 'Nombre del contacto', 20, currentY += 15, 11, '#000', 'Arial');
-                this.textNodes.emergenciaTel = this._addText(this.backCanvas, emp.emergencia_tel || 'Teléfono', 20, currentY += 15, 11, '#000', 'Arial');
+                this._addText(this.backCanvas, "EN CASO DE EMERGENCIA AVISAR A:", 20, currentY += 40, 10, '#d32f2f', 'Arial', { fontWeight: 'bold', editable: false });
+                this.textNodes.emergenciaNombre = this._addText(this.backCanvas, emp.emergencia_nombre || 'Nombre del contacto', 20, currentY += 20, 12, '#000', 'Arial', { fontWeight: 'bold' });
+                this.textNodes.emergenciaTel = this._addText(this.backCanvas, emp.emergencia_tel || 'Teléfono', 20, currentY += 20, 12, '#000', 'Arial');
 
-                this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || 'GERENCIA', 163, currentY += 60, 11, '#003366', 'Arial', { originX: 'center', fontWeight: 'bold' });
+                this.textNodes.gerencia = this._addText(this.backCanvas, emp.gerencia || 'GERENCIA', 163, currentY += 80, 12, '#003366', 'Arial', { originX: 'center', fontWeight: 'bold' });
             }
 
             _addText(canvas, text, left, top, fontSize, fill, fontFamily, extraOptions = {}) {
@@ -624,31 +647,36 @@
                 const canvas = this.currentSide === 'front' ? this.frontCanvas : this.backCanvas;
 
                 let texto = "Texto Nuevo";
-                let opciones = { left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center' };
+                let opciones = { left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center', textAlign: 'center' };
 
-                // Recuperar valores del formulario para auto-completar
                 const formNombres = document.getElementById('edit-nombres').value;
                 const formApellidos = document.getElementById('edit-apellidos').value;
                 const formCedula = document.getElementById('edit-cedula').value;
                 const formCargo = document.getElementById('edit-cargo').value;
-                const formSangre = document.getElementById('edit-tipo-sangre').value;
+                const formFecha = document.getElementById('edit-fecha-ingreso').value;
+                const formEmNombre = document.getElementById('edit-emergencia-nombre').value;
+                const formEmTel = document.getElementById('edit-emergencia-tel').value;
 
                 switch (tipo) {
                     case 'NOMBRE':
                         texto = (formNombres + " " + formApellidos).trim().toUpperCase() || 'NOMBRES Y APELLIDOS';
-                        opciones = { ...opciones, fontSize: 18, fontWeight: 'bold', fill: '#003366' };
+                        opciones = { ...opciones, fontSize: 16, fontWeight: 'bold', fill: '#003366' };
                         break;
                     case 'CEDULA':
                         texto = formCedula ? `C.I: ${formCedula}` : 'C.I: V-0000000';
-                        opciones = { ...opciones, fontSize: 14, fontWeight: 'bold', fill: '#333333' };
+                        opciones = { ...opciones, fontSize: 13, fontWeight: 'bold', fill: '#333333' };
                         break;
                     case 'CARGO':
                         texto = formCargo.toUpperCase() || 'CARGO O UNIDAD';
                         opciones = { ...opciones, fontSize: 12, fill: '#64748b' };
                         break;
-                    case 'SANGRE':
-                        texto = formSangre.toUpperCase() || 'O+';
-                        opciones = { ...opciones, fontSize: 20, fontWeight: 'bold', fill: '#dc2626' };
+                    case 'FECHA_INGRESO':
+                        texto = formFecha ? `FECHA INGRESO: ${formFecha}` : 'FECHA INGRESO: N/A';
+                        opciones = { ...opciones, fontSize: 11, fontWeight: 'bold', fill: '#000000' };
+                        break;
+                    case 'EMERGENCIA':
+                        texto = `EMERGENCIA: ${formEmNombre || 'CONTACTO'} / ${formEmTel || 'TEL'}`.toUpperCase();
+                        opciones = { ...opciones, fontSize: 11, fill: '#d32f2f' };
                         break;
                     case 'TEXTO_LIBRE':
                         texto = 'Doble clic para editar';
@@ -659,7 +687,7 @@
                 const nuevoObj = this._addText(canvas, texto, opciones.left, opciones.top, opciones.fontSize, opciones.fill, 'Arial', opciones);
                 canvas.setActiveObject(nuevoObj);
                 canvas.renderAll();
-                showToast(`Campo ${tipo} añadido.`);
+                showToast(`Campo inyectado.`);
             }
 
             updateTextFromForm(data) {
@@ -670,8 +698,6 @@
                 if (this.textNodes.gerencia) this.textNodes.gerencia.set('text', data.gerencia || 'GERENCIA');
 
                 if (this.textNodes.fechaIngreso) this.textNodes.fechaIngreso.set('text', `FECHA INGRESO: ${data.fecha_ingreso || 'N/A'}`);
-                if (this.textNodes.tipoSangre) this.textNodes.tipoSangre.set('text', `TIPO SANGRE: ${data.tipo_sangre || 'N/A'}`);
-                if (this.textNodes.alergias) this.textNodes.alergias.set('text', `ALERGIAS: ${data.alergias || 'Ninguna'}`);
                 if (this.textNodes.emergenciaNombre) this.textNodes.emergenciaNombre.set('text', data.emergencia_nombre || 'Nombre del contacto');
                 if (this.textNodes.emergenciaTel) this.textNodes.emergenciaTel.set('text', data.emergencia_tel || 'Teléfono');
 
@@ -712,10 +738,31 @@
             }
         }
 
-        // Variable global para que el HTML pueda llamar a InyectarCampo
+        // === VARIABLES Y FUNCIONES GLOBALES DE INYECCIÓN ===
         let gCanvasManager = null;
+
         window.inyectarCampo = function (tipo) {
             if (gCanvasManager) gCanvasManager.injectDynamicField(tipo);
+        };
+
+        window.inyectarCampoPersonalizado = function () {
+            const label = document.getElementById('custom-field-label').value.trim();
+            const value = document.getElementById('custom-field-value').value.trim();
+            if (!label && !value) return;
+
+            const textoFinal = label ? `${label}: ${value}` : value;
+
+            if (gCanvasManager) {
+                const canvas = gCanvasManager.currentSide === 'front' ? gCanvasManager.frontCanvas : gCanvasManager.backCanvas;
+                const nuevoObj = gCanvasManager._addText(canvas, textoFinal.toUpperCase(), canvas.width / 2, canvas.height / 2, 12, '#000000', 'Arial', { originX: 'center', originY: 'center', fontWeight: 'bold' });
+                canvas.setActiveObject(nuevoObj);
+                canvas.renderAll();
+                showToast('Campo personalizado añadido.');
+
+                // Limpiar inputs
+                document.getElementById('custom-field-label').value = '';
+                document.getElementById('custom-field-value').value = '';
+            }
         };
 
         // ============= UI MANAGER =============
@@ -764,11 +811,7 @@
                 document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
                 document.getElementById('edit-cedula').value = emp.cedula || '';
                 document.getElementById('edit-cargo').value = emp.cargo || '';
-
-                // Nuevos campos
                 document.getElementById('edit-fecha-ingreso').value = emp.fecha_ingreso || '';
-                document.getElementById('edit-tipo-sangre').value = emp.tipo_sangre || '';
-                document.getElementById('edit-alergias').value = emp.alergias || '';
                 document.getElementById('edit-emergencia-nombre').value = emp.emergencia_nombre || '';
                 document.getElementById('edit-emergencia-tel').value = emp.emergencia_tel || '';
 
@@ -821,8 +864,6 @@
                         gerencia: document.getElementById('edit-gerencia').value,
                         cedula: document.getElementById('edit-cedula').value,
                         fecha_ingreso: document.getElementById('edit-fecha-ingreso').value,
-                        tipo_sangre: document.getElementById('edit-tipo-sangre').value.trim(),
-                        alergias: document.getElementById('edit-alergias').value.trim(),
                         emergencia_nombre: document.getElementById('edit-emergencia-nombre').value.trim(),
                         emergencia_tel: document.getElementById('edit-emergencia-tel').value.trim()
                     };
@@ -873,7 +914,7 @@
                 document.getElementById('btn-back').addEventListener('click', () => this._switchSide('back'));
             }
 
-            // ===== PLANTILLAS Y FONDOS =====
+            // ===== PLANTILLAS, FONDOS Y CINTILLOS =====
             _bindTemplate() {
                 const _this = this;
 
@@ -887,31 +928,46 @@
                             }
                         });
 
-                        // Calcular escala para cubrir todo el canvas si es plantilla
-                        const scaleX = canvasInstance.width / img.width;
-                        const scaleY = canvasInstance.height / img.height;
-                        let scale = Math.min(scaleX, scaleY);
-                        if (imageType.includes('plantilla')) {
-                            scale = Math.max(scaleX, scaleY); // Cubrir completo
-                        }
-
-                        img.set({
+                        // Default: Centrado
+                        let config = {
                             left: canvasInstance.width / 2,
                             top: canvasInstance.height / 2,
                             originX: 'center',
                             originY: 'center',
-                            scaleX: scale,
-                            scaleY: scale,
                             hasControls: true,
                             hasBorders: true,
                             selectable: true,
                             evented: true,
                             customType: imageType
-                        });
+                        };
 
+                        const scaleX = canvasInstance.width / img.width;
+                        const scaleY = canvasInstance.height / img.height;
+
+                        if (imageType.includes('plantilla')) {
+                            // Escala completa para tapar todo
+                            const scale = Math.max(scaleX, scaleY);
+                            config.scaleX = scale;
+                            config.scaleY = scale;
+                        }
+                        else if (imageType === 'cintillo-superior') {
+                            // Cintillo pegado al techo y ocupando todo el ancho
+                            config.top = 0;
+                            config.originY = 'top';
+                            config.scaleX = scaleX;
+                            config.scaleY = scaleX; // Escala proporcional
+                        }
+                        else {
+                            // Imagen libre (pequeña por defecto)
+                            const scale = Math.min(scaleX, scaleY) * 0.5;
+                            config.scaleX = scale;
+                            config.scaleY = scale;
+                        }
+
+                        img.set(config);
                         canvasInstance.add(img);
 
-                        // Mandar al fondo
+                        // Mandar al fondo si es plantilla
                         if (imageType.includes('plantilla')) {
                             canvasInstance.sendToBack(img);
                         }
@@ -919,11 +975,22 @@
                         canvasInstance.setActiveObject(img);
                         canvasInstance.renderAll();
 
-                        showToast(`Plantilla cargada.`);
+                        showToast(`Elemento cargado correctamente.`);
                     }, { crossOrigin: 'anonymous' });
                 }
 
-                // 1. ANVERSO
+                // CINTILLO SUPERIOR
+                document.getElementById('btn-upload-cintillo').addEventListener('click', () => document.getElementById('cintillo-input').click());
+                document.getElementById('cintillo-input').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const url = URL.createObjectURL(file);
+                    const canvas = this.canvasManager.currentSide === 'front' ? this.canvasManager.frontCanvas : this.canvasManager.backCanvas;
+                    cargarImagenEnCanvas(url, canvas, 'cintillo-superior');
+                    e.target.value = '';
+                });
+
+                // ANVERSO
                 document.getElementById('btn-upload-front').addEventListener('click', () => document.getElementById('card-front-input').click());
                 document.getElementById('card-front-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -933,7 +1000,7 @@
                     e.target.value = '';
                 });
 
-                // 2. REVERSO
+                // REVERSO
                 document.getElementById('btn-upload-back').addEventListener('click', () => document.getElementById('card-back-input').click());
                 document.getElementById('card-back-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -943,7 +1010,7 @@
                     e.target.value = '';
                 });
 
-                // 3. IMAGEN LIBRE
+                // IMAGEN LIBRE
                 document.getElementById('btn-upload-bg').addEventListener('click', () => document.getElementById('custom-bg-input').click());
                 document.getElementById('custom-bg-input').addEventListener('change', (e) => {
                     const file = e.target.files[0];
@@ -958,7 +1025,7 @@
                 document.getElementById('btn-reset-front').addEventListener('click', () => {
                     const canvas = this.canvasManager.frontCanvas;
                     canvas.getObjects().forEach(obj => {
-                        if (obj.customType === 'plantilla-anverso' || obj.customType?.includes('imagen-libre')) {
+                        if (obj.customType === 'plantilla-anverso' || obj.customType === 'cintillo-superior' || obj.customType?.includes('imagen-libre')) {
                             canvas.remove(obj);
                         }
                     });
@@ -967,7 +1034,7 @@
                 document.getElementById('btn-reset-back').addEventListener('click', () => {
                     const canvas = this.canvasManager.backCanvas;
                     canvas.getObjects().forEach(obj => {
-                        if (obj.customType === 'plantilla-reverso' || obj.customType?.includes('imagen-libre')) {
+                        if (obj.customType === 'plantilla-reverso' || obj.customType === 'cintillo-superior' || obj.customType?.includes('imagen-libre')) {
                             canvas.remove(obj);
                         }
                     });
@@ -1005,7 +1072,7 @@
 
         document.addEventListener('DOMContentLoaded', () => { new UIManager(); });
 
-        // ===== INTERCEPCIÓN DEL EVENTO SALIR (FASE DE CAPTURA) =====
+        // ===== INTERCEPCIÓN DEL EVENTO SALIR =====
         document.addEventListener('click', function (e) {
             const btnLogout = e.target.closest('#btn-editor-logout');
             if (btnLogout) {
