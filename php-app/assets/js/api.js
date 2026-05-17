@@ -411,13 +411,13 @@ function initGlobalUI() {
             navConfig.setAttribute('title', 'Acceso denegado: requiere rol Administrador o Coordinador.');
         }
     }
-
+    // Control de visibilidad de nav-editor
     const navEditor = document.getElementById('nav-editor');
     if (navEditor) {
         if (isAdminCoord) {
             navEditor.style.opacity = '1';
             navEditor.style.pointerEvents = 'auto';
-            if (navEditor.tagName === 'A') navEditor.href = 'editor.html';
+            if (navEditor.tagName === 'A') navEditor.href = 'editor_advanced.html';
             navEditor.removeAttribute('title');
         } else {
             navEditor.style.opacity = '0.4';
