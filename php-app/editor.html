@@ -2,6 +2,14 @@
 <html lang="es">
 
 <head>
+    <!-- PARCHE DE ARQUITECTURA: Forzar redirección al nuevo editor interactivo -->
+    <script>
+        try {
+            window.location.href = 'editor_advanced.html' + (window.location.search || '');
+        } catch (e) {
+            console.error("Fallo al redirigir al editor avanzado:", e);
+        }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Editor de Carnet — Sistema de Carnetización TSS</title>

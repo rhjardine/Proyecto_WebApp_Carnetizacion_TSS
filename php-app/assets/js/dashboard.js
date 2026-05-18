@@ -369,12 +369,12 @@ function goToPage(page) {
 
 function openEditor(id) {
     localStorage.setItem('selected_employee_id', id);
-    window.location.href = `editor.html?id=${encodeURIComponent(id)}`;
+    window.location.href = `editor_advanced.html?id=${encodeURIComponent(id)}`;
 }
 
 function viewEmployee(id) {
     localStorage.setItem('selected_employee_id', id);
-    window.location.href = `editor.html?id=${encodeURIComponent(id)}&mode=view`;
+    window.location.href = `editor_advanced.html?id=${encodeURIComponent(id)}&mode=view`;
 }
 
 // ══════════════════════════════════════════════════════════════
