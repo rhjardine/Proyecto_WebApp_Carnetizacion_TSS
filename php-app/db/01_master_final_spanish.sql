@@ -2,8 +2,14 @@
 -- SCI-TSS: SCRIPT MAESTRO UNIFICADO (VERSIÓN DEFINITIVA DE PRODUCCIÓN)
 -- ==============================================================================
 -- Idioma: 100% Español | Motor: InnoDB | Charset: utf8mb4_unicode_ci
--- Este script NO FALLA. Crea todas las columnas necesarias (incluyendo 'nivel').
 -- ==============================================================================
+
+-- 0. CREACIÓN Y SELECCIÓN DE BASE DE DATOS (MANDATORIO PARA DESPLIEGUES)
+CREATE DATABASE IF NOT EXISTS carnetizacion_tss 
+    DEFAULT CHARACTER SET utf8mb4 
+    COLLATE utf8mb4_unicode_ci;
+
+USE carnetizacion_tss;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -28,7 +34,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     INDEX idx_usuarios_auth (usuario, activa, bloqueado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- FIX: Columna 'nivel' agregada y 'nombre' en lugar de 'name' para compatibilidad PHP
 CREATE TABLE IF NOT EXISTS roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL UNIQUE,
@@ -136,7 +141,7 @@ INSERT IGNORE INTO gerencias (nombre, siglas) VALUES
 ('Recursos Humanos', 'RRHH'),
 ('Seguridad Institucional', 'SI');
 
--- Roles (Con nivel definido para evitar el error 1054)
+-- Roles
 INSERT IGNORE INTO roles (id, nombre, descripcion, nivel) VALUES 
 (1, 'ADMIN', 'Administrador del Sistema', 100),
 (2, 'COORD', 'Coordinador General', 80),
@@ -150,13 +155,15 @@ INSERT IGNORE INTO permisos (id, nombre, descripcion, recurso, accion) VALUES
 (3, 'carnet.approve', 'Aprobar carnet', 'carnet', 'approve'),
 (4, 'security.sudo', 'Delegar permisos', 'security', 'sudo'),
 (5, 'gerencia.manage', 'Gestionar gerencias', 'gerencias', 'manage'),
-(6, 'user.manage', 'Gestionar usuarios', 'usuarios', 'manage');
+(6, 'user.manage', 'Gestionar usuarios', 'usuarios', 'manage'),
+(7, 'carnet.update', 'Actualizar carnet', 'carnet', 'update'),
+(8, 'settings.manage', 'Gestionar configuracion', 'settings', 'manage');
 
 -- Rol_Permiso (Admin tiene todo)
 INSERT IGNORE INTO rol_permiso (rol_id, permiso_id) VALUES 
-(1,1), (1,2), (1,3), (1,4), (1,5), (1,6),
-(2,2), (2,3), (2,4),
-(3,2);
+(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8),
+(2,2), (2,3), (2,4), (2,7),
+(3,2), (3,7);
 
 -- Usuarios Iniciales (Password: Admin123!)
 INSERT IGNORE INTO usuarios (id, usuario, clave_hash, nombre_completo, requiere_cambio_clave) VALUES
