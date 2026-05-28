@@ -11,9 +11,8 @@
  * 5. Siempre se guarda como JPEG normalizado (sin importar si era PNG/JPG original)
  */
 
-// FIX CRÍTICO: Rutas de dependencias corregidas (estamos en api/employees/)
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../middleware/RBAC.php';
+// FIX CRÍTICO: Cargar bootstrap unificado para inicializar constantes de entorno de config_fixed.php
+require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../middleware/auth_check.php';
 
 // PUENTE DE AUDITORÍA: Garantiza compatibilidad con la nueva clase Security

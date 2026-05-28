@@ -16,7 +16,10 @@ class Security
     {
         if (session_status() === PHP_SESSION_NONE) {
             $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            // Remediación de puertos en host para cookie de sesión (evita que el navegador la ignore)
+            $host   = preg_replace('/:\d+$/', '', $host);
             $domain = ($host === 'localhost' || $host === '127.0.0.1') ? '' : $host;
+            
             session_set_cookie_params([
                 'lifetime' => 0,
                 'path'     => '/',
