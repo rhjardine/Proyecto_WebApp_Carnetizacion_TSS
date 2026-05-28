@@ -1,8 +1,35 @@
 <?php
 /**
- * config_fixed.php - Configuración centralizada unificada
+ * config_fixed.php - Configuración centralizada unificada con carga JIT de .env
  * SCI-TSS v2.6.0
  */
+
+// ── Carga de entorno: DEBE ejecutarse ANTES de evaluar cualquier constante ────
+if (!function_exists('loadEnv')) {
+    function loadEnv($path)
+    {
+        if (!file_exists($path)) {
+            error_log("[SCI-TSS WARNING] Archivo de configuración .env no encontrado en la ruta esperada: " . $path . ". Usando fallbacks por defecto.");
+            return;
+        }
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || strpos($line, '#') === 0)
+                continue;
+            if (strpos($line, '=') !== false) {
+                list($name, $value) = explode('=', $line, 2);
+                $_ENV[trim($name)] = trim($value);
+                putenv(trim($name) . '=' . trim($value));
+            }
+        }
+    }
+}
+
+// Carga resiliente del entorno antes de evaluar constantes
+loadEnv(__DIR__ . '/../../.env');
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 if (!defined('APP_VERSION')) {
     define('APP_VERSION', getenv('APP_VERSION') ?: '2.6.0');

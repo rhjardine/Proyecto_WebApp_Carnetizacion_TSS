@@ -3,8 +3,11 @@
  * bootstrap.php — SCI-TSS Unified Gateway
  * =========================================
  * Incluir al inicio de todos los endpoints de la API.
- * Provee: constantes, conexión PDO, CORS, sesión segura, validación CSRF global
- *         y funciones sendResponse + logAction.
+ * Orden de carga:
+ *   1. config_fixed.php → loadEnv() + todas las constantes (DB, APP, SESSION, etc.)
+ *   2. db.php           → getDB() (PDO), sendResponse(), logAction(), CORS
+ *   3. RBAC.php         → clase Security y middleware de roles
+ * La sesión segura y el guardián CSRF se inicializan a continuación.
  */
 
 // ── 1. Entorno y constantes ──────────────────────────

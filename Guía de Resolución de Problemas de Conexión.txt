@@ -1,0 +1,56 @@
+Estrategias técnicas y de diagnóstico más efectivas para resolver posibles bloqueos:
+
+
+### 1. El truco de resolución DNS: `localhost` vs `127.0.0.1`
+
+En entornos XAMPP (especialmente bajo Windows), PDO gestiona de manera muy distinta estos dos valores en el archivo `.env`:
+
+* **`localhost`**: Fuerza a PHP a intentar conectarse a través de un socket de dominio Unix o un named pipe de Windows (que a menudo falla si los privilegios de root son estrictos).
+* **`127.0.0.1`**: Fuerza a PHP a conectarse mediante una conexión de red TCP/IP estándar de la base de datos.
+* **Estrategia**: Si en tu `.env` tienes `DB_HOST=localhost`, cámbialo a `DB_HOST=127.0.0.1` (o viceversa). Esto soluciona la gran mayoría de los fallos repentinos de conexión en XAMPP.
+
+
+### 2. Validar la extensión real del archivo `.env` en Windows
+
+Es sumamente común en equipos remotos que al renombrar el archivo `.env.example`, el explorador de Windows (que por defecto oculta las extensiones de archivos conocidos) lo guarde como `.env.txt` sin que el usuario se dé cuenta.
+
+* **Síntoma**: PHP no lee el archivo `.env` y el log de Apache arroja la advertencia crítica que añadimos en el **Canvas** (`[SCI-TSS WARNING]...`).
+* **Estrategia**: Pide al técnico que ejecute un comando en la consola de Windows (`cmd`) dentro de la raíz del proyecto para verificar el nombre real:
+```cmd
+dir /a
+
+
+Si aparece como `.env.txt`, debe renombrarse usando el comando:
+```cmd ren .env.txt .env
+
+### 3. Aprovechar el nuevo bloque de depuración (Inspección del Network Tab)
+
+Gracias a las modificaciones que acabamos de aplicar en `db.php` para el modo de depuración (`APP_DEBUG=true`), la API ya no arrojará un error genérico.
+
+* **Estrategia**:
+1. Abre el navegador en la pantalla de login del sistema.
+2. Presiona `F12` para abrir las herramientas de desarrollo y ve a la pestaña **Red (Network)**.
+3. Intenta iniciar sesión. Verás que la petición a `login.php` falla con un código `500`.
+4. Haz clic en esa petición y lee la respuesta JSON recibida. Al estar el modo debug encendido, el sistema te devolverá el error exacto de MySQL.
+* Si dice `Access denied for user 'root'@'localhost' (using password: YES/NO)`, significa que hay un mismatch de contraseña o usuario.
+* Si dice `Connection refused` o `Timed out`, el puerto `3306` está mal mapeado en el `.env` (por ejemplo, si MySQL en ese XAMPP remoto corre en el puerto `3307`).
+
+### 4. Coincidencia de Puertos en XAMPP Remotos
+
+Muchos desarrolladores tienen múltiples instancias de bases de datos instaladas (por ejemplo, una instalación nativa de MySQL y la de XAMPP). Esto obliga a que la base de datos de XAMPP corra en el puerto `3307` en lugar del predeterminado `3306`.
+
+* **Estrategia**: Abre el panel de control de XAMPP en el equipo remoto, observa qué puerto numérico aparece al lado del servicio de **MySQL** (ej. `3307` o `3308`) y asegúrate de que el archivo `.env` de ese equipo refleje ese puerto exacto:
+```env
+DB_PORT=3307
+
+
+### 5. Asegurar la directiva de PDO en el `php.ini` del servidor remoto
+
+En instalaciones de PHP muy limpias, el driver de conexión de MySQL puede estar desactivado por defecto en la configuración global de PHP.
+
+* **Estrategia**: Abre el panel de control de XAMPP, haz clic en **Config** al lado de Apache, entra en `PHP (php.ini)` y verifica que la siguiente línea no tenga un punto y coma `;` al principio:
+```ini
+extension=pdo_mysql
+
+
+*(Si tenía un punto y coma, retíralo, guarda el archivo y reinicia el servidor Apache desde el panel).*

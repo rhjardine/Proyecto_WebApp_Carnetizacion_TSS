@@ -1,65 +1,13 @@
 <?php
 /**
- * api/config/db.php — Única Fuente de Verdad para Conexión, Configuración y Seguridad
+ * api/config/db.php — Conexión PDO, CORS y helpers de respuesta API
  * ==============================================================================
- * Centraliza: Carga de entorno, Constantes Globales, Seguridad CORS y Conexión PDO.
+ * NOTA ARQUITECTÓNICA: loadEnv() y todas las constantes de configuración están
+ * definidas en config_fixed.php, el cual se carga ANTES que este archivo en el
+ * orden de bootstrap. No se re-declaran aquí para evitar conflictos de orden.
  */
 
-// 1. CARGA DE ENTORNO (.env) --------------------------------------------------
-function loadEnv($path)
-{
-    if (!file_exists($path)) {
-        // PARCHE DE DEVOPS: Avisar al log de errores si no existe el archivo .env
-        error_log('[SCI-TSS ADVERTENCIA CRÍTICA] Archivo .env no encontrado en: ' . $path . '. Se usarán las variables por defecto de config_fixed.php.');
-        return;
-    }
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (empty($line) || strpos($line, '#') === 0)
-            continue;
-        if (strpos($line, '=') !== false) {
-            list($name, $value) = explode('=', $line, 2);
-            $_ENV[trim($name)] = trim($value);
-            putenv(trim($name) . '=' . trim($value));
-        }
-    }
-}
-loadEnv(__DIR__ . '/../../.env');
-
-require_once __DIR__ . '/config_fixed.php';
-
-// 2. CONSTANTES GLOBALES -------------------------------------------------------
-if (!defined('DB_HOST'))
-    define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-if (!defined('DB_PORT'))
-    define('DB_PORT', getenv('DB_PORT') ?: '3306');
-if (!defined('DB_NAME'))
-    define('DB_NAME', getenv('DB_NAME') ?: 'carnetizacion_tss');
-if (!defined('DB_USER'))
-    define('DB_USER', getenv('DB_USER') ?: 'root');
-if (!defined('DB_PASS'))
-    define('DB_PASS', getenv('DB_PASS') ?: '');
-if (!defined('DB_CHARSET'))
-    define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
-
-if (!defined('ENFORCE_CSRF'))
-    define('ENFORCE_CSRF', filter_var(getenv('ENFORCE_CSRF') ?: true, FILTER_VALIDATE_BOOLEAN));
-if (!defined('ENFORCE_HTTPS'))
-    define('ENFORCE_HTTPS', filter_var(getenv('ENFORCE_HTTPS') ?: false, FILTER_VALIDATE_BOOLEAN));
-if (!defined('SESSION_LIFETIME'))
-    define('SESSION_LIFETIME', (int) (getenv('SESSION_LIFETIME') ?: 14400));
-if (!defined('PASS_ROTATION_DAYS'))
-    define('PASS_ROTATION_DAYS', (int) (getenv('PASS_ROTATION_DAYS') ?: 90));
-
-if (!defined('APP_NAME'))
-    define('APP_NAME', 'SCI-TSS');
-if (!defined('APP_VERSION'))
-    define('APP_VERSION', '2.6.0');
-if (!defined('UPLOAD_DIR'))
-    define('UPLOAD_DIR', __DIR__ . '/../../uploads/');
-
-// 3. SEGURIDAD CORS (Solo para peticiones Web) --------------------------------
+// CORS (depende de las constantes ya definidas en config_fixed.php)
 require_once __DIR__ . '/cors.php';
 
 /**

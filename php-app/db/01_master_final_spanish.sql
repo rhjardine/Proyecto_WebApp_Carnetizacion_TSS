@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS empleados (
     estado_carnet ENUM('Pendiente por Imprimir','Carnet Impreso','Carnet Entregado') 
         NOT NULL DEFAULT 'Pendiente por Imprimir',
     foto_url VARCHAR(500) NULL,
-    -- PARCHE CRÍTICO: Columnas operativas faltantes agregadas
+    -- Columnas operativas añadidas para compatibilidad con el módulo de carnetización
     nivel_permiso VARCHAR(50) NOT NULL DEFAULT 'Nivel 1',
     vencimiento DATE NULL,
     datos_adicionales JSON NULL,
