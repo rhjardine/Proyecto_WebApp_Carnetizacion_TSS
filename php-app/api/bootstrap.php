@@ -19,31 +19,9 @@ require_once __DIR__ . '/middleware/RBAC.php';
 // ── 4. Sesión segura ──────────────────────────────────
 Security::startSecureSession();
 
-// ── 5. Funciones auxiliares (garantizadas) ─────────────
-if (!function_exists('sendResponse')) {
-    function sendResponse($success, $message = '', $data = null, $code = 200)
-    {
-        http_response_code($code);
-        header('Content-Type: application/json; charset=utf-8');
-        $res = ['success' => $success, 'message' => $message];
-        if ($data !== null) {
-            if (is_array($data) && (isset($data['data']) || isset($data['meta']))) {
-                $res = array_merge($res, $data);
-            } else {
-                $res['data'] = $data;
-            }
-        }
-        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        exit;
-    }
-}
-
-if (!function_exists('logAction')) {
-    function logAction(PDO $db, ?int $userId, string $accion, array $detalles = []): void
-    {
-        Security::logAudit($db, $userId, $accion, null, null, null, $detalles);
-    }
-}
+// ── 5. Funciones auxiliares centralizadas en db.php ─────────────
+// sendResponse() y logAction() ya están definidas en api/config/db.php.
+// No se re-declaran aquí para evitar conflictos de función duplicada.
 
 // ── 6. Protección CSRF (excepto login/logout/csrf) ──────
 if (!defined('BYPASS_CSRF')) {

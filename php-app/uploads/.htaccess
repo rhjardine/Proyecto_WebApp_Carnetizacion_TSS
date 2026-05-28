@@ -1,1 +1,14 @@
 Options -Indexes
+
+# PARCHE DE SEGURIDAD: Prevenir ejecución de cualquier payload en la carpeta de subidas.
+<FilesMatch "\.(php|php3|php4|php5|php7|php8|phtml|pl|py|jsp|asp|htm|shtml|sh|cgi)$">
+    Require all denied
+</FilesMatch>
+
+# Deshabilitar el motor de PHP localmente si el servidor lo permite
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>

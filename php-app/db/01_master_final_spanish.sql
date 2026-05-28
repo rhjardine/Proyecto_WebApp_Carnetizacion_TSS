@@ -107,6 +107,11 @@ CREATE TABLE IF NOT EXISTS empleados (
     estado_carnet ENUM('Pendiente por Imprimir','Carnet Impreso','Carnet Entregado') 
         NOT NULL DEFAULT 'Pendiente por Imprimir',
     foto_url VARCHAR(500) NULL,
+    -- PARCHE CRÍTICO: Columnas operativas faltantes agregadas
+    nivel_permiso VARCHAR(50) NOT NULL DEFAULT 'Nivel 1',
+    vencimiento DATE NULL,
+    datos_adicionales JSON NULL,
+    forma_entrega VARCHAR(30) NULL,
     creado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     actualizado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (gerencia_id) REFERENCES gerencias(id) ON DELETE SET NULL,

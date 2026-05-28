@@ -8,8 +8,11 @@
 // 1. CARGA DE ENTORNO (.env) --------------------------------------------------
 function loadEnv($path)
 {
-    if (!file_exists($path))
+    if (!file_exists($path)) {
+        // PARCHE DE DEVOPS: Avisar al log de errores si no existe el archivo .env
+        error_log('[SCI-TSS ADVERTENCIA CRÍTICA] Archivo .env no encontrado en: ' . $path . '. Se usarán las variables por defecto de config_fixed.php.');
         return;
+    }
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         $line = trim($line);
@@ -75,8 +78,15 @@ function getDB(): PDO
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET . " COLLATE " . DB_CHARSET . "_unicode_ci"
             ]);
         } catch (PDOException $e) {
+            // PARCHE DE DEVOPS: Mostrar detalles para fácil diagnóstico en despliegue.
+            $debugMode = defined('APP_DEBUG') ? APP_DEBUG : true;
+            
+            $msg = $debugMode 
+                ? 'Error BD: ' . $e->getMessage() . ' | Host: ' . DB_HOST . ':' . DB_PORT . ' | BD: ' . DB_NAME . ' | Usr: ' . DB_USER
+                : 'Error de conexión a la base de datos. Verifique sus credenciales.';
+                
             error_log('[DB CONNECTION FAILED] ' . $e->getMessage());
-            sendResponse(false, 'Error de conexión a la base de datos.', null, 500);
+            sendResponse(false, $msg, null, 500);
         }
     }
     return $pdo;
