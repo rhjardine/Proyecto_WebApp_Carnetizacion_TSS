@@ -1,0 +1,114 @@
+Guía Definitiva de Instalación SCI-TSS (Entorno XAMPP)
+
+Esta guía describe el procedimiento exacto paso a paso para desplegar el Sistema de Carnetización Inteligente (SCI-TSS) en un entorno local o servidor Windows utilizando XAMPP.
+
+Requisitos Previos:
+
+XAMPP instalado (con PHP 8.0 o superior y MySQL/MariaDB).
+
+Privilegios de Administrador en el equipo para modificar el archivo hosts (opcional, para VirtualHost).
+
+PASO 1: Ubicación de los Archivos del Proyecto
+
+Dirígete a la carpeta de instalación de XAMPP (usualmente C:\xampp\htdocs\).
+
+Crea una carpeta llamada sci-tss.
+
+Copia todo el contenido de la carpeta php-app/ de este proyecto dentro de C:\xampp\htdocs\sci-tss\.
+
+PASO 2: Inicialización de la Base de Datos
+
+El sistema cuenta con un script maestro unificado que crea la base de datos, construye las tablas con las columnas correctas e inyecta los usuarios y gerencias base.
+
+Abre el XAMPP Control Panel e inicia los módulos de Apache y MySQL.
+
+Abre tu navegador y ve a: http://localhost/phpmyadmin/
+
+En el menú superior, haz clic en la pestaña Importar.
+
+En "Seleccionar archivo", busca y carga el archivo: db/01_master_final_spanish.sql
+
+Haz clic en Importar (o Continuar al final de la página).
+
+Nota: No es necesario crear la base de datos a mano; el script creará automáticamente carnetizacion_tss.
+
+PASO 3: Configuración del Entorno (.env)
+
+El sistema requiere de un archivo .env para conectarse a la base de datos de manera segura y resiliente.
+
+Ve a la carpeta C:\xampp\htdocs\sci-tss\.
+
+Localiza el archivo llamado .env.example.
+
+Renómbrelo para que se llame exactamente .env (asegúrate de que Windows no le agregue un .txt oculto; puedes verificar esto abriendo la consola cmd y escribiendo dir /a).
+
+Abre el archivo .env con un editor de texto (Bloc de notas o VS Code).
+
+Configura los parámetros de base de datos según tu XAMPP:
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=carnetizacion_tss
+DB_USER=root
+DB_PASS=tu_contraseña_aqui
+
+
+IMPORTANTE: Si el usuario root de MySQL en tu XAMPP no tiene contraseña, deja la variable vacía: DB_PASS=. Si cambiaste el puerto de MySQL en XAMPP (ej. 3307), actualiza DB_PORT.
+
+PASO 4: Optimización de PHP (Procesamiento de Fotos)
+
+Para soportar fotos en alta resolución (hasta 10 MB) y usar el motor gráfico, debemos ajustar el php.ini de XAMPP.
+
+En el XAMPP Control Panel, en la fila de Apache, haz clic en Config y selecciona PHP (php.ini).
+
+Usa Ctrl+B (Buscar) y modifica los siguientes valores para que queden exactamente así:
+
+upload_max_filesize = 10M
+
+post_max_size = 12M
+
+memory_limit = 256M
+
+max_execution_time = 120
+
+Busca la extensión GD y asegúrate de que NO tenga un punto y coma al principio:
+
+extension=gd (Si dice ;extension=gd, bórale el ;)
+
+Guarda y cierra el archivo php.ini.
+
+Reinicia Apache (Stop y luego Start en el panel de XAMPP).
+
+PASO 5: Primer Acceso al Sistema
+
+Puedes acceder al sistema de dos maneras:
+
+Opción A (Acceso directo por localhost):
+Abre en tu navegador: http://localhost/sci-tss/
+
+Opción B (Recomendada: Virtual Host):
+Si deseas usar el dominio amigable http://sci-tss.local/:
+
+Edita como Administrador el archivo: C:\Windows\System32\drivers\etc\hosts y agrega al final: 127.0.0.1 sci-tss.local
+
+Edita C:\xampp\apache\conf\extra\httpd-vhosts.conf y pega al final el contenido del archivo infra/apache-vhost-xampp.conf provisto en el proyecto.
+
+Reinicia Apache y entra a http://sci-tss.local/
+
+🔑 Credenciales de Acceso
+
+La base de datos se instaló con usuarios semilla. En tu primer inicio de sesión, el sistema te pedirá forzosamente cambiar la contraseña por medidas de seguridad.
+
+Usuario Administrador: admin
+
+Contraseña Temporal: Admin123
+
+🛠️ Diagnóstico de Errores (Troubleshooting)
+
+Gracias a la nueva arquitectura resiliente, si el sistema falla, te dirá exactamente el motivo:
+
+Pantalla de login muestra un JSON con error 500 y credenciales: Significa que la contraseña o el puerto en tu archivo .env son incorrectos. Verifica los datos.
+
+Aparece un error "El servidor devolvió HTML": Verifica que encendiste MySQL en el panel de XAMPP.
+
+La foto no recorta o falla al subir: La extensión gd de PHP no está activa. Revisa el Paso 4.

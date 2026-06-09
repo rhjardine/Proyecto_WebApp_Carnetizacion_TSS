@@ -233,6 +233,14 @@ const api = {
         return res;
     },
 
+    forgotPassword: async (username, email) => {
+        return request('api/auth/forgot-password.php', 'POST', { username, email });
+    },
+
+    resetPassword: async (token, newPassword) => {
+        return request('api/auth/reset-password.php', 'POST', { token, new_password: newPassword });
+    },
+
     logout: async () => {
         try { await request('api/auth/logout.php', 'POST'); } catch (_) { }
         finally {

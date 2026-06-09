@@ -38,6 +38,9 @@
                         <input id="password" name="password" type="password" class="form-input" placeholder="••••••••"
                             autocomplete="current-password" required />
                     </div>
+                    <div style="text-align: right; margin-bottom: 15px;">
+                        <a href="#" id="forgot-password-link" style="font-size: 0.85rem; color: #0284c7; text-decoration: none;">¿Olvidó o bloqueó su contraseña?</a>
+                    </div>
                     <button type="submit" id="login-btn" class="btn btn-primary"
                         style="width:100%; justify-content:center;">
                         Iniciar Sesión
@@ -123,6 +126,40 @@
                 ui.setLoading(btn, false, 'Iniciar Sesión');
                 const errMsg = err.message || 'Credenciales inválidas.';
                 ui.showAlert('alert-box', errMsg);
+            }
+        });
+
+        document.getElementById('forgot-password-link').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const { value: formValues } = await Swal.fire({
+                title: 'Recuperar contraseña',
+                html: `
+                    <p style="font-size:.85rem;color:#64748b;margin-bottom:12px;">
+                        Ingrese su usuario y correo electrónico institucional para recibir instrucciones.
+                    </p>
+                    <input id="swal-user" class="swal2-input" placeholder="Usuario" autocomplete="username">
+                    <input id="swal-email" type="email" class="swal2-input" placeholder="Correo electrónico" autocomplete="email">
+                `,
+                confirmButtonText: 'Enviar instrucciones',
+                showCancelButton: true,
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#003366',
+                preConfirm: () => {
+                    const username = document.getElementById('swal-user').value.trim();
+                    const email = document.getElementById('swal-email').value.trim();
+                    if (!username || !email) { Swal.showValidationMessage('Ambos campos son requeridos'); return false; }
+                    return { username, email };
+                }
+            });
+
+            if (formValues) {
+                try {
+                    Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                    await api.forgotPassword(formValues.username, formValues.email);
+                    Swal.fire('Proceso completado', 'Si los datos coinciden, se han enviado las instrucciones a su correo.', 'success');
+                } catch (err) {
+                    Swal.fire('Proceso completado', 'Si los datos coinciden, se han enviado las instrucciones a su correo.', 'success');
+                }
             }
         });
     </script>
