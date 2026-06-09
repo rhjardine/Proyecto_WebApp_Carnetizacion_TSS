@@ -335,6 +335,7 @@ function renderDetails() {
   set('edit-segundo-apellido', segundoApellido);
   set('edit-nombres', nombresCompletos);
   set('edit-apellidos', apellidosCompletos);
+  set('edit-email', employee.email);
 
   const cedulaNum = (employee.cedula || '').replace(/[^0-9]/g, '');
   set('edit-cedula', cedulaNum);
@@ -843,6 +844,7 @@ function setupInlineEdit() {
     const nacionalidad = (document.getElementById('edit-nacionalidad')?.value || 'V').trim();
     const nivelPermiso = (document.getElementById('edit-nivel-permiso')?.value || '').trim();
     const vencimiento = (document.getElementById('edit-vencimiento')?.value || '').trim();
+    const email = (document.getElementById('edit-email')?.value || '').trim();
 
     // Capturar campos dinámicos
     const dynFields = {};
@@ -864,6 +866,7 @@ function setupInlineEdit() {
       segundo_apellido: segundoApellido || null,
       nombres: [primerNombre, segundoNombre].filter(Boolean).join(' '),
       apellidos: [primerApellido, segundoApellido].filter(Boolean).join(' '),
+      email: email || null,
       cargo,
       gerencia,
       nacionalidad,

@@ -551,6 +551,11 @@ function setupModal() {
         }
         data.cedula = cedulaLimpia;
 
+        if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+            ui.showAlert('modal-alert', 'El formato del correo es inválido.');
+            return;
+        }
+
         ui.setLoading(btn, true, 'Guardando...');
         try {
             await api.createEmployee(data);

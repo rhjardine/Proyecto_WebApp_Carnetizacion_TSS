@@ -32,6 +32,7 @@ const CAMPOS_EDITABLES = [
     'primer_apellido',
     'segundo_apellido',
     'cargo',
+    'email',
     'estado_laboral',
     'forma_entrega',
     'nivel_permiso',
@@ -260,6 +261,7 @@ try {
             $segundoNombre = trim($input['segundo_nombre'] ?? '') ?: null;
             $segundoApellido = trim($input['segundo_apellido'] ?? '') ?: null;
             $fechaIngreso = trim($input['fecha_ingreso'] ?? '');
+            $email = trim($input['email'] ?? '') ?: null;
 
             if (!$cedula || strlen($cedula) < 5 || strlen($cedula) > 10)
                 sendResponse(false, 'La cédula debe contener entre 5 y 10 dígitos numéricos.', null, 400);
@@ -267,6 +269,8 @@ try {
                 sendResponse(false, 'La cédula debe contener SOLO dígitos (0-9).', null, 400);
             if (!$primerNombre || !$primerApellido || !$cargo || !$gerenciaNom)
                 sendResponse(false, 'Campos obligatorios incompletos.', null, 400);
+            if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL))
+                sendResponse(false, 'Formato de correo electrónico inválido.', null, 400);
 
             $check = $db->prepare("SELECT id FROM empleados WHERE cedula = ? LIMIT 1");
             $check->execute([$cedula]);
@@ -284,9 +288,9 @@ try {
             $fechaFinal = $fechaIngreso && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaIngreso) ? $fechaIngreso : date('Y-m-d');
 
             $stmt = $db->prepare("INSERT INTO empleados
-                (nacionalidad, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, cargo, gerencia_id, fecha_ingreso, estado_laboral, estado_carnet)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')");
-            $stmt->execute([$nac, $cedula, $primerNombre, $segundoNombre, $primerApellido, $segundoApellido, $cargo, $gerenciaId, $fechaFinal]);
+                (nacionalidad, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, cargo, email, gerencia_id, fecha_ingreso, estado_laboral, estado_carnet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Activo', 'Pendiente por Imprimir')");
+            $stmt->execute([$nac, $cedula, $primerNombre, $segundoNombre, $primerApellido, $segundoApellido, $cargo, $email, $gerenciaId, $fechaFinal]);
             $newId = $db->lastInsertId();
 
             logAction($db, $userId, 'EMPLEADO_CREADO', [
