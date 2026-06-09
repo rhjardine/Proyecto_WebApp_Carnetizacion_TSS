@@ -295,8 +295,8 @@
                             <input type="text" id="edit-nombres" placeholder="Nombres" class="form-input" required />
                             <input type="text" id="edit-apellidos" placeholder="Apellidos" class="form-input"
                                 required />
-                            <input type="email" id="edit-email" placeholder="Correo Electrónico" class="form-input" />
                             <input type="text" id="edit-cedula" placeholder="Cédula" class="form-input" readonly />
+                            <input type="email" id="edit-email" placeholder="Correo Electrónico" class="form-input" />
                             <input type="text" id="edit-cargo" placeholder="Cargo" class="form-input" required />
                             <select id="edit-gerencia" class="form-input form-select"></select>
 
@@ -527,7 +527,7 @@
                 initCsrf: async () => { },
                 getEmployees: async (opts) => ({
                     data: [{
-                        id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678',
+                        id: 1, nombres: 'Juan Carlos', apellidos: 'Pérez', cedula: '12345678', email: 'jcarlos@ejemplo.com',
                         cargo: 'Analista de Sistemas', gerencia: 'Tecnología',
                         fecha_ingreso: '2023-01-15',
                         emergencia_nombre: 'Maria Perez', emergencia_tel: '0414-1234567'
@@ -957,6 +957,7 @@
                 document.getElementById('edit-nombres').value = emp.nombres || emp.primer_nombre || '';
                 document.getElementById('edit-apellidos').value = emp.apellidos || emp.primer_apellido || '';
                 document.getElementById('edit-cedula').value = emp.cedula || '';
+                document.getElementById('edit-email').value = emp.email || '';
                 document.getElementById('edit-cargo').value = emp.cargo || '';
                 document.getElementById('edit-fecha-ingreso').value = emp.fecha_ingreso || '';
                 document.getElementById('edit-emergencia-nombre').value = emp.emergencia_nombre || '';
@@ -1007,6 +1008,7 @@
                     const d = {
                         nombres: document.getElementById('edit-nombres').value.trim(),
                         apellidos: document.getElementById('edit-apellidos').value.trim(),
+                        email: document.getElementById('edit-email').value.trim(),
                         cargo: document.getElementById('edit-cargo').value.trim(),
                         gerencia: document.getElementById('edit-gerencia').value,
                         cedula: document.getElementById('edit-cedula').value,
