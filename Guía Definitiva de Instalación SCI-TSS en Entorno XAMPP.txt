@@ -26,11 +26,20 @@ Abre tu navegador y ve a: http://localhost/phpmyadmin/
 
 En el menú superior, haz clic en la pestaña Importar.
 
-En "Seleccionar archivo", busca y carga el archivo: db/01_master_final_spanish.sql
+En "Seleccionar archivo", carga e importa los TRES scripts, uno por uno y EN ESTE ORDEN:
 
-Haz clic en Importar (o Continuar al final de la página).
+1) db/01_master_final_spanish.sql   (estructura completa + datos semilla)
+2) db/02_update_recovery.sql        (campos de recuperación de contraseña)
+3) db/03_update_empleados_email.sql (columna email de empleados)
 
-Nota: No es necesario crear la base de datos a mano; el script creará automáticamente carnetizacion_tss.
+Haz clic en Importar (o Continuar al final de la página) después de cargar cada uno.
+
+Nota: No es necesario crear la base de datos a mano; el primer script creará automáticamente carnetizacion_tss.
+
+IMPORTANTE: los scripts 02 y 03 NO son opcionales. El módulo de alta de empleados escribe en la
+columna empleados.email y la recuperación de contraseña usa usuarios.reset_token_hash; si omites
+esos dos scripts, registrar un empleado falla con el error "Unknown column 'email' in 'field list'".
+Los tres scripts son re-ejecutables: si los vuelves a importar, no se duplican ni borran datos.
 
 PASO 3: Configuración del Entorno (.env)
 
@@ -54,6 +63,35 @@ DB_PASS=tu_contraseña_aqui
 
 
 IMPORTANTE: Si el usuario root de MySQL en tu XAMPP no tiene contraseña, deja la variable vacía: DB_PASS=. Si cambiaste el puerto de MySQL en XAMPP (ej. 3307), actualiza DB_PORT.
+
+Reglas de escritura del archivo .env (evitan el fallo de conexión más común):
+
+- El archivo debe llamarse exactamente .env — sin extensión. Windows oculta las extensiones
+  conocidas, así que verifícalo desde cmd, dentro de la carpeta del proyecto, con: dir /a
+  Si aparece como .env.txt, renómbralo con: ren .env.txt .env
+- El archivo va en C:\xampp\htdocs\sci-tss\.env (junto a login.html), NO en una subcarpeta.
+- Un valor por línea, sin espacios alrededor del signo "=".
+- Las comillas son opcionales: DB_PASS=Cl4ve2024 y DB_PASS="Cl4ve2024" son equivalentes.
+  Usa comillas si tu contraseña contiene espacios o el carácter "#".
+- Todo lo que siga a un " #" en una línea sin comillas se descarta como comentario.
+- Guarda el archivo como UTF-8. Si tu editor ofrece "UTF-8 con BOM", cualquiera de las dos
+  opciones funciona.
+
+PASO 3.1: Verificación del entorno (RECOMENDADO ANTES DE CONTINUAR)
+
+Con Apache y MySQL encendidos, abre en el navegador:
+
+http://localhost/sci-tss/api/health.php
+
+Este endpoint de diagnóstico te dirá, en un solo vistazo, si el .env se está leyendo, qué
+credenciales está usando el sistema, si la conexión a MySQL funciona y si faltan migraciones.
+Nunca muestra tu contraseña. Presta atención al campo "env" → "archivo_leido":
+
+- archivo_leido: true  → el .env se leyó. Si aun así hay error de credenciales, revisa el valor.
+- archivo_leido: false → el .env NO se leyó y el sistema está usando root sin contraseña por
+  defecto. El problema es el nombre o la ubicación del archivo, NO tu contraseña.
+
+El campo "diagnostico" indica en texto claro el siguiente paso a ejecutar.
 
 PASO 4: Optimización de PHP (Procesamiento de Fotos)
 
@@ -101,14 +139,43 @@ La base de datos se instaló con usuarios semilla. En tu primer inicio de sesió
 
 Usuario Administrador: admin
 
-Contraseña Temporal: Admin123
+Contraseña Temporal: Admin123!
+
+ATENCIÓN: la contraseña termina en signo de admiración. Cópiala tal cual. Tras 5 intentos
+fallidos la cuenta queda BLOQUEADA de forma permanente y no existe autodesbloqueo desde la
+interfaz: hay que ejecutar la consulta de rescate de la sección Troubleshooting.
+
+Las cuentas semilla "coordinador" y "analista" usan esa misma contraseña temporal.
 
 🛠️ Diagnóstico de Errores (Troubleshooting)
 
-Gracias a la nueva arquitectura resiliente, si el sistema falla, te dirá exactamente el motivo:
+Primer paso ante CUALQUIER fallo: abre http://localhost/sci-tss/api/health.php y lee el campo
+"diagnostico". Casi siempre te da la causa exacta y el comando a ejecutar.
 
-Pantalla de login muestra un JSON con error 500 y credenciales: Significa que la contraseña o el puerto en tu archivo .env son incorrectos. Verifica los datos.
+Pantalla de login muestra un JSON con error 500 y credenciales: revisa health.php. Si
+"archivo_leido" es false, el .env no se está leyendo (nombre .env.txt o ubicación equivocada);
+si es true, entonces sí es la contraseña o el puerto lo que está mal en el .env.
+
+"Access denied for user 'root'@'localhost' (using password: NO)" cuando SÍ configuraste una
+contraseña: es la firma inequívoca de que el .env no se leyó. Verifica el nombre con dir /a.
 
 Aparece un error "El servidor devolvió HTML": Verifica que encendiste MySQL en el panel de XAMPP.
 
+"Unknown column 'email' in 'field list'" al registrar un empleado: faltan las migraciones 02 y
+03. Impórtalas desde phpMyAdmin (Paso 2).
+
+No puedo iniciar sesión y la cuenta quedó bloqueada tras varios intentos: en phpMyAdmin,
+pestaña SQL sobre la base carnetizacion_tss, ejecuta:
+
+    UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0 WHERE usuario = 'admin';
+
+"Acceso Denegado: Solo un Administrador puede acceder a la gestión de usuarios": es correcto.
+La pantalla usuarios.html requiere el rol ADMIN; el rol COORDINADOR no tiene el permiso
+user.manage en el modelo de permisos semilla.
+
 La foto no recorta o falla al subir: La extensión gd de PHP no está activa. Revisa el Paso 4.
+
+NOTA DE SEGURIDAD PARA PRE-PRODUCCIÓN: health.php sólo entrega el detalle de diagnóstico cuando
+APP_DEBUG=true. Antes de exponer el sistema, coloca APP_ENV=production y APP_DEBUG=false en el
+.env; a partir de ahí el endpoint responde únicamente {"success":true,"status":"ok"} y los
+mensajes de error de base de datos dejan de mostrar host, usuario y esquema.

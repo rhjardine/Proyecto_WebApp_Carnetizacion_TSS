@@ -377,8 +377,11 @@
             }
 
             const role = (user.effective_role || user.role || '').toUpperCase();
-            if (!['ADMIN', 'COORD'].includes(role)) {
-                Swal.fire('Acceso Denegado', 'Solo ADMIN y COORD pueden acceder a esta página.', 'error')
+            // Alineado con el backend: api/users.php exige el permiso 'user.manage', que el
+            // seed de rol_permiso asigna únicamente a ADMIN. Dejar entrar a COORD aquí sólo
+            // producía un 403 en cada llamada, fácil de confundir con un fallo de CSRF.
+            if (!['ADMIN'].includes(role)) {
+                Swal.fire('Acceso Denegado', 'Solo un Administrador puede acceder a la gestión de usuarios.', 'error')
                     .then(() => window.location.href = 'dashboard.html');
             } else {
                 const vp = document.getElementById('protected-viewport');
