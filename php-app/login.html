@@ -136,6 +136,7 @@
                 html: `
                     <p style="font-size:.85rem;color:#64748b;margin-bottom:12px;">
                         Ingrese su usuario y correo electrónico institucional para recibir instrucciones.
+                        Disponible para cuentas de Administrador y Coordinador.
                     </p>
                     <input id="swal-user" class="swal2-input" placeholder="Usuario" autocomplete="username">
                     <input id="swal-email" type="email" class="swal2-input" placeholder="Correo electrónico" autocomplete="email">
@@ -153,13 +154,50 @@
             });
 
             if (formValues) {
+                // Respuesta deliberadamente idéntica en éxito y en error: revelar la diferencia
+                // permitiría enumerar qué usuarios y correos existen en el sistema.
+                const MENSAJE_AMBIGUO = 'Si los datos coinciden, se han enviado las instrucciones a su correo. ' +
+                    'El enlace vence en 15 minutos.';
+                let res = null;
                 try {
                     Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-                    await api.forgotPassword(formValues.username, formValues.email);
-                    Swal.fire('Proceso completado', 'Si los datos coinciden, se han enviado las instrucciones a su correo.', 'success');
+                    res = await api.forgotPassword(formValues.username, formValues.email);
                 } catch (err) {
-                    Swal.fire('Proceso completado', 'Si los datos coinciden, se han enviado las instrucciones a su correo.', 'success');
+                    res = null;
                 }
+
+                // Sin servidor SMTP configurado, el backend expone el enlace únicamente
+                // cuando APP_DEBUG=true, para que el entorno local siga siendo operable.
+                if (res && res._dev_reset_url) {
+                    const confirmar = await Swal.fire({
+                        title: 'Enlace de recuperación generado',
+                        html: '<p style="font-size:.85rem;color:#64748b;">Modo desarrollo: no hay SMTP configurado, ' +
+                            'por lo que el enlace se muestra aquí.</p>' +
+                            '<textarea readonly rows="3" style="width:100%;font-size:.75rem;padding:8px;">' +
+                            res._dev_reset_url.replace(/</g, '&lt;') + '</textarea>',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Continuar al restablecimiento',
+                        cancelButtonText: 'Cerrar',
+                        confirmButtonColor: '#003366'
+                    });
+                    if (confirmar.isConfirmed) {
+                        window.location.href = res._dev_reset_url;
+                    }
+                    return;
+                }
+
+                await Swal.fire({
+                    title: 'Proceso completado',
+                    text: MENSAJE_AMBIGUO,
+                    icon: 'success',
+                    confirmButtonText: 'Ya tengo mi código',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cerrar',
+                    confirmButtonColor: '#003366'
+                }).then((r) => {
+                    if (r.isConfirmed) window.location.href = 'reset-password.html';
+                });
             }
         });
     </script>

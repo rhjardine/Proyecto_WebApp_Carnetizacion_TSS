@@ -299,9 +299,10 @@
                 window.location.href = 'login.html';
             });
 
-            await cargarGerencias();
-            await cargarUsuarios();
-            await cargarAjustes();
+            // Las tres cargas son independientes entre sí: encadenarlas con await sumaba
+            // cuatro viajes de ida y vuelta en serie (initCsrf + 3 GET) antes de pintar nada.
+            // En paralelo, la pantalla tarda lo que tarde la más lenta, no la suma de todas.
+            await Promise.all([cargarGerencias(), cargarUsuarios(), cargarAjustes()]);
             setupForms();
         });
 

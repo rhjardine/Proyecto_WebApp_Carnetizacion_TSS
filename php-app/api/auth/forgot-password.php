@@ -48,7 +48,17 @@ try {
 
     // 4. Buscar usuario con correspondencia EXACTA (usuario, email y estado activo)
     // Se utiliza consulta preparada para prevenir SQL Injection.
-    $stmt = $db->prepare("SELECT id FROM usuarios WHERE usuario = ? AND email = ? AND activa = 1 LIMIT 1");
+    // La recuperación autoservicio está reservada a ADMIN y COORD (decisión funcional TSS).
+    // El resto de los roles recibe la misma respuesta ambigua: no se revela por qué no aplica.
+    $stmt = $db->prepare("
+        SELECT u.id
+        FROM usuarios u
+        JOIN usuario_rol ur ON ur.usuario_id = u.id
+        JOIN roles r ON r.id = ur.rol_id
+        WHERE u.usuario = ? AND u.email = ? AND u.activa = 1
+          AND r.nombre IN ('ADMIN', 'COORD')
+        LIMIT 1
+    ");
     $stmt->execute([$username, $email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -75,17 +85,39 @@ try {
         // d. Registrar la acción en auditoría
         // Simulamos un ID de sesión/usuario "Sistema" para la auditoría pre-autenticación
         if (function_exists('logAction')) {
-             logAction($db, $userId, 'SOLICITUD_RECUPERACION_CLAVE', "Solicitud generada para $username");
+             // Ver nota en reset-password.php: el 4º argumento debe ser array, no string.
+             logAction($db, $userId, 'SOLICITUD_RECUPERACION_CLAVE', ['usuario' => $username]);
         }
 
-        // e. [SIMULACIÓN LOCAL] Devolver el token en claro en la respuesta.
-        // ADVERTENCIA: En un entorno de producción real, el token se envía por correo electrónico 
-        // y NUNCA se devuelve en la respuesta de la API. Se deja aquí estrictamente por petición del entorno de desarrollo.
-        echo json_encode([
+        // e. Entrega del enlace de recuperación.
+        //
+        // Mientras la TSS no provea un servidor SMTP, el enlace se deposita en un registro
+        // local que sólo puede leer quien tenga acceso al servidor (Apache bloquea *.log vía
+        // .htaccess). El token en claro NO viaja en la respuesta HTTP salvo en desarrollo
+        // (APP_DEBUG=true): devolverlo siempre convertía la recuperación en una puerta
+        // abierta — cualquiera que supiera usuario y correo podía tomar la cuenta.
+        $enlace = rtrim(get_env_resilient('APP_URL', ''), '/') . '/reset-password.html?token=' . $plainToken;
+
+        $logDir = dirname(__DIR__, 2) . '/logs';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0770, true);
+        }
+        @file_put_contents(
+            $logDir . '/password-resets.log',
+            sprintf("[%s] usuario=%s enlace=%s expira=15min%s", date('c'), $username, $enlace, PHP_EOL),
+            FILE_APPEND | LOCK_EX
+        );
+
+        $respuesta = [
             'success' => true,
             'message' => 'Si los datos son correctos, se enviarán las instrucciones a su correo institucional.',
-            '_dev_token' => $plainToken // SIMULACIÓN SMTP
-        ]);
+        ];
+        if (APP_DEBUG) {
+            $respuesta['_dev_reset_url'] = $enlace;
+            $respuesta['_dev_warning'] = 'Este enlace sólo se expone porque APP_DEBUG=true. '
+                . 'En producción configure SMTP y ponga APP_DEBUG=false.';
+        }
+        echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     } else {
         // El usuario no existe, o está inactivo, o el email no coincide.

@@ -17,8 +17,10 @@ try {
     if ($method === 'GET') {
         if (!in_array($rolEf, ['ADMIN', 'COORD']))
             sendResponse(false, 'Acceso denegado.', null, 403);
+        // Lectura pura: liberar el bloqueo del archivo de sesión. Ver gerencias.php.
+        session_write_close();
         $stmt = $db->query("
-            SELECT u.id, u.usuario, u.nombre_completo, u.bloqueado, u.intentos_fallidos, u.creado_el, u.actualizado_el,
+            SELECT u.id, u.usuario, u.nombre_completo, u.email, u.bloqueado, u.intentos_fallidos, u.creado_el, u.actualizado_el,
                    r.nombre AS rol,
                    (SELECT GROUP_CONCAT(p.nombre SEPARATOR ', ') 
                     FROM permisos_temporales pt JOIN permisos p ON pt.permiso_id = p.id 
@@ -34,6 +36,7 @@ try {
                 'id' => (int) $u['id'],
                 'username' => $u['usuario'],
                 'full_name' => $u['nombre_completo'],
+                'email' => $u['email'],
                 'role' => $u['rol'] ?? 'USUARIO',
                 'temporary_role' => !empty($u['permisos_temporales_activos']) ? 'CON_PERMISOS_SUDO' : null,
                 'is_locked' => (bool) $u['bloqueado'],
@@ -69,20 +72,32 @@ try {
             $newPass = $body['password'] ?? '';
             $newName = trim($body['full_name'] ?? '');
             $newRole = strtoupper(trim($body['role'] ?? 'USUARIO'));
+            $newEmail = trim($body['email'] ?? '') ?: null;
             if (!$newUser || !$newPass || !$newName)
                 sendResponse(false, 'Datos incompletos.', null, 400);
             if (strlen($newPass) < 6)
                 sendResponse(false, 'Contraseña muy corta.', null, 400);
+            if ($newEmail !== null && !filter_var($newEmail, FILTER_VALIDATE_EMAIL))
+                sendResponse(false, 'El correo electrónico no tiene un formato válido.', null, 400);
+            // El correo es la única vía de recuperación de contraseña: ADMIN y COORD lo requieren.
+            if ($newEmail === null && in_array($newRole, ['ADMIN', 'COORD']))
+                sendResponse(false, 'Las cuentas ADMIN y COORD requieren un correo electrónico para poder recuperar su contraseña.', null, 400);
             $check = $db->prepare("SELECT id FROM usuarios WHERE usuario = ?");
             $check->execute([$newUser]);
             if ($check->fetch())
                 sendResponse(false, "El usuario ya existe.", null, 409);
+            if ($newEmail !== null) {
+                $chkMail = $db->prepare("SELECT id FROM usuarios WHERE email = ?");
+                $chkMail->execute([$newEmail]);
+                if ($chkMail->fetch())
+                    sendResponse(false, 'Ese correo electrónico ya está asociado a otra cuenta.', null, 409);
+            }
             $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
             $rStmt->execute([$newRole]);
             $roleId = $rStmt->fetchColumn() ?: 4;
             $hash = password_hash($newPass, PASSWORD_BCRYPT);
             $db->beginTransaction();
-            $db->prepare("INSERT INTO usuarios (usuario, clave_hash, nombre_completo, bloqueado, intentos_fallidos, requiere_cambio_clave) VALUES (?, ?, ?, 0, 0, 1)")->execute([$newUser, $hash, $newName]);
+            $db->prepare("INSERT INTO usuarios (usuario, clave_hash, nombre_completo, email, bloqueado, intentos_fallidos, requiere_cambio_clave) VALUES (?, ?, ?, ?, 0, 0, 1)")->execute([$newUser, $hash, $newName, $newEmail]);
             $newId = $db->lastInsertId();
             $db->prepare("INSERT INTO usuario_rol (usuario_id, rol_id) VALUES (?, ?)")->execute([$newId, $roleId]);
             $db->commit();
@@ -94,11 +109,28 @@ try {
             $id = intval($body['id'] ?? 0);
             $newName = trim($body['full_name'] ?? '');
             $newRole = strtoupper(trim($body['role'] ?? ''));
+            // Distinción deliberada: clave ausente = no tocar el correo; clave presente y vacía
+            // = borrarlo. Así el modal puede limpiar un correo sin que se reinterprete como
+            // "sin cambios".
+            $emailProvided = array_key_exists('email', $body);
+            $newEmail = $emailProvided ? (trim((string) $body['email']) ?: null) : null;
             if ($id <= 0)
                 sendResponse(false, 'ID inválido.', null, 400);
+            if ($emailProvided && $newEmail !== null && !filter_var($newEmail, FILTER_VALIDATE_EMAIL))
+                sendResponse(false, 'El correo electrónico no tiene un formato válido.', null, 400);
+            if ($emailProvided && $newEmail === null && in_array($newRole, ['ADMIN', 'COORD']))
+                sendResponse(false, 'Las cuentas ADMIN y COORD requieren un correo electrónico para poder recuperar su contraseña.', null, 400);
+            if ($emailProvided && $newEmail !== null) {
+                $chkMail = $db->prepare("SELECT id FROM usuarios WHERE email = ? AND id <> ?");
+                $chkMail->execute([$newEmail, $id]);
+                if ($chkMail->fetch())
+                    sendResponse(false, 'Ese correo electrónico ya está asociado a otra cuenta.', null, 409);
+            }
             $db->beginTransaction();
             if ($newName)
                 $db->prepare("UPDATE usuarios SET nombre_completo = ?, actualizado_el = NOW() WHERE id = ?")->execute([$newName, $id]);
+            if ($emailProvided)
+                $db->prepare("UPDATE usuarios SET email = ?, actualizado_el = NOW() WHERE id = ?")->execute([$newEmail, $id]);
             if ($newRole) {
                 $rStmt = $db->prepare("SELECT id FROM roles WHERE nombre = ? LIMIT 1");
                 $rStmt->execute([$newRole]);
@@ -109,7 +141,9 @@ try {
                 }
             }
             $db->commit();
-            logAction($db, $userIdEf, 'USUARIO_EDITADO', ['usuario_id' => $id, 'cambios' => $body]);
+            // Nunca volcar $body completo en auditoría: podría arrastrar credenciales.
+            $cambios = array_intersect_key($body, array_flip(['full_name', 'role', 'email']));
+            logAction($db, $userIdEf, 'USUARIO_EDITADO', ['usuario_id' => $id, 'cambios' => $cambios]);
             sendResponse(true, 'Usuario actualizado.');
         }
 

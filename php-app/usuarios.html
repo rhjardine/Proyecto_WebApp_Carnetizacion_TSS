@@ -343,6 +343,13 @@
                     <input type="text" id="modal-fullname" placeholder="Nombre y Apellido" required />
                 </div>
                 <div class="form-group">
+                    <label for="modal-email">Correo Electrónico</label>
+                    <input type="email" id="modal-email" placeholder="ejemplo@tss.gob.ve" autocomplete="email" />
+                    <small id="email-hint" style="color:#64748b; font-size:.75rem;">
+                        Obligatorio para Administrador y Coordinador: es la única vía de recuperación de contraseña.
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="modal-role">Rol</label>
                     <select id="modal-role">
                         <option value="USUARIO">USUARIO</option>
@@ -413,9 +420,20 @@
                         ? `<span class="badge badge-temp">${u.temporary_role}</span>`
                         : '<span style="color:#94a3b8;">—</span>';
 
+                    // Una cuenta ADMIN/COORD sin correo no puede recuperar su contraseña:
+                    // se marca para que el administrador lo note antes de que haga falta.
+                    const escapar = (t) => String(t).replace(/[&<>"]/g, c =>
+                        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                    const necesitaCorreo = ['ADMIN', 'COORD'].includes(u.role) && !u.email;
+                    const lineaCorreo = u.email
+                        ? `<div style="font-size:.75rem;color:#64748b;">${escapar(u.email)}</div>`
+                        : (necesitaCorreo
+                            ? '<div style="font-size:.75rem;color:#b45309;" title="Sin correo no puede recuperar su contraseña">⚠ Sin correo registrado</div>'
+                            : '<div style="font-size:.75rem;color:#94a3b8;">—</div>');
+
                     return `<tr>
                         <td><strong>${u.username}</strong></td>
-                        <td>${u.full_name}</td>
+                        <td>${u.full_name}${lineaCorreo}</td>
                         <td><span class="badge ${rolClass}">${u.role}</span></td>
                         <td>${tempRole}</td>
                         <td>${lockBadge}</td>
@@ -445,6 +463,7 @@
             document.getElementById('modal-username').disabled = false;
             document.getElementById('modal-password').value = '';
             document.getElementById('modal-fullname').value = '';
+            document.getElementById('modal-email').value = '';
             document.getElementById('modal-role').value = 'USUARIO';
             document.getElementById('password-group').style.display = 'block';
             document.getElementById('user-modal').classList.add('active');
@@ -457,6 +476,7 @@
             document.getElementById('modal-username').value = user.username;
             document.getElementById('modal-username').disabled = true;
             document.getElementById('modal-fullname').value = user.full_name;
+            document.getElementById('modal-email').value = user.email || '';
             document.getElementById('modal-role').value = user.role;
             document.getElementById('password-group').style.display = 'none';
             document.getElementById('user-modal').classList.add('active');
@@ -472,6 +492,18 @@
             const action = document.getElementById('modal-action').value;
             const id = document.getElementById('modal-id').value;
 
+            const role = document.getElementById('modal-role').value;
+            const email = document.getElementById('modal-email').value.trim();
+
+            // Se comprueba aquí para dar retroalimentación inmediata; el backend vuelve a
+            // exigirlo, que es donde la regla realmente se aplica.
+            if (!email && ['ADMIN', 'COORD'].includes(role)) {
+                Swal.fire('Correo requerido',
+                    'Las cuentas de Administrador y Coordinador necesitan un correo electrónico para poder recuperar su contraseña.',
+                    'warning');
+                return;
+            }
+
             try {
                 if (action === 'create') {
                     const password = document.getElementById('modal-password').value;
@@ -483,14 +515,16 @@
                         document.getElementById('modal-username').value.trim(),
                         password,
                         document.getElementById('modal-fullname').value.trim(),
-                        document.getElementById('modal-role').value
+                        role,
+                        email || null
                     );
                     Swal.fire('Éxito', 'Usuario creado correctamente.', 'success');
                 } else {
                     await api.editUser(
                         parseInt(id),
                         document.getElementById('modal-fullname').value.trim(),
-                        document.getElementById('modal-role').value
+                        role,
+                        email
                     );
                     Swal.fire('Éxito', 'Usuario actualizado correctamente.', 'success');
                 }

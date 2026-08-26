@@ -285,10 +285,16 @@ const api = {
         request('api/users.php', 'POST', { action: 'delegate', username, tempRole, delegatedBy }),
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
-    createUser: async (username, password, fullName, role) =>
-        request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role }),
-    editUser: async (id, fullName, role) =>
-        request('api/users.php', 'POST', { action: 'edit', id, full_name: fullName, role }),
+    // `email` es opcional y se agrega al final para no romper llamadas existentes.
+    // Es obligatorio para cuentas ADMIN/COORD: sin él no pueden recuperar su contraseña.
+    createUser: async (username, password, fullName, role, email = null) =>
+        request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role, email }),
+    // En editUser, omitir `email` deja el correo intacto; enviarlo vacío lo borra.
+    editUser: async (id, fullName, role, email) =>
+        request('api/users.php', 'POST', Object.assign(
+            { action: 'edit', id, full_name: fullName, role },
+            email === undefined ? {} : { email }
+        )),
     changeUserPassword: async (id, newPassword) =>
         request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPassword }),
     unlockUser: async (id) =>

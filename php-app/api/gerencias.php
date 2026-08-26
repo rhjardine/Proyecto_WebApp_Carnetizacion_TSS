@@ -11,6 +11,11 @@ $pdo = getDB();
 
 if ($method === 'GET') {
     Security::requirePermission($pdo, 'carnet.view_all');
+    // Lectura pura: se libera el archivo de sesión de inmediato. PHP mantiene un bloqueo
+    // exclusivo sobre él hasta terminar el script, lo que obliga a que las peticiones
+    // concurrentes del mismo usuario se atiendan en fila (pantalla de Ajustes lenta).
+    // $_SESSION sigue disponible en memoria para lo que resta del script.
+    session_write_close();
 } else {
     Security::requirePermission($pdo, 'gerencia.manage');
 }

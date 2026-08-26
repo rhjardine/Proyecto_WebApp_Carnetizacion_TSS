@@ -147,6 +147,45 @@ interfaz: hay que ejecutar la consulta de rescate de la sección Troubleshooting
 
 Las cuentas semilla "coordinador" y "analista" usan esa misma contraseña temporal.
 
+🔓 Recuperación de Contraseña (Administradores y Coordinadores)
+
+Requisito previo — registrar el correo: la recuperación funciona contra el correo electrónico
+de la cuenta. Las cuentas semilla (admin, coordinador, analista) se crean SIN correo, así que
+lo primero tras el primer ingreso es registrarlo:
+
+  Ajustes → Abrir Panel de Usuarios → botón Editar de cada cuenta → Correo Electrónico → Guardar
+
+En el listado de usuarios, toda cuenta ADMIN o COORD sin correo aparece marcada con
+"⚠ Sin correo registrado". Mientras esa marca esté presente, esa cuenta NO puede recuperarse.
+
+Flujo de recuperación:
+
+1. En la pantalla de login, hacer clic en "¿Olvidó o bloqueó su contraseña?".
+2. Ingresar usuario y correo electrónico institucional.
+3. El sistema genera un enlace de un solo uso que vence en 15 minutos.
+4. Abrir el enlace (o pegar el código en reset-password.html) y definir la nueva contraseña.
+5. Iniciar sesión con la nueva contraseña. El sistema pedirá confirmarla en el primer ingreso.
+
+La nueva contraseña debe tener mínimo 8 caracteres e incluir mayúscula, minúscula y número.
+Esta regla se aplica en el servidor, no sólo en el navegador.
+
+El restablecimiento también DESBLOQUEA la cuenta, así que sirve para salir de un bloqueo por
+intentos fallidos sin tocar la base de datos.
+
+ENTREGA DEL ENLACE — LIMITACIÓN ACTUAL: el sistema todavía no tiene servidor SMTP configurado,
+por lo que el correo no se envía realmente. Mientras tanto:
+
+  - Con APP_DEBUG=true (entorno local): el enlace se muestra en pantalla al solicitarlo.
+  - Siempre: el enlace queda registrado en php-app/logs/password-resets.log, legible sólo por
+    quien tenga acceso al servidor (Apache bloquea los archivos .log).
+
+Antes de pasar a producción hay que configurar SMTP institucional y poner APP_DEBUG=false; de
+lo contrario el enlace seguirá visible en pantalla para quien lo solicite.
+
+Nota de alcance: por decisión funcional, la recuperación autoservicio está habilitada
+únicamente para los roles ADMIN y COORD. Las cuentas ANALISTA, USUARIO y CONSULTA deben
+solicitar el restablecimiento a un Administrador desde el Panel de Usuarios.
+
 🛠️ Diagnóstico de Errores (Troubleshooting)
 
 Primer paso ante CUALQUIER fallo: abre http://localhost/sci-tss/api/health.php y lee el campo
