@@ -77,6 +77,27 @@ if (!extension_loaded('pdo_mysql')) {
         . 'es imposible hasta habilitarla y reiniciar Apache.';
 }
 
+// Comprobaciones de disco: no dependen de la base de datos, así que se hacen
+// aquí y siguen informando aunque MySQL esté caído.
+foreach ([
+    'uploads' => 'las fotografías de los carnets',
+    'storage/nomina' => 'los archivos de nómina importados',
+] as $relativa => $proposito) {
+    $ruta = dirname(__DIR__) . '/' . $relativa;
+    $ok = is_dir($ruta) && is_writable($ruta);
+    $report['almacenamiento'][$relativa] = $ok ? 'escribible' : 'NO escribible';
+    if (!$ok) {
+        $report['diagnostico'][] = "La carpeta {$relativa} no existe o no permite escritura; "
+            . "el sistema no podrá guardar {$proposito}.";
+    }
+}
+
+if (!extension_loaded('zip')) {
+    $report['diagnostico'][] = 'La extensión zip no está activa: la importación de nómina no podrá '
+        . 'leer archivos .xlsx ni .docx. Habilite extension=zip en php.ini.';
+}
+$report['php']['zip'] = extension_loaded('zip');
+
 // Prueba de conexión real. No se usa getDB() porque su manejador de error corta la
 // ejecución con sendResponse(); aquí interesa capturar el fallo y seguir reportando.
 try {
@@ -114,6 +135,19 @@ try {
             . 'Importe en phpMyAdmin, en orden: db/01_master_final_spanish.sql, db/02_update_recovery.sql '
             . 'y db/03_update_empleados_email.sql.';
     }
+
+    // La importación de nómina depende de la migración 04; sin ella el módulo
+    // responde 403 para todos, porque el permiso 'nomina.import' no existe.
+    $tablas = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?'
+    );
+    $tablas->execute([DB_NAME, 'nomina_importaciones']);
+    $report['migraciones']['nomina_importaciones'] = (int) $tablas->fetchColumn() > 0;
+    if (!$report['migraciones']['nomina_importaciones']) {
+        $report['diagnostico'][] = 'Falta la tabla nomina_importaciones: la importación de nómina no funcionará. '
+            . 'Importe db/04_nomina_importaciones.sql.';
+    }
+
 
     // Estado de las cuentas semilla: un administrador bloqueado por intentos fallidos
     // no puede desbloquearse a sí mismo desde la interfaz.

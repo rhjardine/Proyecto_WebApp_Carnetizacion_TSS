@@ -28,9 +28,10 @@ En el menú superior, haz clic en la pestaña Importar.
 
 En "Seleccionar archivo", carga e importa los TRES scripts, uno por uno y EN ESTE ORDEN:
 
-1) db/01_master_final_spanish.sql   (estructura completa + datos semilla)
-2) db/02_update_recovery.sql        (campos de recuperación de contraseña)
-3) db/03_update_empleados_email.sql (columna email de empleados)
+1) db/01_master_final_spanish.sql     (estructura completa + datos semilla)
+2) db/02_update_recovery.sql          (campos de recuperación de contraseña)
+3) db/03_update_empleados_email.sql   (columna email de empleados)
+4) db/04_nomina_importaciones.sql     (importación de nómina con trazabilidad)
 
 Haz clic en Importar (o Continuar al final de la página) después de cargar cada uno.
 
@@ -146,6 +147,38 @@ fallidos la cuenta queda BLOQUEADA de forma permanente y no existe autodesbloque
 interfaz: hay que ejecutar la consulta de rescate de la sección Troubleshooting.
 
 Las cuentas semilla "coordinador" y "analista" usan esa misma contraseña temporal.
+
+📥 Importación de Nómina
+
+El operador carga el archivo de nómina y el sistema lo procesa en tres pasos, sin escribir
+nada en la base hasta que se confirme:
+
+1. Panel General → Importar Nómina.
+2. Arrastrar el archivo (.xlsx, .csv o .docx con la nómina en formato de tabla; hasta 10 MB).
+3. Revisar la vista previa: cuántos funcionarios son nuevos, cuántos se van a actualizar,
+   cuántos quedan igual y cuántos tienen error, con el motivo fila por fila.
+4. Verificar la correspondencia de columnas y corregirla si hiciera falta.
+5. Confirmar (o Descartar, que no modifica nada y borra el archivo del servidor).
+
+Los encabezados se reconocen aunque varíen: CEDULA, Cédula, C.I. y Nro. Documento se
+interpretan igual; lo mismo con Gerencia / Dependencia / Unidad Administrativa. Si alguna
+columna obligatoria no se detecta, la pantalla lo advierte y permite asignarla a mano.
+
+Al reimportar, un funcionario que ya existe se ACTUALIZA en cargo y gerencia. Su fotografía
+y el estatus de su carnet NUNCA se tocan: son trabajo hecho dentro del sistema.
+
+Requisitos: la extensión zip de PHP debe estar activa (para leer .xlsx y .docx) y la carpeta
+storage/nomina debe existir con permisos de escritura. api/health.php verifica ambas cosas.
+
+TRAZABILIDAD: cada importación queda registrada con el archivo original, el operador, la fecha
+y el destino de cada fila (tablas nomina_importaciones y nomina_filas). El historial se ve al
+pie de la pantalla de importación. Los archivos se guardan en storage/nomina, que Apache
+bloquea por HTTP porque contienen datos personales de funcionarios.
+
+Nota sobre PDF: no se admite. Un PDF de nómina o bien pierde el orden de las columnas al
+extraer el texto, o bien es un escaneo que exigiría OCR. Un dígito mal leído en una cédula
+produciría un carnet institucional con la identidad equivocada, de modo que el formato se
+excluye deliberadamente. Convierta el PDF a Excel antes de importarlo.
 
 🔓 Recuperación de Contraseña (Administradores y Coordinadores)
 

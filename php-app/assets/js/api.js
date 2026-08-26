@@ -425,6 +425,22 @@ const api = {
     },
 
     // ── CONFIGURACIÓN ─────────────────────────────────────────
+    // ── NÓMINA (importación en tres pasos) ────────────────────
+    // El archivo se envía como multipart para no cargarlo entero en memoria
+    // como JSON; requestFormData ya adjunta el token CSRF.
+    analizarNomina: async (file) => {
+        const fd = new FormData();
+        fd.append('action', 'analizar');
+        fd.append('archivo', file);
+        return requestFormData('api/nomina.php', 'POST', fd);
+    },
+    confirmarNomina: async (id, mapeo = null) =>
+        request('api/nomina.php', 'POST', { action: 'confirmar', id, mapeo }),
+    descartarNomina: async (id) =>
+        request('api/nomina.php', 'POST', { action: 'descartar', id }),
+    getNominaHistorial: async () => request('api/nomina.php'),
+    getNominaImportacion: async (id) => request(`api/nomina.php?id=${encodeURIComponent(id)}`),
+
     getSettings: async () => request('api/settings.php'),
     updateSetting: async (clave, valor, seccion = 'global') =>
         request('api/settings.php', 'POST', { seccion, clave, valor }),

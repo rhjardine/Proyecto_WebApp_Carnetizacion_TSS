@@ -719,49 +719,10 @@ function setupAutoMatch() {
 // IMPORTAR NÓMINA
 // ══════════════════════════════════════════════════════════════
 function setupPayrollImport() {
-    const btn = document.getElementById('btn-import-excel');
-    const fileInput = document.getElementById('excel-upload');
-    if (!btn || !fileInput) return;
-
-    btn.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (!['xlsx', 'csv'].includes(ext)) {
-            showFloatingToast('Solo se aceptan archivos .xlsx o .csv', 'danger');
-            fileInput.value = '';
-            return;
-        }
-
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #94a3b8;
-                         border-top-color:var(--color-primary);border-radius:50%;animation:spin .6s linear infinite;
-                         vertical-align:middle;margin-right:6px;"></span>Leyendo...`;
-        try {
-            if (typeof XLSX === 'undefined') throw new Error('SheetJS no cargado. Intente recargando la página.');
-
-            const buffer = await file.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            if (!sheet) throw new Error('El archivo no contiene hojas de cálculo.');
-            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-            if (!rows.length) throw new Error('La hoja está vacía.');
-
-            const res = await api.uploadPayroll(rows);
-            await loadEmployees({ page: 1 });
-            showFloatingToast(res.message || 'Nómina importada correctamente.', 'success');
-        } catch (err) {
-            showFloatingToast(err.message || 'Error al procesar el archivo.', 'danger');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-            fileInput.value = '';
-        }
-    });
+    // Retirado: la importación vive ahora en nomina.html, donde el archivo se
+    // lee en el servidor (sin SheetJS por CDN, que no carga en redes sin salida
+    // a internet) y se previsualiza antes de escribir en la base. El botón del
+    // encabezado es un enlace directo a esa pantalla.
 }
 
 // ══════════════════════════════════════════════════════════════
