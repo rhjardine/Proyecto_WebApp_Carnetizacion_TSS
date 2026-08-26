@@ -186,16 +186,40 @@ try {
             $targetUserId = $uStmt->fetchColumn();
             if (!$targetUserId)
                 sendResponse(false, 'Usuario no encontrado.', null, 404);
+
+            // ── Contención de escalada de privilegios ─────────────────────────
+            // El rol a delegar no se validaba, así que un COORD podía delegar el rol
+            // ADMIN (los 8 permisos, incluido user.manage) a cualquiera, incluido él
+            // mismo. Se usa roles.nivel para exigir que sólo se delegue autoridad
+            // estrictamente inferior a la propia.
+            if ((int) $targetUserId === (int) $userIdEf)
+                sendResponse(false, 'No puede delegarse un rol temporal a sí mismo.', null, 403);
+
+            $nivelStmt = $db->prepare("SELECT nombre, nivel FROM roles WHERE nombre = ? LIMIT 1");
+            $nivelStmt->execute([$tempRole]);
+            $rolDestino = $nivelStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$rolDestino)
+                sendResponse(false, "El rol '{$tempRole}' no existe.", null, 400);
+
+            $nivelStmt->execute([$rolEf]);
+            $rolPropio = $nivelStmt->fetch(PDO::FETCH_ASSOC);
+            $nivelPropio = $rolPropio ? (int) $rolPropio['nivel'] : 0;
+
+            if ((int) $rolDestino['nivel'] >= $nivelPropio)
+                sendResponse(false, "No puede delegar el rol '{$tempRole}': su nivel es igual o superior al suyo.", null, 403);
+
             $expiresIn = date('Y-m-d H:i:s', strtotime('+24 hours'));
             $db->prepare("DELETE FROM permisos_temporales WHERE usuario_id = ?")->execute([$targetUserId]);
             $pStmt = $db->prepare("SELECT rp.permiso_id FROM rol_permiso rp JOIN roles r ON rp.rol_id = r.id WHERE r.nombre = ?");
             $pStmt->execute([$tempRole]);
             $permisosDelRol = $pStmt->fetchAll(PDO::FETCH_COLUMN);
-            if (!empty($permisosDelRol)) {
-                $ins = $db->prepare("INSERT INTO permisos_temporales (usuario_id, permiso_id, asignado_por, expira_el) VALUES (?, ?, ?, ?)");
-                foreach ($permisosDelRol as $pId)
-                    $ins->execute([$targetUserId, $pId, $userIdEf, $expiresIn]);
-            }
+            // Antes se respondía "Permisos asignados." aunque el rol no tuviera ninguno.
+            if (empty($permisosDelRol))
+                sendResponse(false, "El rol '{$tempRole}' no tiene permisos asociados; no se delegó nada.", null, 400);
+
+            $ins = $db->prepare("INSERT INTO permisos_temporales (usuario_id, permiso_id, asignado_por, expira_el) VALUES (?, ?, ?, ?)");
+            foreach ($permisosDelRol as $pId)
+                $ins->execute([$targetUserId, $pId, $userIdEf, $expiresIn]);
             logAction($db, $userIdEf, 'ROL_DELEGADO_SUDO', ['usuario_destino' => $targetUser, 'rol_temporal' => $tempRole]);
             sendResponse(true, "Permisos asignados.");
         }

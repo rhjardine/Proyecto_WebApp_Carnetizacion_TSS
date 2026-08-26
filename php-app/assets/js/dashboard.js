@@ -225,18 +225,18 @@ function renderTable(list) {
         <tr data-id="${emp.id}" onclick="viewEmployee(${emp.id})" style="cursor:pointer;">
           <td>
             <div class="emp-info">
-              <img src="${photoSrc}" class="avatar" alt="${fullName}"
+              <img src="${escapeHtml(photoSrc)}" class="avatar" alt="${escapeHtml(fullName)}"
                    onerror="this.src='${makeAvatar(avatarName)}'" />
               <div>
-                <div class="emp-name">${fullName}</div>
-                <div class="emp-id">#${emp.id} · ${cedulaDisplay}</div>
+                <div class="emp-name">${escapeHtml(fullName)}</div>
+                <div class="emp-id">#${emp.id} · ${escapeHtml(cedulaDisplay)}</div>
               </div>
             </div>
           </td>
-          <td style="font-family:monospace;font-size:.82rem;">${cedulaDisplay}</td>
+          <td style="font-family:monospace;font-size:.82rem;">${escapeHtml(cedulaDisplay)}</td>
           <td>
-            <div style="font-weight:500;">${emp.cargo || '—'}</div>
-            <div style="font-size:.75rem;color:var(--color-muted);">${emp.gerencia || '—'}</div>
+            <div style="font-weight:500;">${escapeHtml(emp.cargo || '—')}</div>
+            <div style="font-size:.75rem;color:var(--color-muted);">${escapeHtml(emp.gerencia || '—')}</div>
           </td>
           <td>
             <select class="badge ${ui.getBadgeClass(estadoCarnet)}"
@@ -607,8 +607,8 @@ function setupGerenciasManager() {
                 <div id="ger-item-${g.id}"
                      style="display:flex;align-items:center;gap:8px;padding:8px 10px;
                             background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-                    <span style="flex:1;font-size:.875rem;font-weight:500;" id="ger-label-${g.id}">${g.nombre}</span>
-                    <input type="text" id="ger-edit-${g.id}" value="${g.nombre}"
+                    <span style="flex:1;font-size:.875rem;font-weight:500;" id="ger-label-${g.id}">${escapeHtml(g.nombre)}</span>
+                    <input type="text" id="ger-edit-${g.id}" value="${escapeHtml(g.nombre)}"
                            style="flex:1;display:none;padding:4px 8px;border:1px solid var(--color-border);
                                   border-radius:6px;font-size:.875rem;" />
                     <button id="ger-btn-edit-${g.id}" onclick="editGerencia(${g.id})"

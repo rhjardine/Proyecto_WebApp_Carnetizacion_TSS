@@ -174,6 +174,26 @@ async function requestFormData(url, method = 'POST', formData) {
 }
 
 // ── GENERADOR DE AVATARES ─────────────────────────────────────
+/**
+ * Neutraliza HTML antes de interpolar en innerHTML.
+ *
+ * Los nombres, cargos y gerencias llegan desde la importación de nómina, es decir
+ * desde un archivo externo que nadie sanea. Sin escapar, un valor como
+ * <img src=x onerror=...> se ejecuta en el navegador del administrador con su sesión
+ * activa y su token CSRF al alcance. Escapa también comillas para que sea seguro
+ * dentro de atributos (alt="...", value="...").
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[c]));
+}
+
 function makeAvatar(name = '?', bg = null) {
     const words = String(name).trim().split(/\s+/);
     const initials = words.length >= 2
@@ -303,10 +323,17 @@ const api = {
         request('api/users.php', 'POST', { action: 'delete', id }),
 
     // ── SUDO ──────────────────────────────────────────────────
-    grantSudo: async (userId, permissionId, minutes) =>
-        request('api/auth/sudo.php', 'POST', { action: 'grant', user_id: userId, permission_id: permissionId, minutes }),
-    revokeSudo: async (userId, permissionId) =>
-        request('api/auth/sudo.php', 'POST', { action: 'revoke', user_id: userId, permission_id: permissionId }),
+    // `permission` acepta el id numérico o el nombre del permiso ('carnet.create').
+    grantSudo: async (userId, permission, minutes) =>
+        request('api/auth/sudo.php', 'POST', Object.assign(
+            { action: 'grant', user_id: userId, minutes },
+            typeof permission === 'number' ? { permission_id: permission } : { permission }
+        )),
+    revokeSudo: async (userId, permission) =>
+        request('api/auth/sudo.php', 'POST', Object.assign(
+            { action: 'revoke', user_id: userId },
+            typeof permission === 'number' ? { permission_id: permission } : { permission }
+        )),
 
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),

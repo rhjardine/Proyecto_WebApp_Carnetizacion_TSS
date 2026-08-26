@@ -261,7 +261,7 @@
         </div>
     </div>
 
-    <script src="assets/js/api.js"></script>
+    <script src="assets/js/api.js?v=2.7"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const user = api.getCurrentUser();
@@ -338,8 +338,10 @@
                 res.data.forEach(g => {
                     const li = document.createElement('li');
                     li.className = 'list-item';
+                    // El nombre de gerencia puede provenir de la importación de nómina
+                    // (employees.php la crea sola si no existe), así que no es contenido de confianza.
                     li.innerHTML = `
-                        <span>${g.nombre}</span>
+                        <span>${escapeHtml(g.nombre)}</span>
                         <button class="btn btn-secondary" style="padding: 4px 8px; font-size:0.75rem;" onclick="eliminarGerencia(${g.id})">❌</button>
                     `;
                     list.appendChild(li);

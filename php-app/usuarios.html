@@ -367,7 +367,7 @@
         </div>
     </div>
 
-    <script src="assets/js/api.js"></script>
+    <script src="assets/js/api.js?v=2.7"></script>
     <script>
         // ── Auth Guard ──────────────────────────────────────────
         // CORREGIDO: IIFE async + await real sobre initCsrf()
@@ -399,6 +399,19 @@
             }
         })();
 
+        /**
+         * Serializa un valor como argumento seguro dentro de un atributo onclick.
+         *
+         * El contexto es doble: primero lo lee el analizador de HTML y después el de
+         * JavaScript. JSON.stringify produce el literal de cadena válido para JS, y
+         * escapeHtml protege las comillas para que el atributo no se cierre antes de
+         * tiempo. Escapar sólo con escapeHtml rompería el literal, porque el HTML
+         * decodifica &#39; a una comilla simple justo antes de que JS lo interprete.
+         */
+        function jsArg(value) {
+            return escapeHtml(JSON.stringify(value ?? ''));
+        }
+
         // ── Load Users ──────────────────────────────────────────
         async function loadUsers() {
             const tbody = document.getElementById('users-body');
@@ -422,19 +435,18 @@
 
                     // Una cuenta ADMIN/COORD sin correo no puede recuperar su contraseña:
                     // se marca para que el administrador lo note antes de que haga falta.
-                    const escapar = (t) => String(t).replace(/[&<>"]/g, c =>
-                        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                    // escapeHtml() vive en api.js y se usa en todas las vistas.
                     const necesitaCorreo = ['ADMIN', 'COORD'].includes(u.role) && !u.email;
                     const lineaCorreo = u.email
-                        ? `<div style="font-size:.75rem;color:#64748b;">${escapar(u.email)}</div>`
+                        ? `<div style="font-size:.75rem;color:#64748b;">${escapeHtml(u.email)}</div>`
                         : (necesitaCorreo
                             ? '<div style="font-size:.75rem;color:#b45309;" title="Sin correo no puede recuperar su contraseña">⚠ Sin correo registrado</div>'
                             : '<div style="font-size:.75rem;color:#94a3b8;">—</div>');
 
                     return `<tr>
-                        <td><strong>${u.username}</strong></td>
-                        <td>${u.full_name}${lineaCorreo}</td>
-                        <td><span class="badge ${rolClass}">${u.role}</span></td>
+                        <td><strong>${escapeHtml(u.username)}</strong></td>
+                        <td>${escapeHtml(u.full_name)}${lineaCorreo}</td>
+                        <td><span class="badge ${rolClass}">${escapeHtml(u.role)}</span></td>
                         <td>${tempRole}</td>
                         <td>${lockBadge}</td>
                         <td>${u.failed_attempts}</td>
@@ -443,8 +455,8 @@
                                 <button class="action-btn" onclick="openEditModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">✏️ Editar</button>
                                 <button class="action-btn" onclick="changePassword(${u.id})">🔑 Clave</button>
                                 ${u.is_locked ? `<button class="action-btn" onclick="unlockUser(${u.id})">🔓 Desbloquear</button>` : ''}
-                                <button class="action-btn danger" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>
-                                ${u.role === 'ANALISTA' ? `<button class="action-btn" style="color:#d97706;border-color:#fde68a" onclick="delegateSudo('${u.username}')">⚡ SUDO</button>` : ''}
+                                <button class="action-btn danger" onclick="deleteUser(${u.id}, ${jsArg(u.username)})">🗑️</button>
+                                ${u.role === 'ANALISTA' ? `<button class="action-btn" style="color:#d97706;border-color:#fde68a" onclick="delegateSudo(${u.id}, ${jsArg(u.username)})">⚡ SUDO</button>` : ''}
                             </div>
                         </td>
                     </tr>`;
@@ -603,21 +615,21 @@
         }
 
         // ── SUDO Logic ──────────────────────────────────────────
-        window.delegateSudo = async function (username) {
+        window.delegateSudo = async function (userId, username) {
             const { value: formValues } = await Swal.fire({
                 title: 'Otorgar Permiso SUDO',
                 html: `
-            <div class="mb-4 text-sm text-gray-600">Usuario destino: <b>${username}</b></div>
-            
+            <div class="mb-4 text-sm text-gray-600">Usuario destino: <b>${escapeHtml(username)}</b></div>
+
             <div class="text-left mb-2 text-sm font-semibold text-gray-700">Tipo de Permiso a Otorgar:</div>
             <select id="sudo-perm" class="swal2-select w-full m-0 mb-4" style="display: flex;">
-                <option value="carnet.create">Incluir y Modificar Empleado (carnet.create)</option>
-                <option value="carnet.update_status">Actualizar Estados de Carnet (carnet.update_status)</option>
-                <option value="carnet.approve">Aprobar Carnets (carnet.approve)</option>
-                <option value="carnet.delete">Eliminar Registros Físicos (carnet.delete)</option>
-                <option value="user.manage">Gestionar Usuarios (user.manage)</option>
+                <option value="carnet.create">Registrar empleados y subir fotos (carnet.create)</option>
+                <option value="carnet.update">Actualizar datos del carnet (carnet.update)</option>
+                <option value="carnet.approve">Aprobar y cambiar estatus (carnet.approve)</option>
+                <option value="gerencia.manage">Gestionar gerencias (gerencia.manage)</option>
+                <option value="user.manage">Gestionar usuarios (user.manage)</option>
             </select>
-            
+
             <div class="text-left mb-2 text-sm font-semibold text-gray-700">Duración (Días):</div>
             <input type="number" id="sudo-days" class="swal2-input w-full m-0" value="1" min="1" max="30" style="display: flex;">
         `,
@@ -638,31 +650,18 @@
                 if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(true);
 
                 try {
-                    const responseRaw = await fetch('api/users.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'delegate',
-                            username: username,
-                            permission: formValues.permission,
-                            days: formValues.days
-                        })
-                    });
+                    // Antes esto era un fetch crudo sin cabecera X-CSRF-Token, por lo que el
+                    // guardián de bootstrap.php lo rechazaba con 403 en cada intento; además
+                    // enviaba 'permission'/'days' a users.php, que lee 'tempRole'. Ahora pasa
+                    // por api.grantSudo(), que sí adjunta el token, hacia el endpoint correcto.
+                    const dias = Math.max(1, Math.min(30, parseInt(formValues.days, 10) || 1));
+                    await api.grantSudo(userId, formValues.permission, dias * 1440);
 
-                    const response = await responseRaw.json();
-
-                    if (response.success) {
-                        Swal.fire('¡Éxito!', 'Permiso asignado por ' + formValues.days + ' día(s).', 'success');
-                        if (typeof cargarUsuarios === 'function') cargarUsuarios();
-                    } else {
-                        Swal.fire('Error', response.message || response.error || 'Operación denegada', 'error');
-                    }
+                    Swal.fire('¡Éxito!', `Permiso asignado por ${dias} día(s).`, 'success');
+                    loadUsers();
                 } catch (error) {
                     console.error('[SUDO Error]:', error);
-                    Swal.fire('Error', 'No se pudo conectar con el servidor. Revisa tu conexión.', 'error');
+                    Swal.fire('Error', error.message || 'No se pudo otorgar el permiso.', 'error');
                 } finally {
                     if (typeof ui !== 'undefined' && ui.setGlobalLoading) ui.setGlobalLoading(false);
                 }
