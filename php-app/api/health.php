@@ -177,11 +177,22 @@ try {
     } elseif ($codigo === 2002 || $codigo === 2003) {
         $report['diagnostico'][] = 'No hay servicio MySQL escuchando en ' . DB_HOST . ':' . DB_PORT . '. '
             . 'Inicie MySQL en el panel de XAMPP y confirme el puerto que muestra (puede ser 3307).';
+    } else {
+        // Cualquier otro código debe informarse igual. Sin esta rama, un error no
+        // catalogado dejaba el diagnóstico vacío y más abajo se declaraba
+        // "sin incidencias" pese a que la conexión había fallado.
+        $report['diagnostico'][] = 'No se pudo conectar a la base de datos (código ' . $codigo . '). '
+            . 'Revise el campo "detalle" y confirme que MySQL está iniciado y que las credenciales '
+            . 'del archivo .env son correctas.';
     }
 }
 
-if (!$report['diagnostico']) {
+// El mensaje de "todo correcto" sólo puede emitirse si nada falló: de lo contrario
+// la herramienta de diagnóstico daría por bueno un entorno que no lo está.
+if (!$report['diagnostico'] && $report['success']) {
     $report['diagnostico'][] = 'Sin incidencias detectadas. El entorno está listo para operar.';
+} elseif (!$report['diagnostico']) {
+    $report['diagnostico'][] = 'Se detectaron errores. Revise los campos "db" y "migraciones".';
 }
 
 echo json_encode($report, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

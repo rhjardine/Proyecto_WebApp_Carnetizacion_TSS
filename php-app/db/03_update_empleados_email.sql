@@ -16,6 +16,9 @@ USE `carnetizacion_tss`;
 SET @sql := (SELECT IF(
     (SELECT COUNT(*) FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'empleados' AND COLUMN_NAME = 'email') = 0,
-    'ALTER TABLE `empleados` ADD COLUMN `email` VARCHAR(150) NULL UNIQUE AFTER `cargo` COMMENT ''Correo electrónico institucional o personal del funcionario''',
+    -- COMMENT va ANTES de AFTER: MySQL y MariaDB exigen que la cláusula de
+    -- posición cierre la definición de columna. Con el orden invertido el ALTER
+    -- es sintácticamente inválido y la columna nunca se creaba (error 1064).
+    'ALTER TABLE `empleados` ADD COLUMN `email` VARCHAR(150) NULL UNIQUE COMMENT ''Correo electronico institucional o personal del funcionario'' AFTER `cargo`',
     'DO 0'));
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
