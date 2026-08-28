@@ -2,6 +2,11 @@
 php-app/.env
 php-app/includes/config.php
 vendor/
+# Excepción: las librerías del frontend (Fabric, SweetAlert2, Cropper, jsPDF,
+# html2canvas, QRious, Font Awesome) SÍ se versionan. Van dentro del ZIP para
+# que la aplicación funcione en un XAMPP sin salida a internet.
+!php-app/assets/vendor/
+!php-app/assets/vendor/**
 node_modules/
 *.log
 .DS_Store

@@ -26,12 +26,33 @@ Abre tu navegador y ve a: http://localhost/phpmyadmin/
 
 En el menú superior, haz clic en la pestaña Importar.
 
-En "Seleccionar archivo", carga e importa los TRES scripts, uno por uno y EN ESTE ORDEN:
+En "Seleccionar archivo", carga e importa los CUATRO scripts, uno por uno y EN ESTE ORDEN:
+
+    01  ->  02  ->  03  ->  04
 
 1) db/01_master_final_spanish.sql     (estructura completa + datos semilla)
 2) db/02_update_recovery.sql          (campos de recuperación de contraseña)
 3) db/03_update_empleados_email.sql   (columna email de empleados)
 4) db/04_nomina_importaciones.sql     (importación de nómina con trazabilidad)
+
+LOS CUATRO SON OBLIGATORIOS. No basta con el script maestro:
+
+  - Sin 02, la pantalla de Gestión de Usuarios devuelve error 500 (falta usuarios.email).
+  - Sin 03, registrar un empleado falla ("Unknown column 'email'").
+  - Sin 04, la Importación de Nómina responde "Acceso denegado".
+
+Los cuatro son re-ejecutables: si los vuelves a importar, no se duplican ni borran datos.
+
+PASO 2.1: VERIFICACIÓN OBLIGATORIA ANTES DE CONTINUAR
+
+Terminada la importación, abre en el navegador:
+
+    http://localhost/sci-tss/api/health.php
+
+Lee el campo "diagnostico". Debe indicar "Sin incidencias detectadas". Si menciona
+migraciones o columnas faltantes, vuelve al paso anterior e impórtalas antes de seguir.
+Este endpoint también verifica la extensión zip y los permisos de escritura de
+uploads/ y storage/nomina.
 
 Haz clic en Importar (o Continuar al final de la página) después de cargar cada uno.
 

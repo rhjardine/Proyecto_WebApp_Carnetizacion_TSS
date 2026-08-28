@@ -6,19 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Editor de Carnet (Avanzado) — TSS</title>
     <!-- Cropper.js CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+    <link rel="stylesheet" href="assets/vendor/cropper.min.css" />
     <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/vendor/sweetalert2.all.min.js"></script>
     <!-- Fabric.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="assets/vendor/fabric.min.js"></script>
     <!-- Dependencias existentes -->
-    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="assets/vendor/qrious.min.js"></script>
+    <script src="assets/vendor/html2canvas.min.js"></script>
+    <script src="assets/vendor/jspdf.umd.min.js"></script>
     <!-- Estilos base del sistema -->
     <link rel="stylesheet" href="assets/css/style.css" />
     <!-- Añadido FontAwesome para iconos -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="assets/vendor/css/fontawesome.all.min.css" rel="stylesheet">
     <style>
         .flex {
             display: flex;
@@ -960,8 +960,17 @@
                 document.getElementById('edit-email').value = emp.email || '';
                 document.getElementById('edit-cargo').value = emp.cargo || '';
                 document.getElementById('edit-fecha-ingreso').value = emp.fecha_ingreso || '';
-                document.getElementById('edit-emergencia-nombre').value = emp.emergencia_nombre || '';
-                document.getElementById('edit-emergencia-tel').value = emp.emergencia_tel || '';
+
+                // Los datos de emergencia se persisten dentro de datos_adicionales (JSON).
+                // MySQL puede devolver la columna como texto, así que se contempla ambos casos.
+                let extra = emp.datos_adicionales || {};
+                if (typeof extra === 'string') {
+                    try { extra = JSON.parse(extra) || {}; } catch (_) { extra = {}; }
+                }
+                document.getElementById('edit-emergencia-nombre').value =
+                    extra.emergencia_nombre || emp.emergencia_nombre || '';
+                document.getElementById('edit-emergencia-tel').value =
+                    extra.emergencia_tel || emp.emergencia_tel || '';
 
                 this._loadGerencias(emp.gerencia);
             }
@@ -1017,12 +1026,29 @@
                         emergencia_tel: document.getElementById('edit-emergencia-tel').value.trim()
                     };
                     const np = d.nombres.split(' '), ap = d.apellidos.split(' ');
+
+                    // La tabla `empleados` no tiene columnas de emergencia; viajan dentro
+                    // de datos_adicionales (JSON), que la API sí acepta. Antes se enviaban
+                    // sueltas y el backend las descartaba en silencio, de modo que el
+                    // operador veía "guardado" y al recargar habían desaparecido.
+                    // Se preserva cualquier otra clave ya presente en datos_adicionales.
+                    let adicionales = this.employee.datos_adicionales || {};
+                    if (typeof adicionales === 'string') {
+                        try { adicionales = JSON.parse(adicionales) || {}; } catch (_) { adicionales = {}; }
+                    }
+                    adicionales = {
+                        ...adicionales,
+                        emergencia_nombre: d.emergencia_nombre,
+                        emergencia_tel: d.emergencia_tel
+                    };
+
                     const fields = {
                         ...d,
                         primer_nombre: np[0] || '',
                         segundo_nombre: np.slice(1).join(' ') || null,
                         primer_apellido: ap[0] || '',
-                        segundo_apellido: ap.slice(1).join(' ') || null
+                        segundo_apellido: ap.slice(1).join(' ') || null,
+                        datos_adicionales: adicionales
                     };
                     ui.setLoading(btn, true, 'Guardando...');
                     try {

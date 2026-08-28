@@ -33,6 +33,9 @@ const CAMPOS_EDITABLES = [
     'segundo_apellido',
     'cargo',
     'email',
+    // fecha_ingreso existe en el esquema y el editor la envía, pero no estaba en
+    // esta lista blanca: se descartaba en silencio y el frontend informaba éxito.
+    'fecha_ingreso',
     'estado_laboral',
     'forma_entrega',
     'nivel_permiso',
@@ -240,6 +243,17 @@ try {
                                 $val = null;
                             } elseif (!filter_var($val, FILTER_VALIDATE_EMAIL)) {
                                 sendResponse(false, 'Formato de correo electrónico inválido.', null, 400);
+                            }
+                        }
+                        // fecha_ingreso es DATE NOT NULL: una cadena vacía la rechazaría
+                        // MySQL en modo estricto. Se omite del UPDATE en vez de fallar.
+                        if ($campo === 'fecha_ingreso') {
+                            $val = is_string($val) ? trim($val) : '';
+                            if ($val === '') {
+                                continue;
+                            }
+                            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $val)) {
+                                sendResponse(false, 'La fecha de ingreso debe tener el formato AAAA-MM-DD.', null, 400);
                             }
                         }
                         $setClauses[] = "{$campo} = ?";
