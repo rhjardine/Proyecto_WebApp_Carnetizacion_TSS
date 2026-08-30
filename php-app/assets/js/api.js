@@ -174,6 +174,26 @@ async function requestFormData(url, method = 'POST', formData) {
 }
 
 // ── GENERADOR DE AVATARES ─────────────────────────────────────
+/**
+ * Neutraliza HTML antes de interpolar en innerHTML.
+ *
+ * Los nombres, cargos y gerencias llegan desde la importación de nómina, es decir
+ * desde un archivo externo que nadie sanea. Sin escapar, un valor como
+ * <img src=x onerror=...> se ejecuta en el navegador del administrador con su sesión
+ * activa y su token CSRF al alcance. Escapa también comillas para que sea seguro
+ * dentro de atributos (alt="...", value="...").
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[c]));
+}
+
 function makeAvatar(name = '?', bg = null) {
     const words = String(name).trim().split(/\s+/);
     const initials = words.length >= 2
@@ -285,10 +305,16 @@ const api = {
         request('api/users.php', 'POST', { action: 'delegate', username, tempRole, delegatedBy }),
     revokeDelegate: async (username) =>
         request('api/users.php', 'POST', { action: 'revoke', username }),
-    createUser: async (username, password, fullName, role) =>
-        request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role }),
-    editUser: async (id, fullName, role) =>
-        request('api/users.php', 'POST', { action: 'edit', id, full_name: fullName, role }),
+    // `email` es opcional y se agrega al final para no romper llamadas existentes.
+    // Es obligatorio para cuentas ADMIN/COORD: sin él no pueden recuperar su contraseña.
+    createUser: async (username, password, fullName, role, email = null) =>
+        request('api/users.php', 'POST', { action: 'create', username, password, full_name: fullName, role, email }),
+    // En editUser, omitir `email` deja el correo intacto; enviarlo vacío lo borra.
+    editUser: async (id, fullName, role, email) =>
+        request('api/users.php', 'POST', Object.assign(
+            { action: 'edit', id, full_name: fullName, role },
+            email === undefined ? {} : { email }
+        )),
     changeUserPassword: async (id, newPassword) =>
         request('api/users.php', 'POST', { action: 'change_password', id, new_password: newPassword }),
     unlockUser: async (id) =>
@@ -297,10 +323,17 @@ const api = {
         request('api/users.php', 'POST', { action: 'delete', id }),
 
     // ── SUDO ──────────────────────────────────────────────────
-    grantSudo: async (userId, permissionId, minutes) =>
-        request('api/auth/sudo.php', 'POST', { action: 'grant', user_id: userId, permission_id: permissionId, minutes }),
-    revokeSudo: async (userId, permissionId) =>
-        request('api/auth/sudo.php', 'POST', { action: 'revoke', user_id: userId, permission_id: permissionId }),
+    // `permission` acepta el id numérico o el nombre del permiso ('carnet.create').
+    grantSudo: async (userId, permission, minutes) =>
+        request('api/auth/sudo.php', 'POST', Object.assign(
+            { action: 'grant', user_id: userId, minutes },
+            typeof permission === 'number' ? { permission_id: permission } : { permission }
+        )),
+    revokeSudo: async (userId, permission) =>
+        request('api/auth/sudo.php', 'POST', Object.assign(
+            { action: 'revoke', user_id: userId },
+            typeof permission === 'number' ? { permission_id: permission } : { permission }
+        )),
 
     // ── GERENCIAS ─────────────────────────────────────────────
     getGerencias: async () => request('api/gerencias.php'),
@@ -392,6 +425,22 @@ const api = {
     },
 
     // ── CONFIGURACIÓN ─────────────────────────────────────────
+    // ── NÓMINA (importación en tres pasos) ────────────────────
+    // El archivo se envía como multipart para no cargarlo entero en memoria
+    // como JSON; requestFormData ya adjunta el token CSRF.
+    analizarNomina: async (file) => {
+        const fd = new FormData();
+        fd.append('action', 'analizar');
+        fd.append('archivo', file);
+        return requestFormData('api/nomina.php', 'POST', fd);
+    },
+    confirmarNomina: async (id, mapeo = null) =>
+        request('api/nomina.php', 'POST', { action: 'confirmar', id, mapeo }),
+    descartarNomina: async (id) =>
+        request('api/nomina.php', 'POST', { action: 'descartar', id }),
+    getNominaHistorial: async () => request('api/nomina.php'),
+    getNominaImportacion: async (id) => request(`api/nomina.php?id=${encodeURIComponent(id)}`),
+
     getSettings: async () => request('api/settings.php'),
     updateSetting: async (clave, valor, seccion = 'global') =>
         request('api/settings.php', 'POST', { seccion, clave, valor }),

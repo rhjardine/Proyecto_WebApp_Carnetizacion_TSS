@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Importación de Nómina — SCI-TSS</title>
+    <meta name="description" content="Importación controlada de nómina de funcionarios de la Tesorería de Seguridad Social." />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <script src="assets/vendor/sweetalert2.all.min.js"></script>
+    <style>
+        .nomina-page { max-width: 1150px; margin: 0 auto; padding: 30px 20px; }
+
+        .nav-bar {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+            padding: 12px 0; border-bottom: 1px solid #e2e8f0;
+        }
+        .nav-bar a { color: #2563eb; text-decoration: none; font-size: .85rem; font-weight: 500; }
+        .nav-bar a:hover { text-decoration: underline; }
+
+        .page-header h1 {
+            font-size: 1.4rem; color: #0f172a; display: flex; align-items: center; gap: 10px;
+            margin-bottom: 4px;
+        }
+        .page-header p { color: #64748b; font-size: .875rem; margin-bottom: 24px; }
+
+        /* Indicador de pasos */
+        .pasos { display: flex; gap: 0; margin-bottom: 28px; }
+        .paso {
+            flex: 1; display: flex; align-items: center; gap: 10px;
+            padding: 14px 18px; background: #f8fafc; border: 1px solid #e2e8f0;
+            font-size: .85rem; color: #94a3b8;
+        }
+        .paso:first-child { border-radius: 10px 0 0 10px; }
+        .paso:last-child { border-radius: 0 10px 10px 0; }
+        .paso + .paso { border-left: none; }
+        .paso.activo { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; font-weight: 600; }
+        .paso.completo { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+        .paso-num {
+            width: 24px; height: 24px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: .75rem;
+            font-weight: 700; background: #e2e8f0; color: #64748b; flex-shrink: 0;
+        }
+        .paso.activo .paso-num { background: #2563eb; color: #fff; }
+        .paso.completo .paso-num { background: #16a34a; color: #fff; }
+
+        .panel {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 26px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 20px;
+        }
+        .panel h2 { font-size: 1.05rem; color: #0f172a; margin-bottom: 6px; }
+        .panel .sub { color: #64748b; font-size: .85rem; margin-bottom: 20px; }
+
+        /* Zona de carga */
+        .dropzone {
+            border: 2px dashed #cbd5e1; border-radius: 12px; padding: 44px 20px;
+            text-align: center; cursor: pointer; transition: all .2s; background: #f8fafc;
+        }
+        .dropzone:hover, .dropzone.dragover { border-color: #2563eb; background: #eff6ff; }
+        .dropzone-icono { font-size: 2.4rem; display: block; margin-bottom: 10px; }
+        .dropzone-titulo { font-weight: 600; color: #334155; margin-bottom: 4px; }
+        .dropzone-detalle { font-size: .8rem; color: #94a3b8; }
+
+        .aviso {
+            border-radius: 8px; padding: 12px 15px; font-size: .82rem;
+            line-height: 1.55; margin-top: 16px;
+        }
+        .aviso-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .aviso-alerta { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+        /* Resumen */
+        .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .tarjeta { border-radius: 10px; padding: 16px 18px; border: 1px solid; }
+        .tarjeta-valor { font-size: 1.7rem; font-weight: 700; line-height: 1; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+        .tarjeta-etiqueta { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+        .t-nuevo { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+        .t-actualizar { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+        .t-igual { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+        .t-error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
+        /* Mapeo */
+        .mapeo { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .mapeo-campo { display: flex; flex-direction: column; gap: 5px; }
+        .mapeo-campo label { font-size: .78rem; font-weight: 600; color: #475569; }
+        .mapeo-campo label .obligatorio { color: #dc2626; }
+        .mapeo-campo select {
+            padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: .82rem; background: #fff;
+        }
+        .mapeo-campo select.sin-asignar { border-color: #fca5a5; background: #fef2f2; }
+
+        /* Tabla de vista previa */
+        .tabla-envoltura { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        th {
+            background: #f8fafc; padding: 10px 12px; text-align: left; font-weight: 600;
+            color: #475569; text-transform: uppercase; font-size: .7rem; letter-spacing: .04em;
+            border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+        }
+        td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        tbody tr:last-child td { border-bottom: none; }
+        .etiqueta {
+            display: inline-block; padding: 2px 9px; border-radius: 20px;
+            font-size: .68rem; font-weight: 700; white-space: nowrap;
+        }
+        .e-nuevo { background: #dcfce7; color: #166534; }
+        .e-actualizar { background: #dbeafe; color: #1e40af; }
+        .e-sin_cambios { background: #f1f5f9; color: #64748b; }
+        .e-error { background: #fee2e2; color: #991b1b; }
+        .cambio { font-size: .74rem; color: #64748b; }
+        .cambio .antes { text-decoration: line-through; opacity: .65; }
+        .cambio .despues { color: #1e40af; font-weight: 600; }
+
+        .acciones { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; flex-wrap: wrap; }
+        .btn-accion {
+            padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer;
+            font-weight: 600; font-size: .85rem;
+        }
+        .btn-confirmar { background: #16a34a; color: #fff; }
+        .btn-confirmar:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .btn-descartar { background: #e2e8f0; color: #475569; }
+
+        .oculto { display: none; }
+        .historial-vacio { text-align: center; padding: 34px; color: #94a3b8; font-size: .85rem; }
+    </style>
+</head>
+
+<body>
+    <div class="nomina-page" id="protected-viewport" style="display:none; opacity:0; transition:opacity .4s;">
+        <nav class="nav-bar">
+            <img src="assets/img/logo_tss.png" alt="Logo TSS" style="height:28px; margin-right:10px;">
+            <a href="dashboard.html">← Panel General</a>
+        </nav>
+
+        <div class="page-header">
+            <h1>📥 Importación de Nómina</h1>
+            <p>Cargue el archivo de nómina, revise lo que va a ocurrir y confirme. Nada se escribe hasta que usted lo apruebe.</p>
+        </div>
+
+        <div class="pasos">
+            <div class="paso activo" id="paso-1"><span class="paso-num">1</span> Cargar archivo</div>
+            <div class="paso" id="paso-2"><span class="paso-num">2</span> Revisar y mapear</div>
+            <div class="paso" id="paso-3"><span class="paso-num">3</span> Confirmar</div>
+        </div>
+
+        <!-- PASO 1 ------------------------------------------------------->
+        <section class="panel" id="panel-carga">
+            <h2>Seleccione el archivo de nómina</h2>
+            <p class="sub">Formatos aceptados: Excel (.xlsx), CSV (.csv) y Word (.docx) con la nómina en formato de tabla.</p>
+
+            <input type="file" id="input-archivo" accept=".xlsx,.csv,.docx" class="oculto" />
+            <div class="dropzone" id="dropzone">
+                <span class="dropzone-icono">📄</span>
+                <div class="dropzone-titulo">Arrastre el archivo aquí o haga clic para elegirlo</div>
+                <div class="dropzone-detalle">.xlsx · .csv · .docx — hasta 10 MB</div>
+            </div>
+
+            <div class="aviso aviso-info">
+                El sistema reconoce los encabezados aunque varíen: <strong>CEDULA</strong>, <strong>C.I.</strong> o
+                <strong>Nro. Documento</strong> se interpretan igual. Si alguna columna no se detecta, podrá asignarla
+                a mano en el paso siguiente.
+            </div>
+        </section>
+
+        <!-- PASO 2 ------------------------------------------------------->
+        <section class="panel oculto" id="panel-revision">
+            <h2>Revisión previa</h2>
+            <p class="sub" id="revision-archivo"></p>
+
+            <div class="resumen" id="resumen"></div>
+
+            <div class="aviso aviso-alerta oculto" id="aviso-faltantes"></div>
+
+            <h2 style="font-size:.95rem; margin-top:6px;">Correspondencia de columnas</h2>
+            <p class="sub">Verifique que cada campo apunte a la columna correcta del archivo.</p>
+            <div class="mapeo" id="mapeo"></div>
+
+            <h2 style="font-size:.95rem;">Primeras filas</h2>
+            <p class="sub" id="revision-alcance"></p>
+            <div class="tabla-envoltura">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Acción</th>
+                            <th>Cédula</th>
+                            <th>Funcionario</th>
+                            <th>Cargo / Gerencia</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-vista-previa"></tbody>
+                </table>
+            </div>
+
+            <div class="acciones">
+                <button class="btn-accion btn-descartar" id="btn-descartar">Descartar</button>
+                <button class="btn-accion btn-confirmar" id="btn-confirmar">Confirmar importación</button>
+            </div>
+        </section>
+
+        <!-- Historial ---------------------------------------------------->
+        <section class="panel">
+            <h2>Importaciones anteriores</h2>
+            <p class="sub">Registro auditable: qué archivo se cargó, quién lo hizo y qué produjo.</p>
+            <div class="tabla-envoltura">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Archivo</th>
+                            <th>Operador</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-historial">
+                        <tr><td colspan="5" class="historial-vacio">Cargando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="assets/js/api.js?v=2.7"></script>
+    <script>
+        let importacionActual = null;
+        let encabezadosActuales = [];
+
+        const CAMPOS = [
+            ['cedula', 'Cédula', true],
+            ['nacionalidad', 'Nacionalidad', false],
+            ['primer_nombre', 'Primer Nombre', true],
+            ['segundo_nombre', 'Segundo Nombre', false],
+            ['primer_apellido', 'Primer Apellido', true],
+            ['segundo_apellido', 'Segundo Apellido', false],
+            ['cargo', 'Cargo', true],
+            ['gerencia', 'Gerencia', false],
+            ['email', 'Correo Electrónico', false],
+            ['fecha_ingreso', 'Fecha de Ingreso', false],
+        ];
+
+        // ── Guardia de acceso ────────────────────────────────────────────
+        (async function () {
+            const user = api.getCurrentUser();
+            if (!user || !user.username) { window.location.href = 'login.html'; return; }
+
+            if (typeof api.initCsrf === 'function') await api.initCsrf();
+
+            // El backend exige el permiso 'nomina.import', que el seed asigna a
+            // ADMIN. Se comprueba aquí sólo para no mostrar una pantalla inútil.
+            const rol = (user.effective_role || user.role || '').toUpperCase();
+            if (rol !== 'ADMIN') {
+                Swal.fire('Acceso denegado',
+                    'La importación de nómina requiere permisos de Administrador.', 'error')
+                    .then(() => window.location.href = 'dashboard.html');
+                return;
+            }
+
+            const vp = document.getElementById('protected-viewport');
+            vp.style.display = 'block';
+            setTimeout(() => vp.style.opacity = '1', 20);
+
+            cargarHistorial();
+        })();
+
+        // ── Paso 1: carga ────────────────────────────────────────────────
+        const dropzone = document.getElementById('dropzone');
+        const inputArchivo = document.getElementById('input-archivo');
+
+        dropzone.addEventListener('click', () => inputArchivo.click());
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) analizar(e.dataTransfer.files[0]);
+        });
+        inputArchivo.addEventListener('change', (e) => {
+            if (e.target.files[0]) analizar(e.target.files[0]);
+            e.target.value = '';
+        });
+
+        async function analizar(file) {
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            if (!['xlsx', 'csv', 'docx'].includes(ext)) {
+                Swal.fire('Formato no admitido', 'Use un archivo .xlsx, .csv o .docx.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Analizando archivo…',
+                text: 'No se ha modificado ningún registro todavía.',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const res = await api.analizarNomina(file);
+                Swal.close();
+                mostrarRevision(res.data);
+            } catch (err) {
+                Swal.fire('No se pudo leer el archivo', err.message, 'error');
+            }
+        }
+
+        // ── Paso 2: revisión ─────────────────────────────────────────────
+        function mostrarRevision(d) {
+            importacionActual = d.importacion_id;
+            encabezadosActuales = d.encabezados || [];
+
+            document.getElementById('paso-1').className = 'paso completo';
+            document.getElementById('paso-2').className = 'paso activo';
+            document.getElementById('panel-carga').classList.add('oculto');
+            document.getElementById('panel-revision').classList.remove('oculto');
+
+            document.getElementById('revision-archivo').textContent =
+                `${d.archivo} · ${d.total_filas} fila(s) leída(s) · formato .${d.formato}`;
+            document.getElementById('revision-alcance').textContent =
+                d.total_filas > d.vista_previa.length
+                    ? `Se muestran las primeras ${d.vista_previa.length} de ${d.total_filas} filas.`
+                    : 'Se muestran todas las filas del archivo.';
+
+            const c = d.conteo;
+            document.getElementById('resumen').innerHTML = `
+                <div class="tarjeta t-nuevo"><div class="tarjeta-valor">${c.nuevo}</div><div class="tarjeta-etiqueta">Nuevos</div></div>
+                <div class="tarjeta t-actualizar"><div class="tarjeta-valor">${c.actualizar}</div><div class="tarjeta-etiqueta">A actualizar</div></div>
+                <div class="tarjeta t-igual"><div class="tarjeta-valor">${c.sin_cambios}</div><div class="tarjeta-etiqueta">Sin cambios</div></div>
+                <div class="tarjeta t-error"><div class="tarjeta-valor">${c.error}</div><div class="tarjeta-etiqueta">Con error</div></div>`;
+
+            const avisoFaltantes = document.getElementById('aviso-faltantes');
+            if (d.campos_faltantes && d.campos_faltantes.length) {
+                avisoFaltantes.innerHTML = `No se pudo detectar automáticamente: <strong>${d.campos_faltantes.map(escapeHtml).join(', ')}</strong>. Asigne esas columnas abajo antes de confirmar.`;
+                avisoFaltantes.classList.remove('oculto');
+            } else {
+                avisoFaltantes.classList.add('oculto');
+            }
+
+            renderMapeo(d.mapeo || {});
+            renderVistaPrevia(d.vista_previa || []);
+            validarMapeo();
+        }
+
+        function renderMapeo(mapeo) {
+            document.getElementById('mapeo').innerHTML = CAMPOS.map(([campo, etiqueta, obligatorio]) => {
+                const opciones = ['<option value="">— sin asignar —</option>']
+                    .concat(encabezadosActuales.map(h =>
+                        `<option value="${escapeHtml(h)}" ${mapeo[campo] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`))
+                    .join('');
+                return `
+                    <div class="mapeo-campo">
+                        <label for="map-${campo}">${escapeHtml(etiqueta)}${obligatorio ? ' <span class="obligatorio">*</span>' : ''}</label>
+                        <select id="map-${campo}" data-campo="${campo}" data-obligatorio="${obligatorio}">${opciones}</select>
+                    </div>`;
+            }).join('');
+
+            document.querySelectorAll('#mapeo select').forEach(sel =>
+                sel.addEventListener('change', validarMapeo));
+        }
+
+        function validarMapeo() {
+            let completo = true;
+            document.querySelectorAll('#mapeo select').forEach(sel => {
+                const obligatorio = sel.dataset.obligatorio === 'true';
+                const vacio = !sel.value;
+                sel.classList.toggle('sin-asignar', obligatorio && vacio);
+                if (obligatorio && vacio) completo = false;
+            });
+            document.getElementById('btn-confirmar').disabled = !completo;
+            return completo;
+        }
+
+        function renderVistaPrevia(filas) {
+            const etiquetas = {
+                nuevo: 'Nuevo', actualizar: 'Actualizar',
+                sin_cambios: 'Sin cambios', error: 'Error'
+            };
+
+            document.getElementById('cuerpo-vista-previa').innerHTML = filas.map(f => {
+                const d = f.datos || {};
+                const nombre = d.primer_nombre
+                    ? `${d.primer_apellido || ''}, ${d.primer_nombre || ''}`.trim()
+                    : '—';
+
+                let cargoGerencia = '—';
+                if (f.cambios && Object.keys(f.cambios).length) {
+                    cargoGerencia = Object.entries(f.cambios).map(([campo, v]) =>
+                        `<div class="cambio"><span class="antes">${escapeHtml(v.antes)}</span> → <span class="despues">${escapeHtml(v.despues)}</span></div>`
+                    ).join('');
+                } else if (d.cargo) {
+                    cargoGerencia = `${escapeHtml(d.cargo)}<div class="cambio">${escapeHtml(d.gerencia || '—')}</div>`;
+                }
+
+                return `<tr>
+                    <td style="font-variant-numeric:tabular-nums;color:#94a3b8;">${f.numero_fila}</td>
+                    <td><span class="etiqueta e-${f.accion}">${etiquetas[f.accion] || f.accion}</span></td>
+                    <td style="font-family:monospace;">${escapeHtml(f.cedula || '—')}</td>
+                    <td>${escapeHtml(nombre)}</td>
+                    <td>${cargoGerencia}</td>
+                    <td style="color:#991b1b;font-size:.76rem;">${escapeHtml(f.motivo_error || '')}</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="6" class="historial-vacio">Sin filas para mostrar.</td></tr>';
+        }
+
+        // ── Paso 3: confirmar / descartar ────────────────────────────────
+        document.getElementById('btn-confirmar').addEventListener('click', async () => {
+            if (!validarMapeo()) {
+                Swal.fire('Faltan columnas', 'Asigne todos los campos marcados con asterisco.', 'warning');
+                return;
+            }
+
+            const mapeo = {};
+            document.querySelectorAll('#mapeo select').forEach(sel => {
+                mapeo[sel.dataset.campo] = sel.value || null;
+            });
+
+            const conf = await Swal.fire({
+                title: '¿Confirmar la importación?',
+                text: 'Se registrarán y actualizarán los funcionarios según la vista previa. Las fotografías y el estatus de los carnets no se modifican.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, aplicar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#16a34a'
+            });
+            if (!conf.isConfirmed) return;
+
+            Swal.fire({ title: 'Aplicando…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const res = await api.confirmarNomina(importacionActual, mapeo);
+                document.getElementById('paso-2').className = 'paso completo';
+                document.getElementById('paso-3').className = 'paso completo';
+                await Swal.fire('Importación aplicada', res.message, 'success');
+                reiniciar();
+            } catch (err) {
+                Swal.fire('No se pudo aplicar', err.message, 'error');
+            }
+        });
+
+        document.getElementById('btn-descartar').addEventListener('click', async () => {
+            const conf = await Swal.fire({
+                title: '¿Descartar esta importación?',
+                text: 'El archivo se eliminará del servidor y no se modificará ningún registro.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, descartar',
+                cancelButtonText: 'Volver',
+                confirmButtonColor: '#dc2626'
+            });
+            if (!conf.isConfirmed) return;
+
+            try {
+                await api.descartarNomina(importacionActual);
+                reiniciar();
+            } catch (err) {
+                Swal.fire('Error', err.message, 'error');
+            }
+        });
+
+        function reiniciar() {
+            importacionActual = null;
+            encabezadosActuales = [];
+            document.getElementById('panel-revision').classList.add('oculto');
+            document.getElementById('panel-carga').classList.remove('oculto');
+            document.getElementById('paso-1').className = 'paso activo';
+            document.getElementById('paso-2').className = 'paso';
+            document.getElementById('paso-3').className = 'paso';
+            cargarHistorial();
+        }
+
+        // ── Historial ────────────────────────────────────────────────────
+        async function cargarHistorial() {
+            const tbody = document.getElementById('cuerpo-historial');
+            try {
+                const res = await api.getNominaHistorial();
+                const filas = res.data || [];
+                if (!filas.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="historial-vacio">Aún no se ha importado ninguna nómina.</td></tr>';
+                    return;
+                }
+                const estados = {
+                    analizado: ['e-actualizar', 'Pendiente'],
+                    confirmado: ['e-nuevo', 'Confirmada'],
+                    descartado: ['e-sin_cambios', 'Descartada'],
+                };
+                tbody.innerHTML = filas.map(f => {
+                    const [clase, texto] = estados[f.estado] || ['e-sin_cambios', f.estado];
+                    const resultado = f.estado === 'confirmado'
+                        ? `${f.nuevos} nuevo(s) · ${f.actualizados} actualizado(s)` +
+                          (Number(f.invalidos) ? ` · ${f.invalidos} con error` : '')
+                        : `${f.total_filas} fila(s) leída(s)`;
+                    return `<tr>
+                        <td><strong>${escapeHtml(f.nombre_archivo)}</strong><div class="cambio">.${escapeHtml(f.formato)}</div></td>
+                        <td>${escapeHtml(f.operador || '—')}</td>
+                        <td style="color:#64748b;">${escapeHtml(f.creado_el || '')}</td>
+                        <td><span class="etiqueta ${clase}">${escapeHtml(texto)}</span></td>
+                        <td style="color:#64748b;">${escapeHtml(resultado)}</td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" class="historial-vacio" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
+            }
+        }
+    </script>
+</body>
+
+</html>

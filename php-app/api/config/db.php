@@ -28,12 +28,19 @@ function getDB(): PDO
         } catch (PDOException $e) {
             // PARCHE DE DEVOPS: Mostrar detalles para fácil diagnóstico en despliegue.
             $debugMode = defined('APP_DEBUG') ? APP_DEBUG : true;
-            
-            $msg = $debugMode 
-                ? 'Error BD: ' . $e->getMessage() . ' | Host: ' . DB_HOST . ':' . DB_PORT . ' | BD: ' . DB_NAME . ' | Usr: ' . DB_USER
+
+            // Estado del .env: sin este dato, un archivo no leído (guardado como .env.txt,
+            // o ubicado fuera de php-app/) es indistinguible de una contraseña equivocada,
+            // porque en ambos casos MySQL responde "Access denied". Nunca se expone DB_PASS.
+            $envState = (defined('ENV_FILE_LOADED') && ENV_FILE_LOADED)
+                ? 'LEIDO'
+                : 'NO LEIDO (' . (defined('ENV_FILE_PATH') ? ENV_FILE_PATH : 'ruta desconocida') . ')';
+
+            $msg = $debugMode
+                ? 'Error BD: ' . $e->getMessage() . ' | Host: ' . DB_HOST . ':' . DB_PORT . ' | BD: ' . DB_NAME . ' | Usr: ' . DB_USER . ' | .env: ' . $envState
                 : 'Error de conexión a la base de datos. Verifique sus credenciales.';
-                
-            error_log('[DB CONNECTION FAILED] ' . $e->getMessage());
+
+            error_log('[DB CONNECTION FAILED] ' . $e->getMessage() . ' | .env: ' . $envState);
             sendResponse(false, $msg, null, 500);
         }
     }

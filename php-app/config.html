@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Configuración — Sistema de Carnetización TSS</title>
     <link rel="stylesheet" href="assets/css/style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/vendor/sweetalert2.all.min.js"></script>
     <style>
         .config-grid {
             display: grid;
@@ -261,7 +261,7 @@
         </div>
     </div>
 
-    <script src="assets/js/api.js"></script>
+    <script src="assets/js/api.js?v=2.7"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const user = api.getCurrentUser();
@@ -299,9 +299,10 @@
                 window.location.href = 'login.html';
             });
 
-            await cargarGerencias();
-            await cargarUsuarios();
-            await cargarAjustes();
+            // Las tres cargas son independientes entre sí: encadenarlas con await sumaba
+            // cuatro viajes de ida y vuelta en serie (initCsrf + 3 GET) antes de pintar nada.
+            // En paralelo, la pantalla tarda lo que tarde la más lenta, no la suma de todas.
+            await Promise.all([cargarGerencias(), cargarUsuarios(), cargarAjustes()]);
             setupForms();
         });
 
@@ -337,8 +338,10 @@
                 res.data.forEach(g => {
                     const li = document.createElement('li');
                     li.className = 'list-item';
+                    // El nombre de gerencia puede provenir de la importación de nómina
+                    // (employees.php la crea sola si no existe), así que no es contenido de confianza.
                     li.innerHTML = `
-                        <span>${g.nombre}</span>
+                        <span>${escapeHtml(g.nombre)}</span>
                         <button class="btn btn-secondary" style="padding: 4px 8px; font-size:0.75rem;" onclick="eliminarGerencia(${g.id})">❌</button>
                     `;
                     list.appendChild(li);

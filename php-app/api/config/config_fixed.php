@@ -6,28 +6,87 @@
 
 // ── Carga de entorno: DEBE ejecutarse ANTES de evaluar cualquier constante ────
 if (!function_exists('loadEnv')) {
+    /**
+     * Lee un archivo .env y publica sus variables en $_ENV y putenv().
+     *
+     * El parser normaliza el valor antes de publicarlo porque el archivo lo edita
+     * a mano el administrador del despliegue (habitualmente en Bloc de notas sobre
+     * Windows/XAMPP). Sin esta normalización, escribir DB_PASS="miClave" entrega a
+     * PDO la contraseña con las comillas incluidas y la conexión falla con un
+     * "Access denied" indistinguible de una credencial realmente equivocada.
+     *
+     * @return bool true si el archivo existía y fue leído.
+     */
     function loadEnv($path)
     {
-        if (!file_exists($path)) {
-            error_log("[SCI-TSS WARNING] Archivo de configuración .env no encontrado en la ruta esperada: " . $path . ". Usando fallbacks por defecto.");
-            return;
+        if (!is_readable($path)) {
+            error_log("[SCI-TSS WARNING] Archivo de configuración .env no encontrado o sin permisos de lectura en la ruta esperada: " . $path . ". Usando fallbacks por defecto.");
+            return false;
         }
+
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line) || strpos($line, '#') === 0)
-                continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $value) = explode('=', $line, 2);
-                $_ENV[trim($name)] = trim($value);
-                putenv(trim($name) . '=' . trim($value));
-            }
+        if ($lines === false) {
+            error_log("[SCI-TSS WARNING] No se pudo leer el archivo .env en: " . $path . ". Usando fallbacks por defecto.");
+            return false;
         }
+
+        // El BOM UTF-8 que agregan Bloc de notas y PowerShell corrompería la primera clave.
+        if (isset($lines[0])) {
+            $lines[0] = preg_replace('/^\xEF\xBB\xBF/', '', $lines[0]);
+        }
+
+        foreach ($lines as $lineNumber => $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || $line[0] === ';')
+                continue;
+            if (strpos($line, '=') === false)
+                continue;
+
+            list($name, $value) = explode('=', $line, 2);
+
+            // Prefijo "export" heredado de la sintaxis de shell.
+            $name = preg_replace('/^export\s+/i', '', trim($name));
+
+            if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
+                error_log("[SCI-TSS WARNING] .env línea " . ($lineNumber + 1) . ": nombre de variable inválido ('" . $name . "'). Línea ignorada.");
+                continue;
+            }
+
+            $value = trim($value);
+
+            $isQuoted = strlen($value) >= 2
+                && (($value[0] === '"' && substr($value, -1) === '"')
+                    || ($value[0] === "'" && substr($value, -1) === "'"));
+
+            if ($isQuoted) {
+                // Comillas envolventes: se descartan y el contenido se respeta literalmente
+                // (una contraseña puede legítimamente contener '#' o espacios).
+                $value = substr($value, 1, -1);
+            } else {
+                // Sin comillas: un ' #' o ' ;' inicia un comentario al final de la línea.
+                $value = preg_replace('/\s+[#;].*$/', '', $value);
+                $value = rtrim($value);
+            }
+
+            $_ENV[$name] = $value;
+            putenv($name . '=' . $value);
+        }
+
+        return true;
     }
 }
 
-// Carga resiliente del entorno antes de evaluar constantes
-loadEnv(__DIR__ . '/../../.env');
+// Carga resiliente del entorno antes de evaluar constantes.
+// Se conserva la ruta resuelta y el resultado para que el diagnóstico pueda distinguir
+// "el .env no se leyó" de "el .env se leyó pero la credencial es incorrecta".
+if (!defined('ENV_FILE_PATH')) {
+    // dirname(__DIR__, 2) = raíz de la aplicación (php-app/), sin segmentos '..' que
+    // confundan al administrador cuando el diagnóstico le muestre la ruta esperada.
+    define('ENV_FILE_PATH', dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env');
+}
+if (!defined('ENV_FILE_LOADED')) {
+    define('ENV_FILE_LOADED', loadEnv(ENV_FILE_PATH));
+}
 
 // Helper resiliente para extraer variables de entorno desde getenv() o $_ENV (Evita fallos en arquitecturas CGI/FastCGI)
 if (!function_exists('get_env_resilient')) {

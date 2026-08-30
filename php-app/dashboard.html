@@ -7,7 +7,7 @@
     <title>Dashboard — Sistema de Carnetización TSS</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <!-- Dependencia SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/vendor/sweetalert2.all.min.js"></script>
 </head>
 
 <body>
@@ -48,8 +48,9 @@
                     <p>Administre las solicitudes de carnetización y estados.</p>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <input type="file" id="excel-upload" accept=".xlsx,.csv" style="display:none;" />
-                    <button class="btn btn-secondary" id="btn-import-excel">📥 Importar Nómina</button>
+                    <!-- La importación pasó a nomina.html: allí el archivo se
+                         previsualiza y se confirma antes de escribir en la base. -->
+                    <a class="btn btn-secondary" href="nomina.html" id="btn-import-excel">📥 Importar Nómina</a>
                     <button class="btn btn-secondary" id="btn-refresh">↻ Actualizar</button>
                     <button class="btn btn-primary" id="btn-new-employee">＋ Nuevo Empleado</button>
 
@@ -278,12 +279,10 @@
         </div>
     </div>
 
-    <script src="assets/js/api.js?v=2.6"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
-        onerror="console.warn('SheetJS no disponible.')"></script>
+    <script src="assets/js/api.js?v=2.7"></script>
     <!-- Validaciones estrictas de cédula en tiempo real (TAREA 3) -->
-    <script src="assets/js/validaciones.js?v=2.6"></script>
-    <script src="assets/js/dashboard.js?v=2.6"></script>
+    <script src="assets/js/validaciones.js?v=2.7"></script>
+    <script src="assets/js/dashboard.js?v=2.7"></script>
 </body>
 
 </html>

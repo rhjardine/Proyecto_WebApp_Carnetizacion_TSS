@@ -1,0 +1,5 @@
+# Las fotografías de funcionarios son datos personales: no se versionan
+# ni se incluyen en la entrega. La carpeta y su .htaccess sí deben viajar.
+*
+!.gitignore
+!.htaccess

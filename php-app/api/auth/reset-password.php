@@ -41,9 +41,27 @@ if (empty($token) || empty($newPassword)) {
     exit;
 }
 
-if (strlen($newPassword) < 6) {
+// Política de contraseña aplicada en el servidor. La validación equivalente de
+// reset-password.html es sólo una cortesía de UI: un cliente puede saltársela, este punto no.
+$erroresPolitica = [];
+if (strlen($newPassword) < 8) {
+    $erroresPolitica[] = 'debe tener al menos 8 caracteres';
+}
+if (!preg_match('/[a-z]/', $newPassword)) {
+    $erroresPolitica[] = 'debe incluir una letra minúscula';
+}
+if (!preg_match('/[A-Z]/', $newPassword)) {
+    $erroresPolitica[] = 'debe incluir una letra mayúscula';
+}
+if (!preg_match('/[0-9]/', $newPassword)) {
+    $erroresPolitica[] = 'debe incluir un número';
+}
+if ($erroresPolitica) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'La contraseña debe tener al menos 6 caracteres.']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'La contraseña ' . implode(', ', $erroresPolitica) . '.'
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -102,7 +120,10 @@ try {
     // Simulamos un ID de sesión "Sistema" temporal usando el propio ID del usuario 
     // como actor, o dejándolo registrado para trazabilidad.
     if (function_exists('logAction')) {
-         logAction($db, $userId, 'CLAVE_RESETEADA_MEDIANTE_TOKEN', "El usuario $username restableció exitosamente su clave mediante token.");
+         // logAction() declara `array $detalles`; pasarle un string lanzaba un TypeError que
+         // NO capturan los catch(Exception) de este archivo, abortando el script ANTES del
+         // commit: la nueva contraseña se perdía y el usuario recibía HTML en vez de JSON.
+         logAction($db, $userId, 'CLAVE_RESETEADA_MEDIANTE_TOKEN', ['usuario' => $username, 'via' => 'token_recuperacion']);
     }
 
     // e. Comprometer la transacción

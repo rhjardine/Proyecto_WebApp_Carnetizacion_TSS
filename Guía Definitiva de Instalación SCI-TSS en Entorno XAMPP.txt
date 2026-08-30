@@ -26,11 +26,42 @@ Abre tu navegador y ve a: http://localhost/phpmyadmin/
 
 En el menú superior, haz clic en la pestaña Importar.
 
-En "Seleccionar archivo", busca y carga el archivo: db/01_master_final_spanish.sql
+En "Seleccionar archivo", carga e importa los CUATRO scripts, uno por uno y EN ESTE ORDEN:
 
-Haz clic en Importar (o Continuar al final de la página).
+    01  ->  02  ->  03  ->  04
 
-Nota: No es necesario crear la base de datos a mano; el script creará automáticamente carnetizacion_tss.
+1) db/01_master_final_spanish.sql     (estructura completa + datos semilla)
+2) db/02_update_recovery.sql          (campos de recuperación de contraseña)
+3) db/03_update_empleados_email.sql   (columna email de empleados)
+4) db/04_nomina_importaciones.sql     (importación de nómina con trazabilidad)
+
+LOS CUATRO SON OBLIGATORIOS. No basta con el script maestro:
+
+  - Sin 02, la pantalla de Gestión de Usuarios devuelve error 500 (falta usuarios.email).
+  - Sin 03, registrar un empleado falla ("Unknown column 'email'").
+  - Sin 04, la Importación de Nómina responde "Acceso denegado".
+
+Los cuatro son re-ejecutables: si los vuelves a importar, no se duplican ni borran datos.
+
+PASO 2.1: VERIFICACIÓN OBLIGATORIA ANTES DE CONTINUAR
+
+Terminada la importación, abre en el navegador:
+
+    http://localhost/sci-tss/api/health.php
+
+Lee el campo "diagnostico". Debe indicar "Sin incidencias detectadas". Si menciona
+migraciones o columnas faltantes, vuelve al paso anterior e impórtalas antes de seguir.
+Este endpoint también verifica la extensión zip y los permisos de escritura de
+uploads/ y storage/nomina.
+
+Haz clic en Importar (o Continuar al final de la página) después de cargar cada uno.
+
+Nota: No es necesario crear la base de datos a mano; el primer script creará automáticamente carnetizacion_tss.
+
+IMPORTANTE: los scripts 02 y 03 NO son opcionales. El módulo de alta de empleados escribe en la
+columna empleados.email y la recuperación de contraseña usa usuarios.reset_token_hash; si omites
+esos dos scripts, registrar un empleado falla con el error "Unknown column 'email' in 'field list'".
+Los tres scripts son re-ejecutables: si los vuelves a importar, no se duplican ni borran datos.
 
 PASO 3: Configuración del Entorno (.env)
 
@@ -54,6 +85,35 @@ DB_PASS=tu_contraseña_aqui
 
 
 IMPORTANTE: Si el usuario root de MySQL en tu XAMPP no tiene contraseña, deja la variable vacía: DB_PASS=. Si cambiaste el puerto de MySQL en XAMPP (ej. 3307), actualiza DB_PORT.
+
+Reglas de escritura del archivo .env (evitan el fallo de conexión más común):
+
+- El archivo debe llamarse exactamente .env — sin extensión. Windows oculta las extensiones
+  conocidas, así que verifícalo desde cmd, dentro de la carpeta del proyecto, con: dir /a
+  Si aparece como .env.txt, renómbralo con: ren .env.txt .env
+- El archivo va en C:\xampp\htdocs\sci-tss\.env (junto a login.html), NO en una subcarpeta.
+- Un valor por línea, sin espacios alrededor del signo "=".
+- Las comillas son opcionales: DB_PASS=Cl4ve2024 y DB_PASS="Cl4ve2024" son equivalentes.
+  Usa comillas si tu contraseña contiene espacios o el carácter "#".
+- Todo lo que siga a un " #" en una línea sin comillas se descarta como comentario.
+- Guarda el archivo como UTF-8. Si tu editor ofrece "UTF-8 con BOM", cualquiera de las dos
+  opciones funciona.
+
+PASO 3.1: Verificación del entorno (RECOMENDADO ANTES DE CONTINUAR)
+
+Con Apache y MySQL encendidos, abre en el navegador:
+
+http://localhost/sci-tss/api/health.php
+
+Este endpoint de diagnóstico te dirá, en un solo vistazo, si el .env se está leyendo, qué
+credenciales está usando el sistema, si la conexión a MySQL funciona y si faltan migraciones.
+Nunca muestra tu contraseña. Presta atención al campo "env" → "archivo_leido":
+
+- archivo_leido: true  → el .env se leyó. Si aun así hay error de credenciales, revisa el valor.
+- archivo_leido: false → el .env NO se leyó y el sistema está usando root sin contraseña por
+  defecto. El problema es el nombre o la ubicación del archivo, NO tu contraseña.
+
+El campo "diagnostico" indica en texto claro el siguiente paso a ejecutar.
 
 PASO 4: Optimización de PHP (Procesamiento de Fotos)
 
@@ -101,14 +161,114 @@ La base de datos se instaló con usuarios semilla. En tu primer inicio de sesió
 
 Usuario Administrador: admin
 
-Contraseña Temporal: Admin123
+Contraseña Temporal: Admin123!
+
+ATENCIÓN: la contraseña termina en signo de admiración. Cópiala tal cual. Tras 5 intentos
+fallidos la cuenta queda BLOQUEADA de forma permanente y no existe autodesbloqueo desde la
+interfaz: hay que ejecutar la consulta de rescate de la sección Troubleshooting.
+
+Las cuentas semilla "coordinador" y "analista" usan esa misma contraseña temporal.
+
+📥 Importación de Nómina
+
+El operador carga el archivo de nómina y el sistema lo procesa en tres pasos, sin escribir
+nada en la base hasta que se confirme:
+
+1. Panel General → Importar Nómina.
+2. Arrastrar el archivo (.xlsx, .csv o .docx con la nómina en formato de tabla; hasta 10 MB).
+3. Revisar la vista previa: cuántos funcionarios son nuevos, cuántos se van a actualizar,
+   cuántos quedan igual y cuántos tienen error, con el motivo fila por fila.
+4. Verificar la correspondencia de columnas y corregirla si hiciera falta.
+5. Confirmar (o Descartar, que no modifica nada y borra el archivo del servidor).
+
+Los encabezados se reconocen aunque varíen: CEDULA, Cédula, C.I. y Nro. Documento se
+interpretan igual; lo mismo con Gerencia / Dependencia / Unidad Administrativa. Si alguna
+columna obligatoria no se detecta, la pantalla lo advierte y permite asignarla a mano.
+
+Al reimportar, un funcionario que ya existe se ACTUALIZA en cargo y gerencia. Su fotografía
+y el estatus de su carnet NUNCA se tocan: son trabajo hecho dentro del sistema.
+
+Requisitos: la extensión zip de PHP debe estar activa (para leer .xlsx y .docx) y la carpeta
+storage/nomina debe existir con permisos de escritura. api/health.php verifica ambas cosas.
+
+TRAZABILIDAD: cada importación queda registrada con el archivo original, el operador, la fecha
+y el destino de cada fila (tablas nomina_importaciones y nomina_filas). El historial se ve al
+pie de la pantalla de importación. Los archivos se guardan en storage/nomina, que Apache
+bloquea por HTTP porque contienen datos personales de funcionarios.
+
+Nota sobre PDF: no se admite. Un PDF de nómina o bien pierde el orden de las columnas al
+extraer el texto, o bien es un escaneo que exigiría OCR. Un dígito mal leído en una cédula
+produciría un carnet institucional con la identidad equivocada, de modo que el formato se
+excluye deliberadamente. Convierta el PDF a Excel antes de importarlo.
+
+🔓 Recuperación de Contraseña (Administradores y Coordinadores)
+
+Requisito previo — registrar el correo: la recuperación funciona contra el correo electrónico
+de la cuenta. Las cuentas semilla (admin, coordinador, analista) se crean SIN correo, así que
+lo primero tras el primer ingreso es registrarlo:
+
+  Ajustes → Abrir Panel de Usuarios → botón Editar de cada cuenta → Correo Electrónico → Guardar
+
+En el listado de usuarios, toda cuenta ADMIN o COORD sin correo aparece marcada con
+"⚠ Sin correo registrado". Mientras esa marca esté presente, esa cuenta NO puede recuperarse.
+
+Flujo de recuperación:
+
+1. En la pantalla de login, hacer clic en "¿Olvidó o bloqueó su contraseña?".
+2. Ingresar usuario y correo electrónico institucional.
+3. El sistema genera un enlace de un solo uso que vence en 15 minutos.
+4. Abrir el enlace (o pegar el código en reset-password.html) y definir la nueva contraseña.
+5. Iniciar sesión con la nueva contraseña. El sistema pedirá confirmarla en el primer ingreso.
+
+La nueva contraseña debe tener mínimo 8 caracteres e incluir mayúscula, minúscula y número.
+Esta regla se aplica en el servidor, no sólo en el navegador.
+
+El restablecimiento también DESBLOQUEA la cuenta, así que sirve para salir de un bloqueo por
+intentos fallidos sin tocar la base de datos.
+
+ENTREGA DEL ENLACE — LIMITACIÓN ACTUAL: el sistema todavía no tiene servidor SMTP configurado,
+por lo que el correo no se envía realmente. Mientras tanto:
+
+  - Con APP_DEBUG=true (entorno local): el enlace se muestra en pantalla al solicitarlo.
+  - Siempre: el enlace queda registrado en php-app/logs/password-resets.log, legible sólo por
+    quien tenga acceso al servidor (Apache bloquea los archivos .log).
+
+Antes de pasar a producción hay que configurar SMTP institucional y poner APP_DEBUG=false; de
+lo contrario el enlace seguirá visible en pantalla para quien lo solicite.
+
+Nota de alcance: por decisión funcional, la recuperación autoservicio está habilitada
+únicamente para los roles ADMIN y COORD. Las cuentas ANALISTA, USUARIO y CONSULTA deben
+solicitar el restablecimiento a un Administrador desde el Panel de Usuarios.
 
 🛠️ Diagnóstico de Errores (Troubleshooting)
 
-Gracias a la nueva arquitectura resiliente, si el sistema falla, te dirá exactamente el motivo:
+Primer paso ante CUALQUIER fallo: abre http://localhost/sci-tss/api/health.php y lee el campo
+"diagnostico". Casi siempre te da la causa exacta y el comando a ejecutar.
 
-Pantalla de login muestra un JSON con error 500 y credenciales: Significa que la contraseña o el puerto en tu archivo .env son incorrectos. Verifica los datos.
+Pantalla de login muestra un JSON con error 500 y credenciales: revisa health.php. Si
+"archivo_leido" es false, el .env no se está leyendo (nombre .env.txt o ubicación equivocada);
+si es true, entonces sí es la contraseña o el puerto lo que está mal en el .env.
+
+"Access denied for user 'root'@'localhost' (using password: NO)" cuando SÍ configuraste una
+contraseña: es la firma inequívoca de que el .env no se leyó. Verifica el nombre con dir /a.
 
 Aparece un error "El servidor devolvió HTML": Verifica que encendiste MySQL en el panel de XAMPP.
 
+"Unknown column 'email' in 'field list'" al registrar un empleado: faltan las migraciones 02 y
+03. Impórtalas desde phpMyAdmin (Paso 2).
+
+No puedo iniciar sesión y la cuenta quedó bloqueada tras varios intentos: en phpMyAdmin,
+pestaña SQL sobre la base carnetizacion_tss, ejecuta:
+
+    UPDATE usuarios SET bloqueado = 0, intentos_fallidos = 0 WHERE usuario = 'admin';
+
+"Acceso Denegado: Solo un Administrador puede acceder a la gestión de usuarios": es correcto.
+La pantalla usuarios.html requiere el rol ADMIN; el rol COORDINADOR no tiene el permiso
+user.manage en el modelo de permisos semilla.
+
 La foto no recorta o falla al subir: La extensión gd de PHP no está activa. Revisa el Paso 4.
+
+NOTA DE SEGURIDAD PARA PRE-PRODUCCIÓN: health.php sólo entrega el detalle de diagnóstico cuando
+APP_DEBUG=true. Antes de exponer el sistema, coloca APP_ENV=production y APP_DEBUG=false en el
+.env; a partir de ahí el endpoint responde únicamente {"success":true,"status":"ok"} y los
+mensajes de error de base de datos dejan de mostrar host, usuario y esquema.

@@ -33,6 +33,9 @@ const CAMPOS_EDITABLES = [
     'segundo_apellido',
     'cargo',
     'email',
+    // fecha_ingreso existe en el esquema y el editor la envía, pero no estaba en
+    // esta lista blanca: se descartaba en silencio y el frontend informaba éxito.
+    'fecha_ingreso',
     'estado_laboral',
     'forma_entrega',
     'nivel_permiso',
@@ -140,6 +143,8 @@ try {
                 Security::requirePermission($db, 'carnet.create');
                 $rows = $input['rows'] ?? [];
                 $added = 0;
+                $duplicados = 0;
+                $invalidos = 0;
                 $db->beginTransaction();
                 try {
                     $ins = $db->prepare("INSERT IGNORE INTO empleados
@@ -147,8 +152,10 @@ try {
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'Pendiente por Imprimir')");
                     foreach ($rows as $r) {
                         $ced = preg_replace('/[^0-9]/', '', $r['Cédula'] ?? $r['cedula'] ?? '');
-                        if (strlen($ced) < 5)
+                        if (strlen($ced) < 5) {
+                            $invalidos++;
                             continue;
+                        }
                         $nac = 'V';
                         if (isset($r['Nacionalidad']))
                             $nac = strtoupper(trim($r['Nacionalidad'])) === 'E' ? 'E' : 'V';
@@ -169,12 +176,40 @@ try {
                             trim($r['Cargo'] ?? $r['cargo'] ?? ''),
                             $gerId,
                         ]);
-                        if ($db->lastInsertId())
+                        // rowCount() distingue sin ambigüedad la fila insertada de la que
+                        // INSERT IGNORE descartó por cédula duplicada; lastInsertId() no lo
+                        // hace de forma fiable, porque su valor depende de si la sentencia
+                        // llegó a generar un AUTO_INCREMENT.
+                        if ($ins->rowCount() > 0) {
                             $added++;
+                        } else {
+                            $duplicados++;
+                        }
                     }
                     $db->commit();
-                    logAction($db, $userId, 'NOMINA_IMPORTADA', ['filas' => count($rows), 'registrados' => $added]);
-                    sendResponse(true, $added > 0 ? "Nómina importada: {$added} empleado(s) registrado(s)." : 'No se importaron empleados.');
+                    logAction($db, $userId, 'NOMINA_IMPORTADA', [
+                        'filas' => count($rows),
+                        'registrados' => $added,
+                        'duplicados' => $duplicados,
+                        'invalidos' => $invalidos,
+                    ]);
+
+                    // La coordinadora necesita saber qué pasó con cada fila, no sólo el total:
+                    // antes una nómina completa de repetidos informaba lo mismo que un archivo vacío.
+                    $detalle = [];
+                    if ($duplicados > 0)
+                        $detalle[] = "{$duplicados} ya estaban registrados";
+                    if ($invalidos > 0)
+                        $detalle[] = "{$invalidos} sin cédula válida";
+                    $sufijo = $detalle ? ' (' . implode(', ', $detalle) . ')' : '';
+
+                    sendResponse(
+                        true,
+                        $added > 0
+                            ? "Nómina importada: {$added} empleado(s) registrado(s){$sufijo}."
+                            : "No se registró ningún empleado nuevo{$sufijo}.",
+                        ['registrados' => $added, 'duplicados' => $duplicados, 'invalidos' => $invalidos]
+                    );
                 } catch (Exception $ex) {
                     $db->rollBack();
                     sendResponse(false, 'Error al importar nómina: ' . $ex->getMessage(), null, 500);
@@ -199,6 +234,27 @@ try {
                         $val = $input[$campo] ?? null;
                         if ($campo === 'datos_adicionales' && is_array($val)) {
                             $val = json_encode($val, JSON_UNESCAPED_UNICODE);
+                        }
+                        // El alta valida el correo; la edición no lo hacía, de modo que un
+                        // registro válido podía degradarse a un correo con formato inválido.
+                        if ($campo === 'email') {
+                            $val = is_string($val) ? trim($val) : $val;
+                            if ($val === '' || $val === null) {
+                                $val = null;
+                            } elseif (!filter_var($val, FILTER_VALIDATE_EMAIL)) {
+                                sendResponse(false, 'Formato de correo electrónico inválido.', null, 400);
+                            }
+                        }
+                        // fecha_ingreso es DATE NOT NULL: una cadena vacía la rechazaría
+                        // MySQL en modo estricto. Se omite del UPDATE en vez de fallar.
+                        if ($campo === 'fecha_ingreso') {
+                            $val = is_string($val) ? trim($val) : '';
+                            if ($val === '') {
+                                continue;
+                            }
+                            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $val)) {
+                                sendResponse(false, 'La fecha de ingreso debe tener el formato AAAA-MM-DD.', null, 400);
+                            }
                         }
                         $setClauses[] = "{$campo} = ?";
                         $values[] = $val;
@@ -311,14 +367,31 @@ try {
             $id = isset($_GET['id']) ? intval($_GET['id']) : null;
             if (!$id)
                 sendResponse(false, 'ID de empleado no proporcionado.', null, 400);
-            $empStmt = $db->prepare("SELECT cedula, primer_nombre, primer_apellido FROM empleados WHERE id = ? LIMIT 1");
+            $empStmt = $db->prepare("SELECT cedula, primer_nombre, primer_apellido, foto_url FROM empleados WHERE id = ? LIMIT 1");
             $empStmt->execute([$id]);
             $empData = $empStmt->fetch();
+
+            // Antes se respondía "eliminado correctamente" aunque el id no existiera.
+            if (!$empData)
+                sendResponse(false, 'Empleado no encontrado.', null, 404);
+
             $db->prepare("DELETE FROM empleados WHERE id = ?")->execute([$id]);
+
+            // La fotografía vive en el sistema de archivos, no en la BD: sin este borrado
+            // quedaba accesible por URL indefinidamente tras eliminar al funcionario.
+            // basename() impide que un foto_url manipulado escape del directorio uploads/.
+            if (!empty($empData['foto_url'])) {
+                $rutaFoto = __DIR__ . '/../uploads/' . basename($empData['foto_url']);
+                if (is_file($rutaFoto)) {
+                    @unlink($rutaFoto);
+                }
+            }
+
             logAction($db, $userId, 'EMPLEADO_ELIMINADO', [
                 'empleado_id' => $id,
                 'cedula' => $empData['cedula'] ?? 'N/A',
                 'nombre' => ($empData['primer_apellido'] ?? '') . ', ' . ($empData['primer_nombre'] ?? ''),
+                'foto_eliminada' => !empty($empData['foto_url']),
             ]);
             sendResponse(true, 'Empleado eliminado correctamente.');
             break;

@@ -13,6 +13,9 @@ $userId = $_SESSION['user_id'] ?? null;
 try {
     if ($method === 'GET') {
         Security::requirePermission($pdo, 'carnet.view_all');
+        // Lectura pura: liberar el bloqueo del archivo de sesión para no serializar las
+        // peticiones concurrentes que lanza la pantalla de Ajustes. Ver gerencias.php.
+        session_write_close();
         $stmt = $pdo->query("SELECT clave, valor, descripcion FROM configuracion_sistema");
         $configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $formatted = [];
