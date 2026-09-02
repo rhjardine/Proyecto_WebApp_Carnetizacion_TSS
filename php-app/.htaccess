@@ -8,6 +8,13 @@ Options -Indexes
     RewriteRule ^uploads/.*\.(phtml|php3|php4|php5|php7|php8|phar)$ - [F,L]
 </IfModule>
 
-<FilesMatch "\.(env|json|lock|md|log)$">
+# Se añaden sql, ini, bak, zip, rar, sh y txt: el bloqueo de .sql vivía sólo en
+# apache-vhost-xampp.conf, de modo que en una instalación normal bajo htdocs
+# (sin VirtualHost) los volcados de db/ quedaban descargables por HTTP.
+<FilesMatch "\.(env|json|lock|md|log|sql|ini|bak|zip|rar|sh)$">
     Require all denied
 </FilesMatch>
+
+# Los directorios de esquema y de archivos cargados no deben servirse nunca,
+# independientemente de la extensión de su contenido.
+RedirectMatch 403 ^/.*/(db|storage)/.*$
