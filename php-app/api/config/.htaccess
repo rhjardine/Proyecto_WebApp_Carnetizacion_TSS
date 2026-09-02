@@ -1,0 +1,4 @@
+# Estos archivos sólo se incluyen desde PHP; nunca deben servirse por HTTP.
+# Con mod_php activo se ejecutarían (sin mostrar código), pero si PHP quedara
+# mal configurado el código fuente de la conexión quedaría legible.
+Require all denied
