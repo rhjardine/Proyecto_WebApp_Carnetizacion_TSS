@@ -275,6 +275,29 @@ try {
                     }
                 }
 
+                // La cédula pasó a ser editable en el editor (la nómina la trae mal con
+                // frecuencia). No se incluye en CAMPOS_EDITABLES porque necesita
+                // normalización y control de unicidad propios: sin esta rama el editor
+                // mostraría "Datos actualizados" y descartaría el cambio en silencio.
+                if (array_key_exists('cedula', $input)) {
+                    $nuevaCedula = preg_replace('/[^0-9]/', '', (string) $input['cedula']);
+                    if ($nuevaCedula === '') {
+                        sendResponse(false, 'La cédula es obligatoria.', null, 400);
+                    }
+                    if (strlen($nuevaCedula) < 5 || strlen($nuevaCedula) > 10) {
+                        sendResponse(false, 'La cédula debe tener entre 5 y 10 dígitos.', null, 400);
+                    }
+                    // La unicidad se comprueba excluyendo al propio empleado, para que
+                    // reguardar sin cambiar la cédula no se rechace a sí mismo.
+                    $dup = $db->prepare("SELECT id FROM empleados WHERE cedula = ? AND id <> ? LIMIT 1");
+                    $dup->execute([$nuevaCedula, $id]);
+                    if ($dup->fetchColumn()) {
+                        sendResponse(false, "Ya existe otro empleado registrado con la cédula {$nuevaCedula}.", null, 409);
+                    }
+                    $setClauses[] = "cedula = ?";
+                    $values[] = $nuevaCedula;
+                }
+
                 if (array_key_exists('gerencia', $input) && $input['gerencia']) {
                     $gStmt = $db->prepare("SELECT id FROM gerencias WHERE nombre = ? LIMIT 1");
                     $gStmt->execute([trim($input['gerencia'])]);
