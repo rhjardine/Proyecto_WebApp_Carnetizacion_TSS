@@ -3,7 +3,13 @@
    HTML/CSS Vanilla — Apache Compatible
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Se eliminó el @import de Google Fonts (Inter). Era la última dependencia de
+   CDN que quedaba viva y, por estar declarada como @import de CSS, BLOQUEA el
+   renderizado: en la red de la TSS, sin salida a Internet, el navegador esperaba
+   el tiempo de espera de DNS/TCP contra fonts.googleapis.com antes de pintar
+   cualquier página. La tipografía se resuelve ahora con fuentes del sistema
+   (Segoe UI en Windows), visualmente muy cercanas a Inter; si Inter está
+   instalada localmente, se sigue prefiriendo. */
 
 /* --- Variables --- */
 :root {
@@ -40,7 +46,8 @@ html {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   min-height: 100vh;
@@ -244,6 +251,11 @@ button {
 .main-content {
   margin-left: var(--sidebar-w);
   flex: 1;
+  /* Un elemento flexible no se encoge por debajo de su ancho de contenido salvo
+     que se anule min-width. Sin esto, el contenido ancho (el editor de carnet)
+     empujaba la página y obligaba a desplazarse en horizontal en pantallas de
+     1280 px, dejando el panel de datos apretado contra el borde. */
+  min-width: 0;
   padding: 32px;
   min-height: 100vh;
 }
